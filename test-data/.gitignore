@@ -1,0 +1,12 @@
+*
+!.gitignore
+!README.md
+!fetch_datasets.sh
+!cpu/
+!cpu/README.md
+!io/
+!io/README.md
+!graph/
+!graph/README.md
+!raw/
+!raw/README.md
