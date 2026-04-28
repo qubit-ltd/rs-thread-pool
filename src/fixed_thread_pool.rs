@@ -6,6 +6,8 @@
  *    All rights reserved.
  *
  ******************************************************************************/
+// qubit-style: allow multiple-public-types
+// qubit-style: allow inline-tests
 use std::{
     future::Future,
     pin::Pin,
@@ -1229,4 +1231,196 @@ fn default_fixed_pool_size() -> usize {
     thread::available_parallelism()
         .map(usize::from)
         .unwrap_or(1)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::{
+        Arc,
+        atomic::{
+            AtomicUsize,
+            Ordering,
+        },
+    };
+    use std::thread;
+    use std::time::Duration;
+
+    fn counted_job(cancelled: Arc<AtomicUsize>, ran: Arc<AtomicUsize>) -> PoolJob {
+        PoolJob::new(
+            Box::new(move || {
+                ran.fetch_add(1, Ordering::AcqRel);
+            }),
+            Box::new(move || {
+                cancelled.fetch_add(1, Ordering::AcqRel);
+            }),
+        )
+    }
+
+    #[test]
+    fn test_accept_claimed_job_stop_now_cancels_claimed_and_worker_queues() {
+        let runtime = WorkerRuntime::new(0);
+        runtime.queue.activate();
+        let inner = FixedThreadPoolInner::new(1, None, vec![Arc::clone(&runtime.queue)]);
+        inner.stop_now.store(true, Ordering::Release);
+
+        let cancelled = Arc::new(AtomicUsize::new(0));
+        let ran = Arc::new(AtomicUsize::new(0));
+        runtime
+            .local
+            .push(counted_job(Arc::clone(&cancelled), Arc::clone(&ran)));
+        runtime
+            .queue
+            .push_back(counted_job(Arc::clone(&cancelled), Arc::clone(&ran)));
+        inner.queued_task_count.store(3, Ordering::Release);
+
+        let accepted =
+            inner.accept_claimed_job(counted_job(cancelled.clone(), ran.clone()), &runtime);
+        assert!(accepted.is_none());
+        assert_eq!(inner.queued_count(), 0);
+        assert_eq!(inner.cancelled_task_count.load(Ordering::Acquire), 3);
+        assert_eq!(cancelled.load(Ordering::Acquire), 3);
+        assert_eq!(ran.load(Ordering::Acquire), 0);
+    }
+
+    #[test]
+    fn test_steal_global_job_notifies_when_batch_leaves_local_jobs() {
+        let runtime = WorkerRuntime::new(0);
+        let inner = FixedThreadPoolInner::new(1, None, vec![Arc::clone(&runtime.queue)]);
+        let cancelled = Arc::new(AtomicUsize::new(0));
+        let ran = Arc::new(AtomicUsize::new(0));
+        runtime
+            .local
+            .push(counted_job(Arc::clone(&cancelled), Arc::clone(&ran)));
+        inner
+            .global_queue
+            .push(counted_job(Arc::clone(&cancelled), Arc::clone(&ran)));
+        inner.queued_task_count.store(2, Ordering::Release);
+
+        let claimed = inner
+            .steal_global_job(&runtime)
+            .expect("global queue should provide one claimed job");
+        claimed.run();
+        inner.finish_running_job();
+        let remaining = runtime
+            .local
+            .pop()
+            .expect("preloaded local job should remain queued");
+        inner.cancel_claimed_job(remaining);
+
+        assert_eq!(inner.queued_count(), 0);
+        assert_eq!(inner.running_count(), 0);
+        assert_eq!(inner.completed_task_count.load(Ordering::Acquire), 1);
+        assert_eq!(inner.cancelled_task_count.load(Ordering::Acquire), 1);
+        assert_eq!(ran.load(Ordering::Acquire), 1);
+        assert_eq!(cancelled.load(Ordering::Acquire), 1);
+    }
+
+    #[test]
+    fn test_steal_worker_job_notifies_when_batch_leaves_local_jobs() {
+        let thief = WorkerRuntime::new(0);
+        let victim = WorkerRuntime::new(1);
+        thief.queue.activate();
+        victim.queue.activate();
+        let inner = FixedThreadPoolInner::new(
+            2,
+            None,
+            vec![Arc::clone(&thief.queue), Arc::clone(&victim.queue)],
+        );
+        let cancelled = Arc::new(AtomicUsize::new(0));
+        let ran = Arc::new(AtomicUsize::new(0));
+        thief
+            .local
+            .push(counted_job(Arc::clone(&cancelled), Arc::clone(&ran)));
+        victim
+            .queue
+            .push_back(counted_job(Arc::clone(&cancelled), Arc::clone(&ran)));
+        inner.queued_task_count.store(2, Ordering::Release);
+
+        let claimed = inner
+            .steal_worker_job(&thief)
+            .expect("victim queue should provide one claimed job");
+        claimed.run();
+        inner.finish_running_job();
+        let remaining = thief
+            .local
+            .pop()
+            .expect("batch steal should leave one local job");
+        inner.cancel_claimed_job(remaining);
+
+        assert_eq!(inner.queued_count(), 0);
+        assert_eq!(inner.running_count(), 0);
+        assert_eq!(inner.completed_task_count.load(Ordering::Acquire), 1);
+        assert_eq!(inner.cancelled_task_count.load(Ordering::Acquire), 1);
+        assert_eq!(ran.load(Ordering::Acquire), 1);
+        assert_eq!(cancelled.load(Ordering::Acquire), 1);
+    }
+
+    #[test]
+    fn test_fixed_submit_guard_drop_notifies_when_shutdown_closes_admission() {
+        let runtime = WorkerRuntime::new(0);
+        let inner = FixedThreadPoolInner::new(1, None, vec![Arc::clone(&runtime.queue)]);
+        inner.inflight_submissions.store(1, Ordering::Release);
+        inner.accepting.store(false, Ordering::Release);
+
+        {
+            let guard = FixedSubmitGuard { inner: &inner };
+            drop(guard);
+        }
+
+        assert_eq!(inner.inflight_count(), 0);
+    }
+
+    #[test]
+    fn test_wait_for_fixed_pool_work_shutdown_waits_for_inflight_submissions() {
+        let runtime = WorkerRuntime::new(0);
+        let inner = Arc::new(FixedThreadPoolInner::new(
+            1,
+            None,
+            vec![Arc::clone(&runtime.queue)],
+        ));
+        inner.state.write(|state| {
+            state.lifecycle = FixedThreadPoolLifecycle::Shutdown;
+        });
+        inner.inflight_submissions.store(1, Ordering::Release);
+        inner.pending_worker_wakes.store(1, Ordering::Release);
+
+        let inner_for_release = Arc::clone(&inner);
+        let releaser = thread::spawn(move || {
+            thread::sleep(Duration::from_millis(10));
+            inner_for_release
+                .inflight_submissions
+                .store(0, Ordering::Release);
+            inner_for_release.state.notify_all();
+        });
+
+        assert!(!wait_for_fixed_pool_work(&inner));
+        releaser.join().expect("releaser thread should finish");
+    }
+
+    #[test]
+    fn test_shutdown_now_waits_for_inflight_submissions() {
+        let runtime = WorkerRuntime::new(0);
+        let inner = Arc::new(FixedThreadPoolInner::new(
+            1,
+            None,
+            vec![Arc::clone(&runtime.queue)],
+        ));
+        inner.inflight_submissions.store(1, Ordering::Release);
+
+        let inner_for_release = Arc::clone(&inner);
+        let releaser = thread::spawn(move || {
+            thread::sleep(Duration::from_millis(10));
+            inner_for_release
+                .inflight_submissions
+                .store(0, Ordering::Release);
+            inner_for_release.state.notify_all();
+        });
+
+        let report = inner.shutdown_now();
+        releaser.join().expect("releaser thread should finish");
+        assert_eq!(report.running, 0);
+        assert_eq!(report.queued, 0);
+        assert_eq!(report.cancelled, 0);
+    }
 }

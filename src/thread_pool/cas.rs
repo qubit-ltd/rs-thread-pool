@@ -6,6 +6,7 @@
  *    All rights reserved.
  *
  ******************************************************************************/
+// qubit-style: allow multiple-public-types
 use std::sync::atomic::{AtomicBool, AtomicU8, AtomicUsize, Ordering};
 
 use super::thread_pool_lifecycle::ThreadPoolLifecycle;

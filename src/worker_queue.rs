@@ -6,6 +6,7 @@
  *    All rights reserved.
  *
  ******************************************************************************/
+// qubit-style: allow multiple-public-types
 //! Worker-local queue primitives shared by thread-pool implementations.
 
 use std::{
