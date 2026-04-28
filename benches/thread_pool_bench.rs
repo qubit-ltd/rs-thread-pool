@@ -3,12 +3,12 @@
  */
 
 use std::convert::Infallible;
+use std::hint::black_box;
 
 use criterion::{
     BenchmarkId,
     Criterion,
     Throughput,
-    black_box,
     criterion_group,
     criterion_main,
 };

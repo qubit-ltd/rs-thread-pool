@@ -15,11 +15,8 @@
 set -euo pipefail
 
 MIN_FUNCTION_COVERAGE="${MIN_FUNCTION_COVERAGE:-100}"
-# FixedThreadPool contains defensive race-window branches that are intentionally
-# hard to trigger deterministically. Keep full function coverage while allowing
-# line and region coverage to reflect those concurrency guard paths.
-MIN_LINE_COVERAGE="${MIN_LINE_COVERAGE:-90}"
-MIN_REGION_COVERAGE="${MIN_REGION_COVERAGE:-90}"
+MIN_LINE_COVERAGE="${MIN_LINE_COVERAGE:-95}"
+MIN_REGION_COVERAGE="${MIN_REGION_COVERAGE:-95}"
 COVERAGE_SOURCE_DIR="${COVERAGE_SOURCE_DIR:-src}"
 COVERAGE_EXTRA_EXCLUDE_REGEX="${COVERAGE_EXTRA_EXCLUDE_REGEX:-}"
 COVERAGE_OPEN_HTML="${COVERAGE_OPEN_HTML:-1}"
