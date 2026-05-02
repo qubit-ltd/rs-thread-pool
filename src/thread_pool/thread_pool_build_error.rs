@@ -1,9 +1,10 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025 - 2026.
- *    Haixing Hu, Qubit Co. Ltd.
+ *    Copyright (c) 2025 - 2026 Haixing Hu.
  *
- *    All rights reserved.
+ *    SPDX-License-Identifier: Apache-2.0
+ *
+ *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
 use std::io;
@@ -14,9 +15,6 @@ use qubit_executor::service::RejectedExecution;
 
 /// Error returned when a [`super::thread_pool::ThreadPool`] cannot be built.
 ///
-/// # Author
-///
-/// Haixing Hu
 #[derive(Debug, Error)]
 pub enum ThreadPoolBuildError {
     /// The configured maximum pool size is zero.

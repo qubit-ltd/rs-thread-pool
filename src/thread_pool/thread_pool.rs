@@ -1,9 +1,10 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025 - 2026.
- *    Haixing Hu, Qubit Co. Ltd.
+ *    Copyright (c) 2025 - 2026 Haixing Hu.
  *
- *    All rights reserved.
+ *    SPDX-License-Identifier: Apache-2.0
+ *
+ *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
 use std::{
@@ -45,9 +46,6 @@ use qubit_executor::service::{
 /// `shutdown_now` is abrupt: queued tasks that have not started are completed
 /// with [`TaskExecutionError::Cancelled`](qubit_executor::TaskExecutionError::Cancelled).
 ///
-/// # Author
-///
-/// Haixing Hu
 pub struct ThreadPool {
     /// Shared pool state and worker coordination primitives.
     inner: Arc<ThreadPoolInner>,

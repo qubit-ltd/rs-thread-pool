@@ -1,9 +1,10 @@
 /*******************************************************************************
  *
- *    Copyright (c) 2025 - 2026.
- *    Haixing Hu, Qubit Co. Ltd.
+ *    Copyright (c) 2025 - 2026 Haixing Hu.
  *
- *    All rights reserved.
+ *    SPDX-License-Identifier: Apache-2.0
+ *
+ *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
 /// Point-in-time counters reported by [`super::thread_pool::ThreadPool`].
@@ -12,9 +13,6 @@
 /// synchronization primitive; concurrent submissions and completions may make
 /// the next snapshot different immediately after this one is returned.
 ///
-/// # Author
-///
-/// Haixing Hu
 use super::thread_pool_state::ThreadPoolState;
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
