@@ -13,10 +13,7 @@ use std::{
     io,
     sync::{
         Arc,
-        atomic::{
-            AtomicBool,
-            Ordering,
-        },
+        atomic::{AtomicBool, Ordering},
         mpsc,
     },
     time::Duration,
@@ -24,19 +21,10 @@ use std::{
 
 use qubit_thread_pool::{
     TaskExecutionError,
-    service::{
-        ExecutorService,
-        FixedThreadPool,
-        RejectedExecution,
-        ThreadPoolBuildError,
-    },
+    service::{ExecutorService, FixedThreadPool, RejectedExecution},
 };
 
-use super::{
-    create_runtime,
-    wait_started,
-    wait_until,
-};
+use super::{create_runtime, wait_started, wait_until};
 
 fn ok_unit_task() -> Result<(), io::Error> {
     Ok(())
@@ -48,41 +36,6 @@ fn ok_usize_task() -> Result<usize, io::Error> {
 
 fn create_single_worker_pool() -> FixedThreadPool {
     FixedThreadPool::new(1).expect("fixed thread pool should be created")
-}
-
-#[test]
-fn test_fixed_thread_pool_builder_rejects_invalid_configuration() {
-    assert!(matches!(
-        FixedThreadPool::builder().pool_size(0).build(),
-        Err(ThreadPoolBuildError::ZeroMaximumPoolSize),
-    ));
-    assert!(matches!(
-        FixedThreadPool::builder()
-            .pool_size(1)
-            .queue_capacity(0)
-            .build(),
-        Err(ThreadPoolBuildError::ZeroQueueCapacity),
-    ));
-    assert!(matches!(
-        FixedThreadPool::builder()
-            .pool_size(1)
-            .stack_size(0)
-            .build(),
-        Err(ThreadPoolBuildError::ZeroStackSize),
-    ));
-}
-
-#[test]
-fn test_fixed_thread_pool_reports_worker_spawn_failure() {
-    let result = FixedThreadPool::builder()
-        .pool_size(1)
-        .stack_size(usize::MAX)
-        .build();
-
-    assert!(matches!(
-        result,
-        Err(ThreadPoolBuildError::SpawnWorker { .. })
-    ));
 }
 
 #[test]
@@ -133,42 +86,6 @@ async fn test_fixed_thread_pool_handle_can_be_awaited() {
     assert_eq!(handle.await.expect("handle should await result"), 42);
     pool.shutdown();
     pool.await_termination().await;
-}
-
-#[test]
-fn test_fixed_thread_pool_builder_sets_thread_options() {
-    let pool = FixedThreadPool::builder()
-        .pool_size(1)
-        .queue_capacity(4)
-        .unbounded_queue()
-        .thread_name_prefix("fixed-custom")
-        .stack_size(2 * 1024 * 1024)
-        .build()
-        .expect("fixed thread pool should be created with custom options");
-
-    let name = pool
-        .submit_callable(|| {
-            Ok::<_, io::Error>(
-                std::thread::current()
-                    .name()
-                    .expect("fixed worker should be named")
-                    .to_owned(),
-            )
-        })
-        .expect("fixed thread pool should accept callable")
-        .get()
-        .expect("callable should return worker name");
-
-    assert!(name.starts_with("fixed-custom-"));
-    assert_eq!(pool.pool_size(), 1);
-    assert_eq!(pool.live_worker_count(), 1);
-    assert_eq!(pool.queued_count(), 0);
-    assert_eq!(pool.running_count(), 0);
-    let stats = pool.stats();
-    assert_eq!(stats.core_pool_size, 1);
-    assert_eq!(stats.maximum_pool_size, 1);
-    pool.shutdown();
-    create_runtime().block_on(pool.await_termination());
 }
 
 #[test]

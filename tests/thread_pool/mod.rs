@@ -14,6 +14,7 @@ use std::time::Duration;
 
 use qubit_thread_pool::service::ThreadPool;
 
+mod fixed_thread_pool_builder_tests;
 mod fixed_thread_pool_tests;
 mod pool_job_tests;
 mod thread_pool_build_error_tests;

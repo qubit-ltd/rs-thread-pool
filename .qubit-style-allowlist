@@ -1,3 +1,0 @@
-multiple-public-types | src/fixed_thread_pool.rs | Fixed pool builder and runtime types share private construction invariants.
-multiple-public-types | src/thread_pool/cas.rs | Atomic lifecycle helpers are tightly coupled and intentionally kept together.
-multiple-public-types | src/worker_queue.rs | Queue runtime and steal-source helpers are internal worker-queue primitives.

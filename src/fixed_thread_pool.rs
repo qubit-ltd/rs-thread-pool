@@ -7,7 +7,6 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-// qubit-style: allow multiple-public-types
 // qubit-style: allow inline-tests
 // qubit-style: allow explicit-imports
 use std::{
@@ -15,43 +14,23 @@ use std::{
     pin::Pin,
     sync::{
         Arc,
-        atomic::{
-            AtomicBool,
-            AtomicUsize,
-            Ordering,
-        },
+        atomic::{AtomicBool, AtomicUsize, Ordering},
     },
-    thread,
 };
 
 use crossbeam_deque::Injector;
 use qubit_function::Callable;
 
-use qubit_executor::{
-    TaskCompletionPair,
-    TaskHandle,
-};
+use qubit_executor::{TaskCompletionPair, TaskHandle};
 use qubit_lock::Monitor;
 
-use super::thread_pool::{
-    ThreadPoolBuildError,
-    ThreadPoolStats,
-};
-use super::worker_queue::{
-    WorkerQueue,
-    WorkerRuntime,
-    steal_batch_and_pop,
-    steal_one,
-};
+use super::fixed_thread_pool_builder::FixedThreadPoolBuilder;
+use super::queue_steal_source::{steal_batch_and_pop, steal_one};
+use super::thread_pool::{ThreadPoolBuildError, ThreadPoolStats};
+use super::worker_queue::WorkerQueue;
+use super::worker_runtime::WorkerRuntime;
 use crate::thread_pool::PoolJob;
-use qubit_executor::service::{
-    ExecutorService,
-    RejectedExecution,
-    ShutdownReport,
-};
-
-/// Default thread name prefix used by [`FixedThreadPoolBuilder`].
-const DEFAULT_FIXED_THREAD_NAME_PREFIX: &str = "qubit-fixed-thread-pool";
+use qubit_executor::service::{ExecutorService, RejectedExecution, ShutdownReport};
 
 /// Maximum number of worker-local queues probed by one submit call.
 const LOCAL_ENQUEUE_MAX_PROBES: usize = 4;
@@ -574,14 +553,14 @@ impl FixedThreadPoolInner {
     }
 
     /// Reserves one worker slot before spawning a worker thread.
-    fn reserve_worker_slot(&self) {
+    pub(crate) fn reserve_worker_slot(&self) {
         self.state.write(|state| {
             state.live_workers += 1;
         });
     }
 
     /// Rolls back one worker slot after spawn failure.
-    fn rollback_worker_slot(&self) {
+    pub(crate) fn rollback_worker_slot(&self) {
         self.state.write(|state| {
             state.live_workers = state
                 .live_workers
@@ -591,7 +570,7 @@ impl FixedThreadPoolInner {
     }
 
     /// Stops the pool after a build-time worker spawn failure.
-    fn stop_after_failed_build(&self) {
+    pub(crate) fn stop_after_failed_build(&self) {
         self.accepting.store(false, Ordering::Release);
         self.stop_now.store(true, Ordering::Release);
         self.state.write(|state| {
@@ -762,181 +741,6 @@ impl Drop for FixedSubmitGuard<'_> {
     }
 }
 
-/// Builder for [`FixedThreadPool`].
-///
-/// The fixed pool prestarts exactly `pool_size` workers and never changes that
-/// count during runtime.
-#[derive(Debug, Clone)]
-pub struct FixedThreadPoolBuilder {
-    /// Number of workers to prestart.
-    pool_size: usize,
-    /// Optional maximum queued task count.
-    queue_capacity: Option<usize>,
-    /// Prefix used for worker thread names.
-    thread_name_prefix: String,
-    /// Optional worker stack size.
-    stack_size: Option<usize>,
-}
-
-impl FixedThreadPoolBuilder {
-    /// Creates a builder with CPU parallelism defaults.
-    ///
-    /// # Returns
-    ///
-    /// A builder with a fixed worker count equal to available parallelism.
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Sets the fixed worker count.
-    ///
-    /// # Parameters
-    ///
-    /// * `pool_size` - Number of workers to create.
-    ///
-    /// # Returns
-    ///
-    /// This builder for fluent configuration.
-    pub fn pool_size(mut self, pool_size: usize) -> Self {
-        self.pool_size = pool_size;
-        self
-    }
-
-    /// Sets a bounded queue capacity.
-    ///
-    /// # Parameters
-    ///
-    /// * `capacity` - Maximum number of queued tasks.
-    ///
-    /// # Returns
-    ///
-    /// This builder for fluent configuration.
-    pub fn queue_capacity(mut self, capacity: usize) -> Self {
-        self.queue_capacity = Some(capacity);
-        self
-    }
-
-    /// Uses an unbounded queue.
-    ///
-    /// # Returns
-    ///
-    /// This builder for fluent configuration.
-    pub fn unbounded_queue(mut self) -> Self {
-        self.queue_capacity = None;
-        self
-    }
-
-    /// Sets the worker thread name prefix.
-    ///
-    /// # Parameters
-    ///
-    /// * `prefix` - Prefix used for worker thread names.
-    ///
-    /// # Returns
-    ///
-    /// This builder for fluent configuration.
-    pub fn thread_name_prefix(mut self, prefix: &str) -> Self {
-        self.thread_name_prefix = prefix.to_owned();
-        self
-    }
-
-    /// Sets the worker stack size.
-    ///
-    /// # Parameters
-    ///
-    /// * `stack_size` - Stack size in bytes.
-    ///
-    /// # Returns
-    ///
-    /// This builder for fluent configuration.
-    pub fn stack_size(mut self, stack_size: usize) -> Self {
-        self.stack_size = Some(stack_size);
-        self
-    }
-
-    /// Builds the configured fixed thread pool.
-    ///
-    /// # Returns
-    ///
-    /// A fixed pool with all workers prestarted.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`ThreadPoolBuildError`] when configuration is invalid or a
-    /// worker thread cannot be spawned.
-    pub fn build(self) -> Result<FixedThreadPool, ThreadPoolBuildError> {
-        self.validate()?;
-        let mut worker_runtimes = Vec::with_capacity(self.pool_size);
-        let mut worker_queues = Vec::with_capacity(self.pool_size);
-        for index in 0..self.pool_size {
-            let worker_runtime = WorkerRuntime::new(index);
-            worker_queues.push(Arc::clone(&worker_runtime.queue));
-            worker_runtimes.push(worker_runtime);
-        }
-        let inner = Arc::new(FixedThreadPoolInner::new(
-            self.pool_size,
-            self.queue_capacity,
-            worker_queues,
-        ));
-        for (index, worker_runtime) in worker_runtimes.into_iter().enumerate() {
-            inner.reserve_worker_slot();
-            let worker_inner = Arc::clone(&inner);
-            let mut builder =
-                thread::Builder::new().name(format!("{}-{}", self.thread_name_prefix, index));
-            if let Some(stack_size) = self.stack_size {
-                builder = builder.stack_size(stack_size);
-            }
-            if let Err(source) =
-                builder.spawn(move || run_fixed_worker(worker_inner, worker_runtime))
-            {
-                inner.rollback_worker_slot();
-                inner.stop_after_failed_build();
-                return Err(ThreadPoolBuildError::SpawnWorker { index, source });
-            }
-        }
-        Ok(FixedThreadPool { inner })
-    }
-
-    /// Validates this builder configuration.
-    ///
-    /// # Returns
-    ///
-    /// `Ok(())` when configuration is valid.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`ThreadPoolBuildError`] for zero pool size, zero queue capacity,
-    /// or zero stack size.
-    fn validate(&self) -> Result<(), ThreadPoolBuildError> {
-        if self.pool_size == 0 {
-            return Err(ThreadPoolBuildError::ZeroMaximumPoolSize);
-        }
-        if self.queue_capacity == Some(0) {
-            return Err(ThreadPoolBuildError::ZeroQueueCapacity);
-        }
-        if self.stack_size == Some(0) {
-            return Err(ThreadPoolBuildError::ZeroStackSize);
-        }
-        Ok(())
-    }
-}
-
-impl Default for FixedThreadPoolBuilder {
-    /// Creates a builder using available CPU parallelism.
-    ///
-    /// # Returns
-    ///
-    /// Default fixed-pool builder.
-    fn default() -> Self {
-        Self {
-            pool_size: default_fixed_pool_size(),
-            queue_capacity: None,
-            thread_name_prefix: DEFAULT_FIXED_THREAD_NAME_PREFIX.to_owned(),
-            stack_size: None,
-        }
-    }
-}
-
 /// Fixed-size thread pool implementing [`ExecutorService`].
 ///
 /// `FixedThreadPool` prestarts a fixed number of worker threads and does not
@@ -948,6 +752,59 @@ pub struct FixedThreadPool {
 }
 
 impl FixedThreadPool {
+    /// Builds a fixed pool from validated builder options.
+    ///
+    /// # Parameters
+    ///
+    /// * `pool_size` - Number of workers to prestart.
+    /// * `queue_capacity` - Optional maximum queued task count.
+    /// * `thread_name_prefix` - Prefix used for worker thread names.
+    /// * `stack_size` - Optional worker stack size.
+    ///
+    /// # Returns
+    ///
+    /// A fixed thread-pool handle with workers already started.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ThreadPoolBuildError`] when a worker thread cannot be spawned.
+    pub(crate) fn build_with_options(
+        pool_size: usize,
+        queue_capacity: Option<usize>,
+        thread_name_prefix: String,
+        stack_size: Option<usize>,
+    ) -> Result<Self, ThreadPoolBuildError> {
+        let mut worker_runtimes = Vec::with_capacity(pool_size);
+        let mut worker_queues = Vec::with_capacity(pool_size);
+        for index in 0..pool_size {
+            let worker_runtime = WorkerRuntime::new(index);
+            worker_queues.push(Arc::clone(&worker_runtime.queue));
+            worker_runtimes.push(worker_runtime);
+        }
+        let inner = Arc::new(FixedThreadPoolInner::new(
+            pool_size,
+            queue_capacity,
+            worker_queues,
+        ));
+        for (index, worker_runtime) in worker_runtimes.into_iter().enumerate() {
+            inner.reserve_worker_slot();
+            let worker_inner = Arc::clone(&inner);
+            let mut builder =
+                std::thread::Builder::new().name(format!("{}-{}", thread_name_prefix, index));
+            if let Some(stack_size) = stack_size {
+                builder = builder.stack_size(stack_size);
+            }
+            if let Err(source) =
+                builder.spawn(move || run_fixed_worker(worker_inner, worker_runtime))
+            {
+                inner.rollback_worker_slot();
+                inner.stop_after_failed_build();
+                return Err(ThreadPoolBuildError::SpawnWorker { index, source });
+            }
+        }
+        Ok(Self { inner })
+    }
+
     /// Creates a fixed thread pool with `pool_size` prestarted workers.
     ///
     /// # Parameters
@@ -1224,26 +1081,12 @@ fn worker_exited(inner: &FixedThreadPoolInner, worker_queue: &WorkerQueue) {
     inner.state.notify_all();
 }
 
-/// Returns the default fixed worker count.
-///
-/// # Returns
-///
-/// Available CPU parallelism, or `1` if it cannot be detected.
-fn default_fixed_pool_size() -> usize {
-    thread::available_parallelism()
-        .map(usize::from)
-        .unwrap_or(1)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::sync::{
         Arc,
-        atomic::{
-            AtomicUsize,
-            Ordering,
-        },
+        atomic::{AtomicUsize, Ordering},
     };
     use std::thread;
     use std::time::Duration;
