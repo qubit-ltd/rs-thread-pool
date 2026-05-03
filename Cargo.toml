@@ -1,6 +1,6 @@
 [package]
 name = "qubit-thread-pool"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 rust-version = "1.94"
 authors = ["Haixing Hu <starfish.hu@gmail.com>"]
@@ -32,6 +32,9 @@ thiserror = "2.0"
 qubit-executor = "0.1"
 qubit-function = "0.11"
 qubit-lock = "0.3"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }
 
 [dev-dependencies]
 criterion = "0.8"

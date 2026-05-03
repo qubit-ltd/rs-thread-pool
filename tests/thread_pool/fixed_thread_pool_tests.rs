@@ -13,7 +13,10 @@ use std::{
     io,
     sync::{
         Arc,
-        atomic::{AtomicBool, Ordering},
+        atomic::{
+            AtomicBool,
+            Ordering,
+        },
         mpsc,
     },
     time::Duration,
@@ -21,10 +24,18 @@ use std::{
 
 use qubit_thread_pool::{
     TaskExecutionError,
-    service::{ExecutorService, FixedThreadPool, RejectedExecution},
+    service::{
+        ExecutorService,
+        FixedThreadPool,
+        RejectedExecution,
+    },
 };
 
-use super::{create_runtime, wait_started, wait_until};
+use super::{
+    create_runtime,
+    wait_started,
+    wait_until,
+};
 
 fn ok_unit_task() -> Result<(), io::Error> {
     Ok(())
@@ -362,46 +373,47 @@ fn test_fixed_thread_pool_large_pool_runs_global_queue_tasks() {
 #[test]
 fn test_fixed_thread_pool_shutdown_now_cancels_worker_local_batch() {
     let pool = create_single_worker_pool();
+    const TASK_COUNT: usize = 256;
     let release = Arc::new(AtomicBool::new(false));
     let (started_tx, started_rx) = mpsc::channel();
+    let mut handles = Vec::with_capacity(TASK_COUNT);
 
-    let first = {
+    for _ in 0..TASK_COUNT {
         let release_for_task = Arc::clone(&release);
-        pool.submit(move || {
-            started_tx
-                .send(())
-                .expect("test should receive task start signal");
-            while !release_for_task.load(Ordering::Acquire) {
-                std::thread::sleep(Duration::from_millis(5));
-            }
-            Ok::<(), io::Error>(())
-        })
-        .expect("first task should be accepted")
-    };
-    wait_started(started_rx);
-
-    let mut queued = Vec::new();
-    for _ in 0..8 {
-        queued.push(
-            pool.submit_callable(ok_usize_task as fn() -> Result<usize, io::Error>)
-                .expect("queued task should be accepted"),
+        let started_tx = started_tx.clone();
+        handles.push(
+            pool.submit(move || {
+                started_tx
+                    .send(())
+                    .expect("test should receive task start signal");
+                while !release_for_task.load(Ordering::Acquire) {
+                    std::thread::sleep(Duration::from_millis(5));
+                }
+                Ok::<(), io::Error>(())
+            })
+            .expect("fixed thread pool should accept task"),
         );
     }
-    wait_until(|| pool.queued_count() == 8);
+    drop(started_tx);
+    wait_started(started_rx);
+    wait_until(|| pool.queued_count() == TASK_COUNT - 1);
 
     let report = pool.shutdown_now();
 
     assert_eq!(report.running, 1);
-    assert!(report.queued <= 8);
+    assert!(report.queued < TASK_COUNT);
     release.store(true, Ordering::Release);
-    first.get().expect("running task should complete");
     create_runtime().block_on(pool.await_termination());
 
     let mut cancelled = 0usize;
-    for handle in queued {
+    let mut completed = 0usize;
+    for handle in handles {
         if matches!(handle.get(), Err(TaskExecutionError::Cancelled)) {
             cancelled += 1;
+        } else {
+            completed += 1;
         }
     }
-    assert_eq!(cancelled, 8);
+    assert_eq!(cancelled, TASK_COUNT - 1);
+    assert_eq!(completed, 1);
 }

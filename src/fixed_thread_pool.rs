@@ -14,23 +14,40 @@ use std::{
     pin::Pin,
     sync::{
         Arc,
-        atomic::{AtomicBool, AtomicUsize, Ordering},
+        atomic::{
+            AtomicBool,
+            AtomicUsize,
+            Ordering,
+        },
     },
 };
 
 use crossbeam_deque::Injector;
 use qubit_function::Callable;
 
-use qubit_executor::{TaskCompletionPair, TaskHandle};
+use qubit_executor::{
+    TaskCompletionPair,
+    TaskHandle,
+};
 use qubit_lock::Monitor;
 
 use super::fixed_thread_pool_builder::FixedThreadPoolBuilder;
-use super::queue_steal_source::{steal_batch_and_pop, steal_one};
-use super::thread_pool::{ThreadPoolBuildError, ThreadPoolStats};
+use super::queue_steal_source::{
+    steal_batch_and_pop,
+    steal_one,
+};
+use super::thread_pool::{
+    ThreadPoolBuildError,
+    ThreadPoolStats,
+};
 use super::worker_queue::WorkerQueue;
 use super::worker_runtime::WorkerRuntime;
 use crate::thread_pool::PoolJob;
-use qubit_executor::service::{ExecutorService, RejectedExecution, ShutdownReport};
+use qubit_executor::service::{
+    ExecutorService,
+    RejectedExecution,
+    ShutdownReport,
+};
 
 /// Maximum number of worker-local queues probed by one submit call.
 const LOCAL_ENQUEUE_MAX_PROBES: usize = 4;
@@ -1086,7 +1103,10 @@ mod tests {
     use super::*;
     use std::sync::{
         Arc,
-        atomic::{AtomicUsize, Ordering},
+        atomic::{
+            AtomicUsize,
+            Ordering,
+        },
     };
     use std::thread;
     use std::time::Duration;

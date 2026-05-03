@@ -11,7 +11,11 @@
 
 use std::io;
 
-use qubit_thread_pool::service::{ExecutorService, FixedThreadPool, ThreadPoolBuildError};
+use qubit_thread_pool::service::{
+    ExecutorService,
+    FixedThreadPool,
+    ThreadPoolBuildError,
+};
 
 use super::create_runtime;
 

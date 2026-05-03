@@ -21,16 +21,41 @@ mod worker_runtime;
 
 pub use fixed_thread_pool::FixedThreadPool;
 pub use fixed_thread_pool_builder::FixedThreadPoolBuilder;
-pub use qubit_executor::service::{ExecutorService, RejectedExecution, ShutdownReport};
-pub use qubit_executor::{TaskExecutionError, TaskHandle, TaskResult};
-pub use thread_pool::{
-    PoolJob, ThreadPool, ThreadPoolBuildError, ThreadPoolBuilder, ThreadPoolStats,
+pub use qubit_executor::service::{
+    ExecutorService,
+    RejectedExecution,
+    ShutdownReport,
 };
+pub use qubit_executor::{
+    TaskExecutionError,
+    TaskHandle,
+    TaskResult,
+};
+pub use thread_pool::{
+    PoolJob,
+    ThreadPool,
+    ThreadPoolBuildError,
+    ThreadPoolBuilder,
+    ThreadPoolStats,
+};
+
+// qubit-style: allow coverage-cfg
+#[cfg(coverage)]
+#[doc(hidden)]
+pub use queue_steal_source::coverage_support;
 
 /// Executor service compatibility exports for thread-pool users.
 pub mod service {
     pub use crate::{
-        ExecutorService, FixedThreadPool, FixedThreadPoolBuilder, PoolJob, RejectedExecution,
-        ShutdownReport, ThreadPool, ThreadPoolBuildError, ThreadPoolBuilder, ThreadPoolStats,
+        ExecutorService,
+        FixedThreadPool,
+        FixedThreadPoolBuilder,
+        PoolJob,
+        RejectedExecution,
+        ShutdownReport,
+        ThreadPool,
+        ThreadPoolBuildError,
+        ThreadPoolBuilder,
+        ThreadPoolStats,
     };
 }
