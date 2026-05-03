@@ -21,6 +21,7 @@ use crossbeam_deque::{
 };
 
 use super::queue_steal_source::{
+    QueueStealSource,
     steal_batch_and_pop,
     steal_one,
 };
@@ -144,12 +145,23 @@ impl WorkerQueue {
     /// queue's local stealer and inbox.
     pub(crate) fn drain(&self) -> Vec<PoolJob> {
         let mut jobs = Vec::new();
-        while let Some(job) = steal_one(&self.stealer) {
-            jobs.push(job);
-        }
-        while let Some(job) = steal_one(&self.inbox) {
-            jobs.push(job);
-        }
+        drain_source(&self.stealer, &mut jobs);
+        drain_source(&self.inbox, &mut jobs);
         jobs
+    }
+}
+
+/// Drains every currently visible job from one steal source.
+///
+/// # Parameters
+///
+/// * `source` - Queue source to drain.
+/// * `jobs` - Destination for drained jobs.
+fn drain_source<S>(source: &S, jobs: &mut Vec<PoolJob>)
+where
+    S: QueueStealSource,
+{
+    while let Some(job) = steal_one(source) {
+        jobs.push(job);
     }
 }

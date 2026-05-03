@@ -33,9 +33,6 @@ qubit-executor = "0.1"
 qubit-function = "0.11"
 qubit-lock = "0.3"
 
-[lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }
-
 [dev-dependencies]
 criterion = "0.8"
 rayon = "1.12"

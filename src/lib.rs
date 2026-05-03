@@ -39,11 +39,6 @@ pub use thread_pool::{
     ThreadPoolStats,
 };
 
-// qubit-style: allow coverage-cfg
-#[cfg(coverage)]
-#[doc(hidden)]
-pub use queue_steal_source::coverage_support;
-
 /// Executor service compatibility exports for thread-pool users.
 pub mod service {
     pub use crate::{

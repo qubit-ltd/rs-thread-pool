@@ -1,3 +1,0 @@
-# Project-reviewed qubit style exceptions.
-coverage-cfg | src/lib.rs | Exposes coverage-only support helpers for deterministic defensive branch tests.
-coverage-cfg | src/queue_steal_source.rs | Exercises crossbeam retry and worker-queue drain paths that are not deterministic through public APIs.
