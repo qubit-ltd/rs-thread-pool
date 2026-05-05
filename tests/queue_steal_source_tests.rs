@@ -24,19 +24,15 @@ mod thread_pool {
     pub(crate) use qubit_thread_pool::PoolJob;
 }
 
-#[path = "../src/queue_steal_source.rs"]
-mod queue_steal_source;
+mod support;
 
-#[path = "../src/worker_queue.rs"]
-mod worker_queue;
-
-use queue_steal_source::{
+use support::queue_steal_source::{
     QueueStealSource,
     steal_batch_and_pop,
     steal_one,
 };
+use support::worker_queue::WorkerQueue;
 use thread_pool::PoolJob;
-use worker_queue::WorkerQueue;
 
 /// Fake steal source that reports one retry before returning a job.
 struct RetryOnceSource {
