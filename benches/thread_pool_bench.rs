@@ -8,7 +8,7 @@
  *
  ******************************************************************************/
 /*!
- * Benchmark for [`qubit_thread_pool::task::service::ThreadPool`].
+ * Benchmark for [`qubit_thread_pool::ThreadPool`].
  */
 
 use std::convert::Infallible;
