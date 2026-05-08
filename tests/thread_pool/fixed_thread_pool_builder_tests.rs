@@ -17,7 +17,10 @@ use qubit_thread_pool::service::{
     ThreadPoolBuildError,
 };
 
-use super::create_runtime;
+use super::{
+    create_runtime,
+    wait_until,
+};
 
 #[test]
 fn test_fixed_thread_pool_builder_rejects_invalid_configuration() {
@@ -82,6 +85,7 @@ fn test_fixed_thread_pool_builder_sets_thread_options() {
     assert_eq!(pool.pool_size(), 1);
     assert_eq!(pool.live_worker_count(), 1);
     assert_eq!(pool.queued_count(), 0);
+    wait_until(|| pool.running_count() == 0);
     assert_eq!(pool.running_count(), 0);
     let stats = pool.stats();
     assert_eq!(stats.core_pool_size, 1);

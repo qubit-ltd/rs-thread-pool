@@ -12,6 +12,8 @@
 //! Dynamic and fixed-size thread pool executor services.
 //!
 
+mod delayed_task_handle;
+mod delayed_task_scheduler;
 mod fixed_thread_pool;
 mod fixed_thread_pool_builder;
 mod queue_steal_source;
@@ -19,6 +21,8 @@ mod thread_pool;
 mod worker_queue;
 mod worker_runtime;
 
+pub use delayed_task_handle::DelayedTaskHandle;
+pub use delayed_task_scheduler::DelayedTaskScheduler;
 pub use fixed_thread_pool::FixedThreadPool;
 pub use fixed_thread_pool_builder::FixedThreadPoolBuilder;
 pub use qubit_executor::service::{
@@ -42,6 +46,8 @@ pub use thread_pool::{
 /// Executor service compatibility exports for thread-pool users.
 pub mod service {
     pub use crate::{
+        DelayedTaskHandle,
+        DelayedTaskScheduler,
         ExecutorService,
         FixedThreadPool,
         FixedThreadPoolBuilder,

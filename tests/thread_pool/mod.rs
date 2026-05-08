@@ -11,6 +11,8 @@
 //! `src/task/service/thread_pool/`.
 
 mod cas_tests;
+mod delayed_task_handle_tests;
+mod delayed_task_scheduler_tests;
 mod fixed_thread_pool_builder_tests;
 mod fixed_thread_pool_tests;
 mod inflight_submit_counter_tests;
