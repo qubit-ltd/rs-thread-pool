@@ -30,7 +30,7 @@ crossbeam-deque = "0.8"
 thiserror = "2.0"
 
 qubit-executor = "0.1"
-qubit-function = "0.11"
+qubit-function = "0.12"
 qubit-lock = "0.3"
 
 [dev-dependencies]
