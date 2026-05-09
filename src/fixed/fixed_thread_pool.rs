@@ -82,8 +82,8 @@ impl FixedThreadPool {
         for (index, worker_runtime) in worker_runtimes.into_iter().enumerate() {
             inner.reserve_worker_slot();
             let worker_inner = Arc::clone(&inner);
-            let mut builder =
-                std::thread::Builder::new().name(format!("{}-{}", thread_name_prefix, index));
+            let thread_name = format!("{}-{}", thread_name_prefix, index);
+            let mut builder = std::thread::Builder::new().name(thread_name);
             if let Some(stack_size) = stack_size {
                 builder = builder.stack_size(stack_size);
             }
