@@ -7,10 +7,10 @@ fn test_delayed_task_scheduler_lifecycle_reports_shutdown_and_termination() {
     let scheduler =
         DelayedTaskScheduler::new("test-delayed-lifecycle").expect("scheduler should start");
 
-    assert!(!scheduler.is_shutdown());
+    assert!(!scheduler.is_not_running());
     scheduler.shutdown();
     create_runtime().block_on(scheduler.await_termination());
 
-    assert!(scheduler.is_shutdown());
+    assert!(scheduler.is_not_running());
     assert!(scheduler.is_terminated());
 }

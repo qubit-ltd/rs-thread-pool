@@ -7,10 +7,7 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-use crossbeam_deque::{
-    Injector,
-    Steal,
-};
+use crossbeam_deque::{Injector, Steal};
 
 use crate::PoolJob;
 

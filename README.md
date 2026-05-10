@@ -32,7 +32,7 @@ implementations. It does not require Tokio or Rayon for normal use.
 - Configurable worker thread name prefixes and stack sizes.
 - `PoolJob` for advanced integrations that need to submit type-erased jobs.
 - `ThreadPoolStats` for observing pool configuration and runtime counters.
-- Shared `ExecutorService` lifecycle methods including `shutdown`, `shutdown_now`, and `await_termination`.
+- Shared `ExecutorService` lifecycle methods including `shutdown`, `stop`, and `await_termination`.
 - Criterion benchmarks and test data for comparing Qubit pools with `threadpool` and Rayon.
 
 ## Pool Models
@@ -55,14 +55,15 @@ A pool can use either an unbounded queue or a bounded queue. Bounded queues make
 back pressure explicit: when the pool cannot accept a task, submission returns
 `RejectedExecution::Saturated` instead of silently growing memory use.
 
-A successful `submit` or `submit_callable` means only that the pool accepted the
-task. The task can still fail, panic, or be cancelled later; observe the final
-result through the returned `TaskHandle`.
+A successful `submit` means only that the pool accepted a fire-and-forget
+runnable. Use `submit_callable` when you need a `TaskHandle` for the final
+result, or `submit_tracked` / `submit_tracked_callable` when you also need
+status and pre-start cancellation.
 
 ## Shutdown Behavior
 
 `shutdown` stops accepting new tasks and lets already accepted tasks finish.
-`shutdown_now` stops accepting new tasks and cancels work that is still queued or
+`stop` stops accepting new tasks and cancels work that is still queued or
 not yet started. Already running OS-thread tasks are not forcefully killed; they
 finish according to their own code.
 
@@ -71,7 +72,7 @@ requested and all accepted work has completed or been cancelled.
 
 `DelayedTaskScheduler` follows the same lifecycle shape for delayed callbacks:
 `shutdown` rejects new callbacks and lets accepted callbacks run at their
-deadlines, while `shutdown_now` cancels callbacks that have not started.
+deadlines, while `stop` cancels callbacks that have not started.
 
 ## Quick Start
 

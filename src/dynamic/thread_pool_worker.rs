@@ -9,10 +9,10 @@
  ******************************************************************************/
 use std::sync::Arc;
 
+use qubit_executor::service::ExecutorServiceLifecycle;
 use qubit_lock::WaitTimeoutStatus;
 
 use super::thread_pool_inner::ThreadPoolInner;
-use super::thread_pool_lifecycle::ThreadPoolLifecycle;
 use super::thread_pool_state::ThreadPoolState;
 use super::thread_pool_worker_queue::ThreadPoolWorkerQueue;
 use crate::PoolJob;
@@ -65,7 +65,7 @@ fn wait_for_job(inner: &ThreadPoolInner, worker_queue: &ThreadPoolWorkerQueue) -
     let mut state = inner.lock_state();
     loop {
         match state.lifecycle {
-            ThreadPoolLifecycle::Running => {
+            ExecutorServiceLifecycle::Running => {
                 if let Some(job) = inner.try_take_queued_job_locked(&mut state, worker_queue) {
                     return Some(job);
                 }
@@ -98,14 +98,18 @@ fn wait_for_job(inner: &ThreadPoolInner, worker_queue: &ThreadPoolWorkerQueue) -
                         .expect("thread pool idle worker counter underflow");
                 }
             }
-            ThreadPoolLifecycle::Shutdown => {
+            ExecutorServiceLifecycle::ShuttingDown => {
                 if let Some(job) = inner.try_take_queued_job_locked(&mut state, worker_queue) {
                     return Some(job);
                 }
                 unregister_exiting_worker(inner, &mut state, worker_index);
                 return None;
             }
-            ThreadPoolLifecycle::Stopping => {
+            ExecutorServiceLifecycle::Stopping => {
+                unregister_exiting_worker(inner, &mut state, worker_index);
+                return None;
+            }
+            ExecutorServiceLifecycle::Terminated => {
                 unregister_exiting_worker(inner, &mut state, worker_index);
                 return None;
             }

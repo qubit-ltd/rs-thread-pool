@@ -1,9 +1,6 @@
 use std::time::Duration;
 
-use qubit_thread_pool::{
-    ExecutorService,
-    ThreadPool,
-};
+use qubit_thread_pool::{ExecutorService, ThreadPool};
 
 pub(crate) fn create_runtime() -> tokio::runtime::Runtime {
     tokio::runtime::Builder::new_current_thread()

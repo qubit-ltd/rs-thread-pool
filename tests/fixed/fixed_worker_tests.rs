@@ -1,25 +1,16 @@
 use std::{
     io,
-    sync::{
-        Arc,
-        atomic::Ordering,
-    },
+    sync::{Arc, atomic::Ordering},
 };
 
 use qubit_thread_pool::{
-    ExecutorService,
-    FixedThreadPool,
+    ExecutorService, ExecutorServiceLifecycle, FixedThreadPool,
     fixed::{
-        fixed_thread_pool_inner::FixedThreadPoolInner,
-        fixed_thread_pool_lifecycle::FixedThreadPoolLifecycle,
-        fixed_worker::wait_for_fixed_pool_work,
+        fixed_thread_pool_inner::FixedThreadPoolInner, fixed_worker::wait_for_fixed_pool_work,
     },
 };
 
-use super::mod_tests::{
-    create_runtime,
-    wait_until,
-};
+use super::mod_tests::{create_runtime, wait_until};
 
 #[test]
 fn test_fixed_worker_runs_submitted_task() {
@@ -49,7 +40,7 @@ fn test_fixed_worker_wait_returns_for_shutdown_queue_and_shutdown_completion() {
     let inner = FixedThreadPoolInner::new(1, None, Vec::new());
     inner
         .state
-        .write(|state| state.lifecycle = FixedThreadPoolLifecycle::Shutdown);
+        .write(|state| state.lifecycle = ExecutorServiceLifecycle::ShuttingDown);
     inner.queued_task_count.store(1, Ordering::Release);
 
     assert!(wait_for_fixed_pool_work(&inner));
@@ -76,7 +67,7 @@ fn test_fixed_worker_wait_unparks_when_shutdown_inflight_work_finishes() {
     let inner = Arc::new(FixedThreadPoolInner::new(1, None, Vec::new()));
     inner
         .state
-        .write(|state| state.lifecycle = FixedThreadPoolLifecycle::Shutdown);
+        .write(|state| state.lifecycle = ExecutorServiceLifecycle::ShuttingDown);
     inner.inflight_submissions.store(1, Ordering::Release);
     let worker_inner = Arc::clone(&inner);
     let waiter = std::thread::spawn(move || wait_for_fixed_pool_work(&worker_inner));

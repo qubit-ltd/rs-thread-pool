@@ -1,13 +1,7 @@
 use std::{
     cmp::Ordering as CompareOrdering,
-    sync::{
-        Arc,
-        atomic::AtomicU8,
-    },
-    time::{
-        Duration,
-        Instant,
-    },
+    sync::{Arc, atomic::AtomicU8},
+    time::{Duration, Instant},
 };
 
 use qubit_thread_pool::delayed::scheduled_task::ScheduledTask;

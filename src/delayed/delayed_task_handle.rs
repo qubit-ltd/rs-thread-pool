@@ -11,16 +11,10 @@
 
 use std::sync::{
     Arc,
-    atomic::{
-        AtomicU8,
-        Ordering,
-    },
+    atomic::{AtomicU8, Ordering},
 };
 
-use super::delayed_task_state::{
-    TASK_CANCELLED,
-    cancel_task_state,
-};
+use super::delayed_task_state::{TASK_CANCELLED, cancel_task_state};
 
 /// Handle that can cancel a delayed task before it starts.
 #[derive(Clone)]

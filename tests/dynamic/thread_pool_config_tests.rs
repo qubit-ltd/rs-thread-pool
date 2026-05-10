@@ -1,9 +1,6 @@
 use std::time::Duration;
 
-use qubit_thread_pool::{
-    ExecutorService,
-    ThreadPool,
-};
+use qubit_thread_pool::{ExecutorService, ThreadPool};
 
 use super::mod_tests::create_runtime;
 

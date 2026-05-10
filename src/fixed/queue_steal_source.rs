@@ -9,12 +9,7 @@
  ******************************************************************************/
 //! Queue stealing adapters for fixed-pool worker queues.
 
-use crossbeam_deque::{
-    Injector,
-    Steal,
-    Stealer,
-    Worker,
-};
+use crossbeam_deque::{Injector, Steal, Stealer, Worker};
 
 use crate::PoolJob;
 

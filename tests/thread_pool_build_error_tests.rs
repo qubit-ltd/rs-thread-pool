@@ -9,10 +9,7 @@
  ******************************************************************************/
 //! Tests for [`qubit_thread_pool::ThreadPoolBuildError`].
 
-use qubit_thread_pool::{
-    RejectedExecution,
-    ThreadPoolBuildError,
-};
+use qubit_thread_pool::{RejectedExecution, ThreadPoolBuildError};
 
 #[test]
 fn test_thread_pool_build_error_from_rejected_execution_shutdown() {

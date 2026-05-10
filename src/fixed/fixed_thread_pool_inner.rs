@@ -9,33 +9,19 @@
  ******************************************************************************/
 use std::sync::{
     Arc,
-    atomic::{
-        AtomicBool,
-        AtomicUsize,
-        Ordering,
-    },
+    atomic::{AtomicBool, AtomicUsize, Ordering},
 };
 
 use crossbeam_deque::Injector;
-use qubit_executor::service::{
-    RejectedExecution,
-    ShutdownReport,
-};
+use qubit_executor::service::{ExecutorServiceLifecycle, RejectedExecution, StopReport};
 use qubit_lock::Monitor;
 
 use super::fixed_submit_guard::FixedSubmitGuard;
-use super::fixed_thread_pool_lifecycle::FixedThreadPoolLifecycle;
 use super::fixed_thread_pool_state::FixedThreadPoolState;
 use super::fixed_worker_queue::FixedWorkerQueue;
 use super::fixed_worker_runtime::FixedWorkerRuntime;
-use super::queue_steal_source::{
-    steal_batch_and_pop,
-    steal_one,
-};
-use crate::{
-    PoolJob,
-    ThreadPoolStats,
-};
+use super::queue_steal_source::{steal_batch_and_pop, steal_one};
+use crate::{PoolJob, ThreadPoolStats};
 
 /// Maximum number of worker-local queues probed by one submit call.
 const LOCAL_ENQUEUE_MAX_PROBES: usize = 4;
@@ -500,7 +486,7 @@ impl FixedThreadPoolInner {
         self.accepting.store(false, Ordering::Release);
         self.stop_now.store(true, Ordering::Release);
         self.state.write(|state| {
-            state.lifecycle = FixedThreadPoolLifecycle::Stopping;
+            state.lifecycle = ExecutorServiceLifecycle::Stopping;
         });
         self.state.notify_all();
     }
@@ -515,8 +501,8 @@ impl FixedThreadPoolInner {
     pub fn shutdown(&self) {
         self.accepting.store(false, Ordering::Release);
         self.state.write(|state| {
-            if state.lifecycle == FixedThreadPoolLifecycle::Running {
-                state.lifecycle = FixedThreadPoolLifecycle::Shutdown;
+            if state.lifecycle == ExecutorServiceLifecycle::Running {
+                state.lifecycle = ExecutorServiceLifecycle::ShuttingDown;
             }
         });
         self.state.notify_all();
@@ -527,12 +513,12 @@ impl FixedThreadPoolInner {
     /// # Returns
     ///
     /// Count-based shutdown report.
-    pub fn shutdown_now(&self) -> ShutdownReport {
+    pub fn stop(&self) -> StopReport {
         self.accepting.store(false, Ordering::Release);
         self.stop_now.store(true, Ordering::Release);
         let running = self.running_count();
         let mut state = self.state.lock();
-        state.lifecycle = FixedThreadPoolLifecycle::Stopping;
+        state.lifecycle = ExecutorServiceLifecycle::Stopping;
         while self.inflight_count() > 0 {
             state = state.wait();
         }
@@ -543,7 +529,7 @@ impl FixedThreadPoolInner {
             self.cancel_claimed_job(job);
         }
         self.state.notify_all();
-        ShutdownReport::new(cancelled, running, cancelled)
+        StopReport::new(cancelled, running, cancelled)
     }
 
     /// Drains all jobs currently visible in global and worker-local queues.
@@ -590,8 +576,25 @@ impl FixedThreadPoolInner {
     /// # Returns
     ///
     /// `true` when lifecycle is not running.
-    pub fn is_shutdown(&self) -> bool {
-        self.state.read(|state| state.lifecycle != FixedThreadPoolLifecycle::Running)
+    pub fn is_not_running(&self) -> bool {
+        self.state
+            .read(|state| state.lifecycle != ExecutorServiceLifecycle::Running)
+    }
+
+    /// Returns the current lifecycle state.
+    ///
+    /// # Returns
+    ///
+    /// [`ExecutorServiceLifecycle::Terminated`] after all accepted work and
+    /// workers are gone, otherwise the stored lifecycle state.
+    pub fn lifecycle(&self) -> ExecutorServiceLifecycle {
+        self.state.read(|state| {
+            if self.is_terminated_locked(state) {
+                ExecutorServiceLifecycle::Terminated
+            } else {
+                state.lifecycle
+            }
+        })
     }
 
     /// Returns whether the pool is terminated.
@@ -613,7 +616,7 @@ impl FixedThreadPoolInner {
     ///
     /// `true` when the pool is terminal.
     fn is_terminated_locked(&self, state: &FixedThreadPoolState) -> bool {
-        state.lifecycle != FixedThreadPoolLifecycle::Running
+        state.lifecycle != ExecutorServiceLifecycle::Running
             && state.live_workers == 0
             && self.queued_count() == 0
             && self.running_count() == 0
@@ -632,6 +635,11 @@ impl FixedThreadPoolInner {
         let completed_tasks = self.completed_task_count.load(Ordering::Relaxed);
         let cancelled_tasks = self.cancelled_task_count.load(Ordering::Relaxed);
         self.state.read(|state| ThreadPoolStats {
+            lifecycle: if self.is_terminated_locked(state) {
+                ExecutorServiceLifecycle::Terminated
+            } else {
+                state.lifecycle
+            },
             core_pool_size: self.pool_size,
             maximum_pool_size: self.pool_size,
             live_workers: state.live_workers,
@@ -641,7 +649,6 @@ impl FixedThreadPoolInner {
             submitted_tasks,
             completed_tasks,
             cancelled_tasks,
-            shutdown: state.lifecycle != FixedThreadPoolLifecycle::Running,
             terminated: self.is_terminated_locked(state),
         })
     }

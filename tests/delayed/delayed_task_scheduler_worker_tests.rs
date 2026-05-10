@@ -1,26 +1,18 @@
 use std::{
     sync::{
         Arc,
-        atomic::{
-            AtomicU8,
-            Ordering,
-        },
+        atomic::{AtomicU8, Ordering},
         mpsc,
     },
-    time::{
-        Duration,
-        Instant,
-    },
+    time::{Duration, Instant},
 };
 
-use qubit_thread_pool::DelayedTaskScheduler;
 use qubit_thread_pool::delayed::{
     delayed_task_scheduler_inner::DelayedTaskSchedulerInner,
-    delayed_task_scheduler_lifecycle::DelayedTaskSchedulerLifecycle,
     delayed_task_scheduler_worker::DelayedTaskSchedulerWorker,
-    delayed_task_state::DelayedTaskState,
-    scheduled_task::ScheduledTask,
+    delayed_task_state::DelayedTaskState, scheduled_task::ScheduledTask,
 };
+use qubit_thread_pool::{DelayedTaskScheduler, ExecutorServiceLifecycle};
 
 use super::mod_tests::create_runtime;
 
@@ -66,7 +58,7 @@ fn test_delayed_task_scheduler_worker_skips_empty_task_entry() {
     }
     {
         let mut state = inner.state.lock().expect("scheduler state should lock");
-        state.lifecycle = DelayedTaskSchedulerLifecycle::Stopping;
+        state.lifecycle = ExecutorServiceLifecycle::Stopping;
         inner.condition.notify_all();
     }
 

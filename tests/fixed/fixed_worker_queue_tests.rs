@@ -1,9 +1,6 @@
 use std::io;
 
-use qubit_thread_pool::{
-    ExecutorService,
-    FixedThreadPool,
-};
+use qubit_thread_pool::{ExecutorService, FixedThreadPool};
 
 use super::mod_tests::create_runtime;
 

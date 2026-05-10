@@ -11,26 +11,16 @@
 
 use std::{
     io,
-    sync::{
-        Arc,
-        mpsc,
-    },
+    sync::{Arc, mpsc},
     time::Duration,
 };
 
 use qubit_thread_pool::{
-    ExecutorService,
-    RejectedExecution,
-    TaskExecutionError,
-    ThreadPool,
+    CancelResult, ExecutorService, RejectedExecution, TaskExecutionError, ThreadPool,
     ThreadPoolBuildError,
 };
 
-use super::mod_tests::{
-    create_runtime,
-    create_single_worker_pool,
-    wait_started,
-};
+use super::mod_tests::{create_runtime, create_single_worker_pool, wait_started};
 
 fn ok_unit_task() -> Result<(), io::Error> {
     Ok(())
@@ -44,13 +34,13 @@ fn ok_usize_task() -> Result<usize, io::Error> {
 fn test_thread_pool_submit_acceptance_is_not_task_success() {
     let pool = ThreadPool::new(2).expect("thread pool should be created");
 
-    pool.submit(ok_unit_task as fn() -> Result<(), io::Error>)
+    pool.submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>)
         .expect("thread pool should accept shared runnable")
         .get()
         .expect("shared runnable should complete successfully");
 
     let handle = pool
-        .submit(|| Err::<(), _>(io::Error::other("task failed")))
+        .submit_tracked(|| Err::<(), _>(io::Error::other("task failed")))
         .expect("thread pool should accept runnable");
 
     let err = handle
@@ -95,11 +85,11 @@ fn test_thread_pool_shutdown_rejects_new_tasks() {
     let pool = ThreadPool::new(1).expect("thread pool should be created");
 
     pool.shutdown();
-    let result = pool.submit(ok_unit_task as fn() -> Result<(), io::Error>);
+    let result = pool.submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>);
 
     assert!(matches!(result, Err(RejectedExecution::Shutdown)));
     create_runtime().block_on(pool.await_termination());
-    assert!(pool.is_shutdown());
+    assert!(pool.is_not_running());
     assert!(pool.is_terminated());
 }
 
@@ -110,7 +100,7 @@ fn test_thread_pool_shutdown_drains_queued_tasks() {
     let (release_tx, release_rx) = mpsc::channel();
 
     let first = pool
-        .submit(move || {
+        .submit_tracked(move || {
             started_tx
                 .send(())
                 .expect("test should receive task start signal");
@@ -126,7 +116,7 @@ fn test_thread_pool_shutdown_drains_queued_tasks() {
         .expect("queued task should be accepted");
 
     pool.shutdown();
-    let rejected = pool.submit(ok_unit_task as fn() -> Result<(), io::Error>);
+    let rejected = pool.submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>);
     release_tx
         .send(())
         .expect("blocking task should receive release signal");
@@ -141,13 +131,13 @@ fn test_thread_pool_shutdown_drains_queued_tasks() {
 }
 
 #[test]
-fn test_thread_pool_shutdown_now_cancels_queued_tasks() {
+fn test_thread_pool_stop_cancels_queued_tasks() {
     let pool = create_single_worker_pool();
     let (started_tx, started_rx) = mpsc::channel();
     let (release_tx, release_rx) = mpsc::channel();
 
     let first = pool
-        .submit(move || {
+        .submit_tracked(move || {
             started_tx
                 .send(())
                 .expect("test should receive task start signal");
@@ -162,7 +152,7 @@ fn test_thread_pool_shutdown_now_cancels_queued_tasks() {
         .submit_callable(ok_usize_task as fn() -> Result<usize, io::Error>)
         .expect("queued task should be accepted");
 
-    let report = pool.shutdown_now();
+    let report = pool.stop();
 
     assert_eq!(report.queued, 1);
     assert_eq!(report.running, 1);
@@ -177,11 +167,11 @@ fn test_thread_pool_shutdown_now_cancels_queued_tasks() {
 }
 
 #[test]
-fn test_thread_pool_shutdown_now_is_idempotent_from_stopping() {
+fn test_thread_pool_stop_is_idempotent_from_stopping() {
     let pool = ThreadPool::new(1).expect("thread pool should be created");
 
-    let first = pool.shutdown_now();
-    let second = pool.shutdown_now();
+    let first = pool.stop();
+    let second = pool.stop();
 
     assert_eq!(first.queued, 0);
     assert_eq!(first.running, 0);
@@ -198,7 +188,7 @@ fn test_thread_pool_cancel_before_start_reports_cancelled() {
     let (release_tx, release_rx) = mpsc::channel();
 
     let first = pool
-        .submit(move || {
+        .submit_tracked(move || {
             started_tx
                 .send(())
                 .expect("test should receive task start signal");
@@ -210,10 +200,10 @@ fn test_thread_pool_cancel_before_start_reports_cancelled() {
         .expect("first task should be accepted");
     wait_started(started_rx);
     let queued = pool
-        .submit_callable(ok_usize_task as fn() -> Result<usize, io::Error>)
+        .submit_tracked_callable(ok_usize_task as fn() -> Result<usize, io::Error>)
         .expect("queued task should be accepted");
 
-    assert!(queued.cancel());
+    assert_eq!(queued.cancel(), CancelResult::Cancelled);
     assert!(queued.is_done());
     assert!(matches!(queued.get(), Err(TaskExecutionError::Cancelled),));
     pool.shutdown();
@@ -273,7 +263,7 @@ fn test_thread_pool_reports_worker_spawn_failure() {
         .build()
         .expect("thread pool should be created lazily");
 
-    let result = pool.submit(ok_unit_task as fn() -> Result<(), io::Error>);
+    let result = pool.submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>);
 
     assert!(matches!(
         result,
@@ -293,7 +283,7 @@ fn test_thread_pool_cancels_queued_job_when_initial_worker_spawn_fails() {
         .build()
         .expect("thread pool should be created lazily");
 
-    let result = pool.submit(ok_unit_task as fn() -> Result<(), io::Error>);
+    let result = pool.submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>);
 
     assert!(matches!(
         result,
@@ -322,11 +312,11 @@ fn test_rejected_execution_compares_by_variant() {
 }
 
 #[test]
-fn test_thread_pool_shutdown_now_after_shutdown_is_idempotent() {
+fn test_thread_pool_stop_after_shutdown_is_idempotent() {
     let pool = ThreadPool::new(1).expect("thread pool should be created");
 
     pool.shutdown();
-    let report = pool.shutdown_now();
+    let report = pool.stop();
 
     assert_eq!(report.queued, 0);
     assert_eq!(report.running, 0);

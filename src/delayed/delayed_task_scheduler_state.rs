@@ -9,13 +9,14 @@
  ******************************************************************************/
 use std::collections::BinaryHeap;
 
-use super::delayed_task_scheduler_lifecycle::DelayedTaskSchedulerLifecycle;
+use qubit_executor::service::ExecutorServiceLifecycle;
+
 use super::scheduled_task::ScheduledTask;
 
 /// Mutable scheduler state protected by the scheduler mutex.
 pub struct DelayedTaskSchedulerState {
     /// Current lifecycle state.
-    pub lifecycle: DelayedTaskSchedulerLifecycle,
+    pub lifecycle: ExecutorServiceLifecycle,
     /// Deadline-ordered task heap.
     pub tasks: BinaryHeap<ScheduledTask>,
     /// Sequence used to keep stable order for identical deadlines.
@@ -32,7 +33,7 @@ impl DelayedTaskSchedulerState {
     /// A running state with no queued delayed tasks.
     pub(crate) fn new() -> Self {
         Self {
-            lifecycle: DelayedTaskSchedulerLifecycle::Running,
+            lifecycle: ExecutorServiceLifecycle::Running,
             tasks: BinaryHeap::new(),
             next_sequence: 0,
             terminated: false,

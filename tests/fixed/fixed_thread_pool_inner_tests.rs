@@ -1,26 +1,16 @@
 use std::{
     io,
-    sync::{
-        Arc,
-        atomic::Ordering,
-    },
+    sync::{Arc, atomic::Ordering},
 };
 
 use qubit_thread_pool::{
-    ExecutorService,
-    FixedThreadPool,
-    PoolJob,
+    ExecutorService, ExecutorServiceLifecycle, FixedThreadPool, PoolJob,
     fixed::{
-        fixed_thread_pool_inner::FixedThreadPoolInner,
-        fixed_thread_pool_lifecycle::FixedThreadPoolLifecycle,
-        fixed_worker_runtime::FixedWorkerRuntime,
+        fixed_thread_pool_inner::FixedThreadPoolInner, fixed_worker_runtime::FixedWorkerRuntime,
     },
 };
 
-use super::mod_tests::{
-    create_runtime,
-    wait_until,
-};
+use super::mod_tests::{create_runtime, wait_until};
 
 fn noop_job() -> PoolJob {
     PoolJob::new(Box::new(|| {}), Box::new(|| {}))
@@ -75,21 +65,21 @@ fn test_fixed_thread_pool_inner_cancels_claimed_and_worker_jobs_when_stopping() 
 }
 
 #[test]
-fn test_fixed_thread_pool_inner_shutdown_now_waits_for_inflight_submitters() {
+fn test_fixed_thread_pool_inner_stop_waits_for_inflight_submitters() {
     let (inner, _runtimes) = create_inner(1, None);
     inner.inflight_submissions.store(1, Ordering::Release);
     let shutdown_inner = Arc::clone(&inner);
 
-    let shutdown = std::thread::spawn(move || shutdown_inner.shutdown_now());
+    let shutdown = std::thread::spawn(move || shutdown_inner.stop());
     wait_until(|| {
         inner
             .state
-            .read(|state| matches!(state.lifecycle, FixedThreadPoolLifecycle::Stopping))
+            .read(|state| matches!(state.lifecycle, ExecutorServiceLifecycle::Stopping))
     });
     inner.inflight_submissions.store(0, Ordering::Release);
     inner.state.notify_all();
-    let report = shutdown.join().expect("shutdown_now should return");
+    let report = shutdown.join().expect("stop should return");
 
     assert_eq!(report.queued, 0);
-    assert!(inner.is_shutdown());
+    assert!(inner.is_not_running());
 }

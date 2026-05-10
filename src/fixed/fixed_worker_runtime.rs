@@ -9,10 +9,7 @@
  ******************************************************************************/
 //! Worker-local queue runtime for fixed-size pools.
 
-use std::{
-    cell::Cell,
-    sync::Arc,
-};
+use std::{cell::Cell, sync::Arc};
 
 use crossbeam_deque::Worker;
 

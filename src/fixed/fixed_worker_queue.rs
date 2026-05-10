@@ -9,22 +9,11 @@
  ******************************************************************************/
 //! Worker-local queue primitives shared by thread-pool implementations.
 
-use std::sync::atomic::{
-    AtomicBool,
-    Ordering,
-};
+use std::sync::atomic::{AtomicBool, Ordering};
 
-use crossbeam_deque::{
-    Injector,
-    Stealer,
-    Worker,
-};
+use crossbeam_deque::{Injector, Stealer, Worker};
 
-use super::queue_steal_source::{
-    QueueStealSource,
-    steal_batch_and_pop,
-    steal_one,
-};
+use super::queue_steal_source::{QueueStealSource, steal_batch_and_pop, steal_one};
 use crate::PoolJob;
 
 /// Queue owned by one worker and used for local dispatch plus stealing.

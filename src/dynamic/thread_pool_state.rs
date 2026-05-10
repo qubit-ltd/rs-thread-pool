@@ -7,22 +7,17 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-use std::{
-    collections::VecDeque,
-    time::Duration,
-};
+use std::{collections::VecDeque, time::Duration};
+
+use qubit_executor::service::ExecutorServiceLifecycle;
 
 use super::thread_pool_config::ThreadPoolConfig;
-use super::thread_pool_lifecycle::ThreadPoolLifecycle;
-use crate::{
-    PoolJob,
-    ThreadPoolStats,
-};
+use crate::{PoolJob, ThreadPoolStats};
 
 /// Mutable pool state protected by [`super::thread_pool_inner::ThreadPoolInner::state`].
 pub(crate) struct ThreadPoolState {
     /// Current lifecycle state controlling submissions and worker exits.
-    pub(super) lifecycle: ThreadPoolLifecycle,
+    pub(super) lifecycle: ExecutorServiceLifecycle,
     /// Global fallback FIFO queue for accepted jobs waiting for a worker.
     ///
     /// Most jobs may be dispatched into per-worker local queues first. This
@@ -63,8 +58,8 @@ impl ThreadPoolState {
     /// Builds the initial mutex-protected pool state for a newly created pool.
     ///
     /// Counter fields start at zero, the job queue is empty, the lifecycle is
-    /// [`ThreadPoolLifecycle::Running`], and sizing or policy fields are copied
-    /// from `config`.
+    /// [`ExecutorServiceLifecycle::Running`], and sizing or policy fields are
+    /// copied from `config`.
     ///
     /// # Parameters
     ///
@@ -88,7 +83,7 @@ impl ThreadPoolState {
     /// value may be empty and is ignored.
     pub(super) fn new(config: ThreadPoolConfig) -> Self {
         Self {
-            lifecycle: ThreadPoolLifecycle::Running,
+            lifecycle: ExecutorServiceLifecycle::Running,
             queue: VecDeque::new(),
             queued_tasks: 0,
             queue_capacity: config.queue_capacity,
@@ -123,7 +118,7 @@ impl ThreadPoolState {
     /// `true` after shutdown has started, the queue is empty, no jobs are
     /// running, and no workers remain live.
     pub(super) fn is_terminated(&self) -> bool {
-        !self.lifecycle.is_running()
+        self.lifecycle != ExecutorServiceLifecycle::Running
             && self.queued_tasks == 0
             && self.running_tasks == 0
             && self.live_workers == 0
@@ -158,6 +153,11 @@ impl ThreadPoolState {
     /// A [`ThreadPoolStats`] snapshot for monitoring and tests.
     pub(super) fn stats(&self) -> ThreadPoolStats {
         ThreadPoolStats {
+            lifecycle: if self.is_terminated() {
+                ExecutorServiceLifecycle::Terminated
+            } else {
+                self.lifecycle
+            },
             core_pool_size: self.core_pool_size,
             maximum_pool_size: self.maximum_pool_size,
             live_workers: self.live_workers,
@@ -167,7 +167,6 @@ impl ThreadPoolState {
             submitted_tasks: self.submitted_tasks,
             completed_tasks: self.completed_tasks,
             cancelled_tasks: self.cancelled_tasks,
-            shutdown: !self.lifecycle.is_running(),
             terminated: self.is_terminated(),
         }
     }

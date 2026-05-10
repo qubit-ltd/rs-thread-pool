@@ -9,24 +9,13 @@
  ******************************************************************************/
 //! Tests for queue stealing and worker queue primitives.
 
-use std::sync::atomic::{
-    AtomicUsize,
-    Ordering,
-};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
-use crossbeam_deque::{
-    Injector,
-    Steal,
-    Worker,
-};
+use crossbeam_deque::{Injector, Steal, Worker};
 use qubit_thread_pool::PoolJob;
 use qubit_thread_pool::fixed::{
     fixed_worker_queue::FixedWorkerQueue,
-    queue_steal_source::{
-        QueueStealSource,
-        steal_batch_and_pop,
-        steal_one,
-    },
+    queue_steal_source::{QueueStealSource, steal_batch_and_pop, steal_one},
 };
 
 /// Fake steal source that reports one retry before returning a job.

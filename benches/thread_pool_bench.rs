@@ -14,22 +14,10 @@
 use std::convert::Infallible;
 use std::hint::black_box;
 
-use criterion::{
-    BenchmarkId,
-    Criterion,
-    Throughput,
-    criterion_group,
-    criterion_main,
-};
+use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use qubit_thread_pool::FixedThreadPool;
-use qubit_thread_pool::{
-    ExecutorService,
-    ThreadPool,
-};
-use rayon::{
-    ThreadPoolBuilder,
-    prelude::*,
-};
+use qubit_thread_pool::{ExecutorService, ThreadPool};
+use rayon::{ThreadPoolBuilder, prelude::*};
 use threadpool::ThreadPool as ExternalThreadPool;
 
 /// Runs one batch of no-op tasks and waits until the pool terminates.

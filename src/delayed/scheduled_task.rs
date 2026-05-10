@@ -9,10 +9,7 @@
  ******************************************************************************/
 use std::{
     cmp::Ordering as CompareOrdering,
-    sync::{
-        Arc,
-        atomic::AtomicU8,
-    },
+    sync::{Arc, atomic::AtomicU8},
     time::Instant,
 };
 

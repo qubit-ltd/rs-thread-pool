@@ -7,11 +7,7 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-use std::{
-    sync::Arc,
-    thread,
-    time::Duration,
-};
+use std::{sync::Arc, thread, time::Duration};
 
 use super::thread_pool::ThreadPool;
 use super::thread_pool_config::ThreadPoolConfig;

@@ -13,7 +13,6 @@ mod thread_pool;
 mod thread_pool_builder;
 pub(crate) mod thread_pool_config;
 pub(crate) mod thread_pool_inner;
-pub(crate) mod thread_pool_lifecycle;
 pub(crate) mod thread_pool_state;
 pub(crate) mod thread_pool_worker;
 pub mod thread_pool_worker_queue;

@@ -7,12 +7,12 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-use super::fixed_thread_pool_lifecycle::FixedThreadPoolLifecycle;
+use qubit_executor::service::ExecutorServiceLifecycle;
 
 /// Mutable state protected by the fixed pool monitor.
 pub struct FixedThreadPoolState {
     /// Current lifecycle state.
-    pub lifecycle: FixedThreadPoolLifecycle,
+    pub lifecycle: ExecutorServiceLifecycle,
     /// Number of worker loops that have not exited.
     pub live_workers: usize,
     /// Number of workers currently blocked waiting for work.
@@ -27,7 +27,7 @@ impl FixedThreadPoolState {
     /// A running state before any worker has been reserved.
     pub(crate) fn new() -> Self {
         Self {
-            lifecycle: FixedThreadPoolLifecycle::Running,
+            lifecycle: ExecutorServiceLifecycle::Running,
             live_workers: 0,
             idle_workers: 0,
         }

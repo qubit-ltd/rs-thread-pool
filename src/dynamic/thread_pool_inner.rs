@@ -9,36 +9,21 @@
  ******************************************************************************/
 use std::{
     sync::{
-        Arc,
-        Mutex,
-        atomic::{
-            AtomicUsize,
-            Ordering,
-        },
+        Arc, Mutex,
+        atomic::{AtomicUsize, Ordering},
     },
     thread,
     time::Duration,
 };
 
-use qubit_executor::service::{
-    RejectedExecution,
-    ShutdownReport,
-};
-use qubit_lock::{
-    Monitor,
-    MonitorGuard,
-};
+use qubit_executor::service::{ExecutorServiceLifecycle, RejectedExecution, StopReport};
+use qubit_lock::{Monitor, MonitorGuard};
 
 use super::thread_pool_config::ThreadPoolConfig;
-use super::thread_pool_lifecycle::ThreadPoolLifecycle;
 use super::thread_pool_state::ThreadPoolState;
 use super::thread_pool_worker::ThreadPoolWorker;
 use super::thread_pool_worker_queue::ThreadPoolWorkerQueue;
-use crate::{
-    PoolJob,
-    ThreadPoolBuildError,
-    ThreadPoolStats,
-};
+use crate::{PoolJob, ThreadPoolBuildError, ThreadPoolStats};
 
 /// Shared state for a thread pool.
 pub(crate) struct ThreadPoolInner {
@@ -156,7 +141,7 @@ impl ThreadPoolInner {
     /// worker cannot be created.
     pub(crate) fn submit(self: &Arc<Self>, job: PoolJob) -> Result<(), RejectedExecution> {
         let mut state = self.lock_state();
-        if !state.lifecycle.is_running() {
+        if state.lifecycle != ExecutorServiceLifecycle::Running {
             return Err(RejectedExecution::Shutdown);
         }
         if state.live_workers < state.core_pool_size {
@@ -268,7 +253,7 @@ impl ThreadPoolInner {
     /// created.
     pub(crate) fn prestart_core_thread(self: &Arc<Self>) -> Result<bool, RejectedExecution> {
         let mut state = self.lock_state();
-        if !state.lifecycle.is_running() {
+        if state.lifecycle != ExecutorServiceLifecycle::Running {
             return Err(RejectedExecution::Shutdown);
         }
         if state.live_workers >= state.core_pool_size {
@@ -506,8 +491,8 @@ impl ThreadPoolInner {
     /// The pool rejects later submissions but lets queued work drain.
     pub(crate) fn shutdown(&self) {
         let mut state = self.lock_state();
-        if state.lifecycle.is_running() {
-            state.lifecycle = ThreadPoolLifecycle::Shutdown;
+        if state.lifecycle == ExecutorServiceLifecycle::Running {
+            state.lifecycle = ExecutorServiceLifecycle::ShuttingDown;
         }
         self.state_monitor.notify_all();
         self.notify_if_terminated(&state);
@@ -519,11 +504,14 @@ impl ThreadPoolInner {
     ///
     /// A report containing queued jobs cancelled and jobs running at the time
     /// of the request.
-    pub(crate) fn shutdown_now(&self) -> ShutdownReport {
+    pub(crate) fn stop(&self) -> StopReport {
         let (jobs, report) = {
             let mut state = self.lock_state();
-            if state.lifecycle.is_running() || state.lifecycle.is_shutdown() {
-                state.lifecycle = ThreadPoolLifecycle::Stopping;
+            if matches!(
+                state.lifecycle,
+                ExecutorServiceLifecycle::Running | ExecutorServiceLifecycle::ShuttingDown
+            ) {
+                state.lifecycle = ExecutorServiceLifecycle::Stopping;
             }
             let queued = state.queued_tasks;
             let running = state.running_tasks;
@@ -534,7 +522,7 @@ impl ThreadPoolInner {
             state.cancelled_tasks += queued;
             self.state_monitor.notify_all();
             self.notify_if_terminated(&state);
-            (jobs, ShutdownReport::new(queued, running, queued))
+            (jobs, StopReport::new(queued, running, queued))
         };
         for job in jobs {
             job.cancel();
@@ -547,8 +535,24 @@ impl ThreadPoolInner {
     /// # Returns
     ///
     /// `true` if the pool is no longer in the running lifecycle state.
-    pub(crate) fn is_shutdown(&self) -> bool {
-        self.read_state(|state| !state.lifecycle.is_running())
+    pub(crate) fn is_not_running(&self) -> bool {
+        self.read_state(|state| state.lifecycle != ExecutorServiceLifecycle::Running)
+    }
+
+    /// Returns the current lifecycle state.
+    ///
+    /// # Returns
+    ///
+    /// [`ExecutorServiceLifecycle::Terminated`] after all accepted work and
+    /// workers are gone, otherwise the stored lifecycle state.
+    pub(crate) fn lifecycle(&self) -> ExecutorServiceLifecycle {
+        self.read_state(|state| {
+            if state.is_terminated() {
+                ExecutorServiceLifecycle::Terminated
+            } else {
+                state.lifecycle
+            }
+        })
     }
 
     /// Returns whether the pool is fully terminated.

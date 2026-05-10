@@ -7,10 +7,7 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-use std::sync::atomic::{
-    AtomicU8,
-    Ordering,
-};
+use std::sync::atomic::{AtomicU8, Ordering};
 
 /// Atomic task-state transitions for delayed task scheduling.
 pub struct DelayedTaskState;

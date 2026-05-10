@@ -11,16 +11,9 @@
 
 use std::io;
 
-use qubit_thread_pool::{
-    ExecutorService,
-    FixedThreadPool,
-    ThreadPoolBuildError,
-};
+use qubit_thread_pool::{ExecutorService, FixedThreadPool, ThreadPoolBuildError};
 
-use super::mod_tests::{
-    create_runtime,
-    wait_until,
-};
+use super::mod_tests::{create_runtime, wait_until};
 
 #[test]
 fn test_fixed_thread_pool_builder_rejects_invalid_configuration() {

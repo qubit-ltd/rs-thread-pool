@@ -8,23 +8,14 @@
  *
  ******************************************************************************/
 use std::sync::{
-    Condvar,
-    Mutex,
-    atomic::{
-        AtomicU8,
-        AtomicUsize,
-        Ordering,
-    },
+    Condvar, Mutex,
+    atomic::{AtomicU8, AtomicUsize, Ordering},
 };
 
-use qubit_executor::service::ShutdownReport;
+use qubit_executor::service::{ExecutorServiceLifecycle, StopReport};
 
-use super::delayed_task_scheduler_lifecycle::DelayedTaskSchedulerLifecycle;
 use super::delayed_task_scheduler_state::DelayedTaskSchedulerState;
-use super::delayed_task_state::{
-    cancel_task_state,
-    start_task_state,
-};
+use super::delayed_task_state::{cancel_task_state, start_task_state};
 
 /// Shared delayed scheduler state.
 pub struct DelayedTaskSchedulerInner {
@@ -32,8 +23,6 @@ pub struct DelayedTaskSchedulerInner {
     pub state: Mutex<DelayedTaskSchedulerState>,
     /// Wait set for scheduler state transitions and deadline changes.
     pub condition: Condvar,
-    /// Fast-path admission flag.
-    pub accepting: AtomicU8,
     /// Number of tasks still pending in the delay heap.
     pub queued_task_count: AtomicUsize,
     /// Number of tasks currently executing on the scheduler thread.
@@ -54,22 +43,11 @@ impl DelayedTaskSchedulerInner {
         Self {
             state: Mutex::new(DelayedTaskSchedulerState::new()),
             condition: Condvar::new(),
-            accepting: AtomicU8::new(1),
             queued_task_count: AtomicUsize::new(0),
             running_task_count: AtomicUsize::new(0),
             completed_task_count: AtomicUsize::new(0),
             cancelled_task_count: AtomicUsize::new(0),
         }
-    }
-
-    /// Returns whether submissions are still accepted.
-    ///
-    /// # Returns
-    ///
-    /// `true` while the scheduler is running.
-    #[inline]
-    pub fn accepts_tasks(&self) -> bool {
-        self.accepting.load(Ordering::Acquire) == 1
     }
 
     /// Returns the queued delayed task count.
@@ -139,10 +117,9 @@ impl DelayedTaskSchedulerInner {
 
     /// Requests graceful shutdown.
     pub fn shutdown(&self) {
-        self.accepting.store(0, Ordering::Release);
         let mut state = self.state.lock().expect("scheduler state should lock");
-        if state.lifecycle.is_running() {
-            state.lifecycle = DelayedTaskSchedulerLifecycle::Shutdown;
+        if state.lifecycle == ExecutorServiceLifecycle::Running {
+            state.lifecycle = ExecutorServiceLifecycle::ShuttingDown;
         }
         self.condition.notify_all();
     }
@@ -152,10 +129,9 @@ impl DelayedTaskSchedulerInner {
     /// # Returns
     ///
     /// Count-based shutdown report.
-    pub fn shutdown_now(&self) -> ShutdownReport {
-        self.accepting.store(0, Ordering::Release);
+    pub fn stop(&self) -> StopReport {
         let mut state = self.state.lock().expect("scheduler state should lock");
-        state.lifecycle = DelayedTaskSchedulerLifecycle::Stopping;
+        state.lifecycle = ExecutorServiceLifecycle::Stopping;
         let mut cancelled = 0;
         while let Some(task) = state.tasks.pop() {
             if self.cancel_task_state(&task.state) {
@@ -164,7 +140,7 @@ impl DelayedTaskSchedulerInner {
         }
         let running = self.running_count();
         self.condition.notify_all();
-        ShutdownReport::new(cancelled, running, cancelled)
+        StopReport::new(cancelled, running, cancelled)
     }
 
     /// Returns whether shutdown has started.
@@ -172,9 +148,24 @@ impl DelayedTaskSchedulerInner {
     /// # Returns
     ///
     /// `true` if new delayed tasks are rejected.
-    pub fn is_shutdown(&self) -> bool {
+    pub fn is_not_running(&self) -> bool {
         let state = self.state.lock().expect("scheduler state should lock");
-        !state.lifecycle.is_running()
+        state.lifecycle != ExecutorServiceLifecycle::Running
+    }
+
+    /// Returns the current lifecycle state.
+    ///
+    /// # Returns
+    ///
+    /// [`ExecutorServiceLifecycle::Terminated`] after the worker has exited,
+    /// otherwise the stored lifecycle state.
+    pub fn lifecycle(&self) -> ExecutorServiceLifecycle {
+        let state = self.state.lock().expect("scheduler state should lock");
+        if state.terminated {
+            ExecutorServiceLifecycle::Terminated
+        } else {
+            state.lifecycle
+        }
     }
 
     /// Returns whether the scheduler thread has exited.

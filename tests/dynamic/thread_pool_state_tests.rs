@@ -1,15 +1,8 @@
-use std::{
-    io,
-    sync::mpsc,
-};
+use std::{io, sync::mpsc};
 
 use qubit_thread_pool::ExecutorService;
 
-use super::mod_tests::{
-    create_runtime,
-    create_single_worker_pool,
-    wait_started,
-};
+use super::mod_tests::{create_runtime, create_single_worker_pool, wait_started};
 
 #[test]
 fn test_thread_pool_state_reports_queue_saturation_and_shutdown_cancellation() {
@@ -17,7 +10,7 @@ fn test_thread_pool_state_reports_queue_saturation_and_shutdown_cancellation() {
     let (started_tx, started_rx) = mpsc::channel();
     let (release_tx, release_rx) = mpsc::channel();
     let running = pool
-        .submit(move || {
+        .submit_tracked(move || {
             started_tx.send(()).unwrap();
             release_rx
                 .recv()
@@ -26,8 +19,8 @@ fn test_thread_pool_state_reports_queue_saturation_and_shutdown_cancellation() {
         })
         .unwrap();
     wait_started(started_rx);
-    let queued = pool.submit(|| Ok::<_, io::Error>(())).unwrap();
-    let report = pool.shutdown_now();
+    let queued = pool.submit_tracked(|| Ok::<_, io::Error>(())).unwrap();
+    let report = pool.stop();
 
     assert_eq!(1, report.queued);
     assert_eq!(1, report.cancelled);

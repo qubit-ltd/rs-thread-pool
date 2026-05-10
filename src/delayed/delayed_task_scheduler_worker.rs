@@ -8,15 +8,13 @@
  *
  ******************************************************************************/
 use std::{
-    sync::{
-        Arc,
-        atomic::Ordering,
-    },
+    sync::{Arc, atomic::Ordering},
     time::Instant,
 };
 
+use qubit_executor::service::ExecutorServiceLifecycle;
+
 use super::delayed_task_scheduler_inner::DelayedTaskSchedulerInner;
-use super::delayed_task_scheduler_lifecycle::DelayedTaskSchedulerLifecycle;
 use super::delayed_task_scheduler_state::DelayedTaskSchedulerState;
 use super::delayed_task_state::is_task_cancelled;
 
@@ -45,11 +43,11 @@ fn run_delayed_scheduler(inner: Arc<DelayedTaskSchedulerInner>) {
             let mut state = inner.state.lock().expect("scheduler state should lock");
             loop {
                 prune_cancelled_front(&mut state);
-                if state.lifecycle == DelayedTaskSchedulerLifecycle::Stopping {
+                if state.lifecycle == ExecutorServiceLifecycle::Stopping {
                     inner.terminate(&mut state);
                     return;
                 }
-                if state.tasks.is_empty() && !state.lifecycle.is_running() {
+                if state.tasks.is_empty() && state.lifecycle != ExecutorServiceLifecycle::Running {
                     inner.terminate(&mut state);
                     return;
                 }

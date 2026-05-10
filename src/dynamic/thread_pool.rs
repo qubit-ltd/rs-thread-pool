@@ -7,32 +7,17 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-use std::{
-    future::Future,
-    pin::Pin,
-    sync::Arc,
-    time::Duration,
-};
+use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 
-use qubit_function::Callable;
+use qubit_function::{Callable, Runnable};
 
-use qubit_executor::{
-    TaskCompletionPair,
-    TaskHandle,
-    TaskRunner,
-};
+use qubit_executor::{TaskCompletionPair, TaskHandle, TrackedTask};
 
 use super::thread_pool_builder::ThreadPoolBuilder;
 use super::thread_pool_inner::ThreadPoolInner;
-use crate::{
-    PoolJob,
-    ThreadPoolBuildError,
-    ThreadPoolStats,
-};
+use crate::{PoolJob, ThreadPoolBuildError, ThreadPoolStats};
 use qubit_executor::service::{
-    ExecutorService,
-    RejectedExecution,
-    ShutdownReport,
+    ExecutorService, ExecutorServiceLifecycle, RejectedExecution, StopReport,
 };
 
 /// OS thread pool implementing [`ExecutorService`].
@@ -40,12 +25,12 @@ use qubit_executor::service::{
 /// `ThreadPool` accepts fallible tasks, stores them in an internal FIFO queue,
 /// and executes them on worker threads. Workers are created lazily up to the
 /// configured core size, queued after that, and may grow up to the maximum size
-/// when a bounded queue is full. Submitted tasks return [`TaskHandle`], which
-/// supports both blocking [`TaskHandle::get`] and async `.await` result
+/// when a bounded queue is full. Callable submissions return [`TaskHandle`],
+/// while tracked submissions return [`TrackedTask`].
 /// retrieval.
 ///
 /// `shutdown` is graceful: already accepted queued tasks are allowed to run.
-/// `shutdown_now` is abrupt: queued tasks that have not started are completed
+/// `stop` is abrupt: queued tasks that have not started are completed
 /// with [`TaskExecutionError::Cancelled`](qubit_executor::TaskExecutionError::Cancelled).
 ///
 pub struct ThreadPool {
@@ -291,8 +276,14 @@ impl Drop for ThreadPool {
 }
 
 impl ExecutorService for ThreadPool {
-    type Handle<R, E>
+    type ResultHandle<R, E>
         = TaskHandle<R, E>
+    where
+        R: Send + 'static,
+        E: Send + 'static;
+
+    type TrackedHandle<R, E>
+        = TrackedTask<R, E>
     where
         R: Send + 'static,
         E: Send + 'static;
@@ -301,6 +292,15 @@ impl ExecutorService for ThreadPool {
         = Pin<Box<dyn Future<Output = ()> + Send + 'a>>
     where
         Self: 'a;
+
+    /// Accepts a runnable and queues it for pool workers.
+    fn submit<T, E>(&self, task: T) -> Result<(), RejectedExecution>
+    where
+        T: Runnable<E> + Send + 'static,
+        E: Send + 'static,
+    {
+        self.inner.submit(PoolJob::detached(task))
+    }
 
     /// Accepts a callable and queues it for pool workers.
     ///
@@ -318,22 +318,33 @@ impl ExecutorService for ThreadPool {
     /// [`RejectedExecution::Saturated`] when the bounded pool cannot accept
     /// more work, or returns [`RejectedExecution::WorkerSpawnFailed`] when a
     /// required worker cannot be created.
-    fn submit_callable<C, R, E>(&self, task: C) -> Result<Self::Handle<R, E>, RejectedExecution>
+    fn submit_callable<C, R, E>(
+        &self,
+        task: C,
+    ) -> Result<Self::ResultHandle<R, E>, RejectedExecution>
     where
         C: Callable<R, E> + Send + 'static,
         R: Send + 'static,
         E: Send + 'static,
     {
         let (handle, completion) = TaskCompletionPair::new().into_parts();
-        let completion_for_run = completion.clone();
-        let job = PoolJob::new(
-            Box::new(move || {
-                TaskRunner::new(task).run(completion_for_run);
-            }),
-            Box::new(move || {
-                completion.cancel();
-            }),
-        );
+        let job = PoolJob::from_task(task, completion);
+        self.inner.submit(job)?;
+        Ok(handle)
+    }
+
+    /// Accepts a callable and queues it with a tracked handle.
+    fn submit_tracked_callable<C, R, E>(
+        &self,
+        task: C,
+    ) -> Result<Self::TrackedHandle<R, E>, RejectedExecution>
+    where
+        C: Callable<R, E> + Send + 'static,
+        R: Send + 'static,
+        E: Send + 'static,
+    {
+        let (handle, completion) = TaskCompletionPair::new().into_tracked_parts();
+        let job = PoolJob::from_task(task, completion);
         self.inner.submit(job)?;
         Ok(handle)
     }
@@ -353,14 +364,20 @@ impl ExecutorService for ThreadPool {
     /// A report containing the number of queued jobs cancelled and the number
     /// of jobs running at the time of the request.
     #[inline]
-    fn shutdown_now(&self) -> ShutdownReport {
-        self.inner.shutdown_now()
+    fn stop(&self) -> StopReport {
+        self.inner.stop()
+    }
+
+    /// Returns the current lifecycle state.
+    #[inline]
+    fn lifecycle(&self) -> ExecutorServiceLifecycle {
+        self.inner.lifecycle()
     }
 
     /// Returns whether shutdown has been requested.
     #[inline]
-    fn is_shutdown(&self) -> bool {
-        self.inner.is_shutdown()
+    fn is_not_running(&self) -> bool {
+        self.inner.is_not_running()
     }
 
     /// Returns whether shutdown was requested and all workers have exited.

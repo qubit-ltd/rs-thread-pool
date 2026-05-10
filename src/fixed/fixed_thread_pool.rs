@@ -7,32 +7,19 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-use std::{
-    future::Future,
-    pin::Pin,
-    sync::Arc,
-};
+use std::{future::Future, pin::Pin, sync::Arc};
 
 use qubit_executor::service::{
-    ExecutorService,
-    RejectedExecution,
-    ShutdownReport,
+    ExecutorService, ExecutorServiceLifecycle, RejectedExecution, StopReport,
 };
-use qubit_executor::{
-    TaskCompletionPair,
-    TaskHandle,
-};
-use qubit_function::Callable;
+use qubit_executor::{TaskCompletionPair, TaskHandle, TrackedTask};
+use qubit_function::{Callable, Runnable};
 
 use super::fixed_thread_pool_builder::FixedThreadPoolBuilder;
 use super::fixed_thread_pool_inner::FixedThreadPoolInner;
 use super::fixed_worker::FixedWorker;
 use super::fixed_worker_runtime::FixedWorkerRuntime;
-use crate::{
-    PoolJob,
-    ThreadPoolBuildError,
-    ThreadPoolStats,
-};
+use crate::{PoolJob, ThreadPoolBuildError, ThreadPoolStats};
 
 /// Fixed-size thread pool implementing [`ExecutorService`].
 ///
@@ -196,8 +183,14 @@ impl Drop for FixedThreadPool {
 }
 
 impl ExecutorService for FixedThreadPool {
-    type Handle<R, E>
+    type ResultHandle<R, E>
         = TaskHandle<R, E>
+    where
+        R: Send + 'static,
+        E: Send + 'static;
+
+    type TrackedHandle<R, E>
+        = TrackedTask<R, E>
     where
         R: Send + 'static,
         E: Send + 'static;
@@ -206,6 +199,15 @@ impl ExecutorService for FixedThreadPool {
         = Pin<Box<dyn Future<Output = ()> + Send + 'a>>
     where
         Self: 'a;
+
+    /// Accepts a runnable and queues it for fixed pool workers.
+    fn submit<T, E>(&self, task: T) -> Result<(), RejectedExecution>
+    where
+        T: Runnable<E> + Send + 'static,
+        E: Send + 'static,
+    {
+        self.inner.submit(PoolJob::detached(task))
+    }
 
     /// Accepts a callable and queues it for fixed pool workers.
     ///
@@ -221,13 +223,32 @@ impl ExecutorService for FixedThreadPool {
     ///
     /// Returns [`RejectedExecution::Shutdown`] after shutdown or
     /// [`RejectedExecution::Saturated`] when a bounded queue is full.
-    fn submit_callable<C, R, E>(&self, task: C) -> Result<Self::Handle<R, E>, RejectedExecution>
+    fn submit_callable<C, R, E>(
+        &self,
+        task: C,
+    ) -> Result<Self::ResultHandle<R, E>, RejectedExecution>
     where
         C: Callable<R, E> + Send + 'static,
         R: Send + 'static,
         E: Send + 'static,
     {
         let (handle, completion) = TaskCompletionPair::new().into_parts();
+        let job = PoolJob::from_task(task, completion);
+        self.inner.submit(job)?;
+        Ok(handle)
+    }
+
+    /// Accepts a callable and queues it with a tracked handle.
+    fn submit_tracked_callable<C, R, E>(
+        &self,
+        task: C,
+    ) -> Result<Self::TrackedHandle<R, E>, RejectedExecution>
+    where
+        C: Callable<R, E> + Send + 'static,
+        R: Send + 'static,
+        E: Send + 'static,
+    {
+        let (handle, completion) = TaskCompletionPair::new().into_tracked_parts();
         let job = PoolJob::from_task(task, completion);
         self.inner.submit(job)?;
         Ok(handle)
@@ -243,8 +264,13 @@ impl ExecutorService for FixedThreadPool {
     /// # Returns
     ///
     /// A count-based shutdown report.
-    fn shutdown_now(&self) -> ShutdownReport {
-        self.inner.shutdown_now()
+    fn stop(&self) -> StopReport {
+        self.inner.stop()
+    }
+
+    /// Returns the current lifecycle state.
+    fn lifecycle(&self) -> ExecutorServiceLifecycle {
+        self.inner.lifecycle()
     }
 
     /// Returns whether shutdown has been requested.
@@ -252,8 +278,8 @@ impl ExecutorService for FixedThreadPool {
     /// # Returns
     ///
     /// `true` when this pool no longer accepts new work.
-    fn is_shutdown(&self) -> bool {
-        self.inner.is_shutdown()
+    fn is_not_running(&self) -> bool {
+        self.inner.is_not_running()
     }
 
     /// Returns whether this pool is fully terminated.

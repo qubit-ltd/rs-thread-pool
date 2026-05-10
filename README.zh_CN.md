@@ -27,7 +27,7 @@ Qubit Thread Pool 为同步工作提供基于 OS 线程的 `ExecutorService` 实
 - 支持配置 worker 线程名前缀和栈大小。
 - 提供 `PoolJob`，用于需要提交类型擦除 job 的高级集成场景。
 - 提供 `ThreadPoolStats`，用于观察线程池配置和运行时计数。
-- 共享 `ExecutorService` 生命周期方法，包括 `shutdown`、`shutdown_now` 和 `await_termination`。
+- 共享 `ExecutorService` 生命周期方法，包括 `shutdown`、`stop` 和 `await_termination`。
 - 提供 Criterion benchmark 与测试数据，用于对比 Qubit 线程池、`threadpool` 和 Rayon。
 
 ## 线程池模型
@@ -42,15 +42,15 @@ Qubit Thread Pool 为同步工作提供基于 OS 线程的 `ExecutorService` 实
 
 线程池可以使用无界队列或有界队列。有界队列能明确表达背压：当线程池无法接收任务时，提交会返回 `RejectedExecution::Saturated`，而不是静默增加内存使用。
 
-`submit` 或 `submit_callable` 成功只表示线程池接受了任务。任务之后仍可能失败、panic 或被取消；最终结果需要通过返回的 `TaskHandle` 观察。
+`submit` 成功只表示线程池接受了一个 fire-and-forget runnable。需要最终结果时使用 `submit_callable` 获取 `TaskHandle`；还需要状态和启动前取消时，使用 `submit_tracked` 或 `submit_tracked_callable`。
 
 ## 关闭行为
 
-`shutdown` 会停止接受新任务，并允许已接受的任务完成。`shutdown_now` 会停止接受新任务，并取消仍在队列中或尚未开始的工作。已经运行在 OS 线程上的任务不会被强制杀死，而是由任务自身代码决定何时结束。
+`shutdown` 会停止接受新任务，并允许已接受的任务完成。`stop` 会停止接受新任务，并取消仍在队列中或尚未开始的工作。已经运行在 OS 线程上的任务不会被强制杀死，而是由任务自身代码决定何时结束。
 
 `await_termination` 返回一个 future，在已请求 shutdown 且所有已接受工作完成或取消后完成。
 
-`DelayedTaskScheduler` 使用相同的生命周期语义：`shutdown` 拒绝新的延迟回调，并让已接受回调在 deadline 到达后执行；`shutdown_now` 会取消尚未开始的回调。
+`DelayedTaskScheduler` 使用相同的生命周期语义：`shutdown` 拒绝新的延迟回调，并让已接受回调在 deadline 到达后执行；`stop` 会取消尚未开始的回调。
 
 ## 快速开始
 

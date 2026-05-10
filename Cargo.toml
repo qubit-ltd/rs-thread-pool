@@ -1,6 +1,6 @@
 [package]
 name = "qubit-thread-pool"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 rust-version = "1.94"
 authors = ["Haixing Hu <starfish.hu@gmail.com>"]
@@ -29,9 +29,9 @@ doctest = true
 crossbeam-deque = "0.8"
 thiserror = "2.0"
 
-qubit-executor = "0.1"
-qubit-function = "0.12"
-qubit-lock = "0.3"
+qubit-executor = { path = "../rs-executor" }
+qubit-function = "0.13"
+qubit-lock = "0.4"
 
 [dev-dependencies]
 criterion = "0.8"

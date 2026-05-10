@@ -9,24 +9,11 @@
  ******************************************************************************/
 //! Tests for [`qubit_thread_pool::ThreadPoolBuilder`].
 
-use std::{
-    io,
-    sync::mpsc,
-    time::Duration,
-};
+use std::{io, sync::mpsc, time::Duration};
 
-use qubit_thread_pool::{
-    ExecutorService,
-    RejectedExecution,
-    ThreadPool,
-    ThreadPoolBuildError,
-};
+use qubit_thread_pool::{ExecutorService, RejectedExecution, ThreadPool, ThreadPoolBuildError};
 
-use super::mod_tests::{
-    create_runtime,
-    wait_started,
-    wait_until,
-};
+use super::mod_tests::{create_runtime, wait_started, wait_until};
 
 fn ok_unit_task() -> Result<(), io::Error> {
     Ok(())
@@ -43,7 +30,7 @@ fn test_thread_pool_bounded_queue_rejects_when_saturated() {
     let (release_tx, release_rx) = mpsc::channel();
 
     let first = pool
-        .submit(move || {
+        .submit_tracked(move || {
             started_tx
                 .send(())
                 .expect("test should receive task start signal");
@@ -56,9 +43,9 @@ fn test_thread_pool_bounded_queue_rejects_when_saturated() {
     wait_started(started_rx);
 
     let second = pool
-        .submit(ok_unit_task as fn() -> Result<(), io::Error>)
+        .submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>)
         .expect("second task should fill the queue");
-    let third = pool.submit(ok_unit_task as fn() -> Result<(), io::Error>);
+    let third = pool.submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>);
 
     assert!(matches!(third, Err(RejectedExecution::Saturated)));
     release_tx
@@ -89,7 +76,7 @@ fn test_thread_pool_grows_above_core_when_queue_is_full() {
     let (release_third_tx, release_third_rx) = mpsc::channel();
 
     let first = pool
-        .submit(move || {
+        .submit_tracked(move || {
             first_started_tx
                 .send(())
                 .expect("test should receive first start signal");
@@ -102,10 +89,10 @@ fn test_thread_pool_grows_above_core_when_queue_is_full() {
     wait_started(first_started_rx);
 
     let second = pool
-        .submit(ok_unit_task as fn() -> Result<(), io::Error>)
+        .submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>)
         .expect("second task should be queued");
     let third = pool
-        .submit(move || {
+        .submit_tracked(move || {
             third_started_tx
                 .send(())
                 .expect("test should receive third start signal");
@@ -117,7 +104,7 @@ fn test_thread_pool_grows_above_core_when_queue_is_full() {
         .expect("third task should create a non-core worker");
     wait_started(third_started_rx);
 
-    let fourth = pool.submit(ok_unit_task as fn() -> Result<(), io::Error>);
+    let fourth = pool.submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>);
 
     assert!(matches!(fourth, Err(RejectedExecution::Saturated)));
     assert_eq!(pool.stats().live_workers, 2);
@@ -156,7 +143,7 @@ fn test_thread_pool_excess_workers_retire_after_maximum_size_decreases() {
     let (release_third_tx, release_third_rx) = mpsc::channel();
 
     let first = pool
-        .submit(move || {
+        .submit_tracked(move || {
             first_started_tx
                 .send(())
                 .expect("test should receive first start signal");
@@ -169,10 +156,10 @@ fn test_thread_pool_excess_workers_retire_after_maximum_size_decreases() {
     wait_started(first_started_rx);
 
     let second = pool
-        .submit(ok_unit_task as fn() -> Result<(), io::Error>)
+        .submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>)
         .expect("second task should be queued");
     let third = pool
-        .submit(move || {
+        .submit_tracked(move || {
             third_started_tx
                 .send(())
                 .expect("test should receive third start signal");

@@ -13,10 +13,7 @@ use std::{
     io,
     sync::{
         Arc,
-        atomic::{
-            AtomicBool,
-            Ordering,
-        },
+        atomic::{AtomicBool, Ordering},
         mpsc,
     },
     thread,
@@ -24,17 +21,10 @@ use std::{
 };
 
 use qubit_thread_pool::{
-    ExecutorService,
-    FixedThreadPool,
-    RejectedExecution,
-    TaskExecutionError,
+    CancelResult, ExecutorService, FixedThreadPool, RejectedExecution, TaskExecutionError,
 };
 
-use super::mod_tests::{
-    create_runtime,
-    wait_started,
-    wait_until,
-};
+use super::mod_tests::{create_runtime, wait_started, wait_until};
 
 fn ok_unit_task() -> Result<(), io::Error> {
     Ok(())
@@ -52,13 +42,13 @@ fn create_single_worker_pool() -> FixedThreadPool {
 fn test_fixed_thread_pool_submit_acceptance_is_not_task_success() {
     let pool = FixedThreadPool::new(2).expect("fixed thread pool should be created");
 
-    pool.submit(ok_unit_task as fn() -> Result<(), io::Error>)
+    pool.submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>)
         .expect("fixed thread pool should accept shared runnable")
         .get()
         .expect("shared runnable should complete successfully");
 
     let handle = pool
-        .submit(|| Err::<(), _>(io::Error::other("task failed")))
+        .submit_tracked(|| Err::<(), _>(io::Error::other("task failed")))
         .expect("fixed thread pool should accept runnable");
 
     let err = handle
@@ -103,11 +93,11 @@ fn test_fixed_thread_pool_shutdown_rejects_new_tasks() {
     let pool = FixedThreadPool::new(1).expect("fixed thread pool should be created");
 
     pool.shutdown();
-    let result = pool.submit(ok_unit_task as fn() -> Result<(), io::Error>);
+    let result = pool.submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>);
 
     assert!(matches!(result, Err(RejectedExecution::Shutdown)));
     create_runtime().block_on(pool.await_termination());
-    assert!(pool.is_shutdown());
+    assert!(pool.is_not_running());
     assert!(pool.is_terminated());
 }
 
@@ -122,7 +112,7 @@ fn test_fixed_thread_pool_bounded_queue_rejects_when_saturated() {
     let (release_tx, release_rx) = mpsc::channel();
 
     let first = pool
-        .submit(move || {
+        .submit_tracked(move || {
             started_tx
                 .send(())
                 .expect("test should receive task start signal");
@@ -137,7 +127,7 @@ fn test_fixed_thread_pool_bounded_queue_rejects_when_saturated() {
         .submit_callable(ok_usize_task as fn() -> Result<usize, io::Error>)
         .expect("queued task should be accepted");
 
-    let saturated = pool.submit(ok_unit_task as fn() -> Result<(), io::Error>);
+    let saturated = pool.submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>);
 
     assert!(matches!(saturated, Err(RejectedExecution::Saturated)));
     release_tx
@@ -156,7 +146,7 @@ fn test_fixed_thread_pool_shutdown_drains_queued_tasks() {
     let (release_tx, release_rx) = mpsc::channel();
 
     let first = pool
-        .submit(move || {
+        .submit_tracked(move || {
             started_tx
                 .send(())
                 .expect("test should receive task start signal");
@@ -172,7 +162,7 @@ fn test_fixed_thread_pool_shutdown_drains_queued_tasks() {
         .expect("queued task should be accepted");
 
     pool.shutdown();
-    let rejected = pool.submit(ok_unit_task as fn() -> Result<(), io::Error>);
+    let rejected = pool.submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>);
     release_tx
         .send(())
         .expect("blocking task should receive release signal");
@@ -187,13 +177,13 @@ fn test_fixed_thread_pool_shutdown_drains_queued_tasks() {
 }
 
 #[test]
-fn test_fixed_thread_pool_shutdown_now_cancels_queued_tasks() {
+fn test_fixed_thread_pool_stop_cancels_queued_tasks() {
     let pool = create_single_worker_pool();
     let (started_tx, started_rx) = mpsc::channel();
     let (release_tx, release_rx) = mpsc::channel();
 
     let first = pool
-        .submit(move || {
+        .submit_tracked(move || {
             started_tx
                 .send(())
                 .expect("test should receive task start signal");
@@ -208,7 +198,7 @@ fn test_fixed_thread_pool_shutdown_now_cancels_queued_tasks() {
         .submit_callable(ok_usize_task as fn() -> Result<usize, io::Error>)
         .expect("queued task should be accepted");
 
-    let report = pool.shutdown_now();
+    let report = pool.stop();
 
     assert_eq!(report.queued, 1);
     assert_eq!(report.running, 1);
@@ -229,7 +219,7 @@ fn test_fixed_thread_pool_cancel_before_start_reports_cancelled() {
     let (release_tx, release_rx) = mpsc::channel();
 
     let first = pool
-        .submit(move || {
+        .submit_tracked(move || {
             started_tx
                 .send(())
                 .expect("test should receive task start signal");
@@ -241,10 +231,10 @@ fn test_fixed_thread_pool_cancel_before_start_reports_cancelled() {
         .expect("first task should be accepted");
     wait_started(started_rx);
     let queued = pool
-        .submit_callable(ok_usize_task as fn() -> Result<usize, io::Error>)
+        .submit_tracked_callable(ok_usize_task as fn() -> Result<usize, io::Error>)
         .expect("queued task should be accepted");
 
-    assert!(queued.cancel());
+    assert_eq!(queued.cancel(), CancelResult::Cancelled);
     assert!(queued.is_done());
     assert!(matches!(queued.get(), Err(TaskExecutionError::Cancelled),));
     pool.shutdown();
@@ -261,7 +251,7 @@ fn test_fixed_thread_pool_await_termination_waits_for_running_task() {
     let completed = Arc::new(AtomicBool::new(false));
     let completed_for_task = Arc::clone(&completed);
 
-    pool.submit(move || {
+    pool.submit_tracked(move || {
         std::thread::sleep(Duration::from_millis(80));
         completed_for_task.store(true, Ordering::Release);
         Ok::<(), io::Error>(())
@@ -284,7 +274,7 @@ fn test_fixed_thread_pool_multiple_workers_drain_local_queues() {
     for _ in 0..16 {
         let counter_for_task = Arc::clone(&counter);
         handles.push(
-            pool.submit(move || {
+            pool.submit_tracked(move || {
                 counter_for_task.fetch_add(1, Ordering::AcqRel);
                 Ok::<(), io::Error>(())
             })
@@ -301,7 +291,7 @@ fn test_fixed_thread_pool_multiple_workers_drain_local_queues() {
 }
 
 #[test]
-fn test_fixed_thread_pool_large_pool_uses_global_queue_shutdown_now() {
+fn test_fixed_thread_pool_large_pool_uses_global_queue_stop() {
     let pool = FixedThreadPool::new(5).expect("fixed thread pool should be created");
     let release = Arc::new(AtomicBool::new(false));
     let (started_tx, started_rx) = mpsc::channel();
@@ -311,7 +301,7 @@ fn test_fixed_thread_pool_large_pool_uses_global_queue_shutdown_now() {
         let release_for_task = Arc::clone(&release);
         let started_tx = started_tx.clone();
         running.push(
-            pool.submit(move || {
+            pool.submit_tracked(move || {
                 started_tx
                     .send(())
                     .expect("test should receive task start signal");
@@ -335,7 +325,7 @@ fn test_fixed_thread_pool_large_pool_uses_global_queue_shutdown_now() {
         .expect("queued task should be accepted");
     wait_until(|| pool.queued_count() == 1);
 
-    let report = pool.shutdown_now();
+    let report = pool.stop();
 
     assert_eq!(report.queued, 1);
     assert_eq!(report.cancelled, 1);
@@ -419,7 +409,7 @@ fn test_fixed_thread_pool_default_executes_tasks() {
 }
 
 #[test]
-fn test_fixed_thread_pool_shutdown_now_cancels_worker_local_batch() {
+fn test_fixed_thread_pool_stop_cancels_worker_local_batch() {
     let pool = create_single_worker_pool();
     const TASK_COUNT: usize = 256;
     let release = Arc::new(AtomicBool::new(false));
@@ -430,7 +420,7 @@ fn test_fixed_thread_pool_shutdown_now_cancels_worker_local_batch() {
         let release_for_task = Arc::clone(&release);
         let started_tx = started_tx.clone();
         handles.push(
-            pool.submit(move || {
+            pool.submit_tracked(move || {
                 started_tx
                     .send(())
                     .expect("test should receive task start signal");
@@ -446,7 +436,7 @@ fn test_fixed_thread_pool_shutdown_now_cancels_worker_local_batch() {
     wait_started(started_rx);
     wait_until(|| pool.queued_count() == TASK_COUNT - 1);
 
-    let report = pool.shutdown_now();
+    let report = pool.stop();
 
     assert_eq!(report.running, 1);
     assert!(report.queued < TASK_COUNT);

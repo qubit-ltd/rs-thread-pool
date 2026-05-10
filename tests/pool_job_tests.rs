@@ -11,17 +11,10 @@
 
 use std::sync::{
     Arc,
-    atomic::{
-        AtomicBool,
-        Ordering,
-    },
+    atomic::{AtomicBool, Ordering},
 };
 
-use qubit_thread_pool::{
-    ExecutorService,
-    PoolJob,
-    ThreadPool,
-};
+use qubit_thread_pool::{ExecutorService, PoolJob, ThreadPool};
 
 #[test]
 fn test_thread_pool_submit_job_runs_type_erased_job() {

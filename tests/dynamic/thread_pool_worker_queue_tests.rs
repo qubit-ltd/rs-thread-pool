@@ -1,10 +1,7 @@
 use std::io;
 
 use qubit_thread_pool::{
-    ExecutorService,
-    PoolJob,
-    ThreadPool,
-    dynamic::thread_pool_worker_queue::ThreadPoolWorkerQueue,
+    ExecutorService, PoolJob, ThreadPool, dynamic::thread_pool_worker_queue::ThreadPoolWorkerQueue,
 };
 
 fn noop_job() -> PoolJob {

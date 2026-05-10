@@ -12,7 +12,6 @@
 mod delayed_task_handle;
 mod delayed_task_scheduler;
 pub mod delayed_task_scheduler_inner;
-pub mod delayed_task_scheduler_lifecycle;
 pub mod delayed_task_scheduler_state;
 pub mod delayed_task_scheduler_worker;
 pub mod delayed_task_state;

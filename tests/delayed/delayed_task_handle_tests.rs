@@ -9,10 +9,7 @@
  ******************************************************************************/
 //! Tests for [`DelayedTaskHandle`](qubit_thread_pool::DelayedTaskHandle).
 
-use std::{
-    sync::mpsc,
-    time::Duration,
-};
+use std::{sync::mpsc, time::Duration};
 
 use qubit_thread_pool::DelayedTaskScheduler;
 

@@ -1,22 +1,15 @@
 use std::{
     sync::{
         Arc,
-        atomic::{
-            AtomicU8,
-            Ordering,
-        },
+        atomic::{AtomicU8, Ordering},
     },
-    time::{
-        Duration,
-        Instant,
-    },
+    time::{Duration, Instant},
 };
 
 use qubit_executor::service::RejectedExecution;
 use qubit_thread_pool::DelayedTaskScheduler;
 use qubit_thread_pool::delayed::{
-    delayed_task_scheduler_inner::DelayedTaskSchedulerInner,
-    delayed_task_state::DelayedTaskState,
+    delayed_task_scheduler_inner::DelayedTaskSchedulerInner, delayed_task_state::DelayedTaskState,
     scheduled_task::ScheduledTask,
 };
 
@@ -54,7 +47,7 @@ fn test_delayed_task_scheduler_inner_updates_task_state_counters() {
 }
 
 #[test]
-fn test_delayed_task_scheduler_inner_shutdown_now_cancels_heap_tasks() {
+fn test_delayed_task_scheduler_inner_stop_cancels_heap_tasks() {
     let inner = DelayedTaskSchedulerInner::new();
     let task_state = Arc::new(AtomicU8::new(DelayedTaskState::PENDING));
 
@@ -69,11 +62,11 @@ fn test_delayed_task_scheduler_inner_shutdown_now_cancels_heap_tasks() {
     }
     inner.queued_task_count.store(1, Ordering::Release);
 
-    let report = inner.shutdown_now();
+    let report = inner.stop();
 
     assert_eq!(report.queued, 1);
     assert_eq!(report.cancelled, 1);
     assert!(DelayedTaskState::is_cancelled(&task_state));
-    assert!(inner.is_shutdown());
+    assert!(inner.is_not_running());
     assert_eq!(inner.running_count(), 0);
 }

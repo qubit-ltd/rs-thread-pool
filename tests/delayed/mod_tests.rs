@@ -1,7 +1,4 @@
-use std::{
-    sync::mpsc,
-    time::Duration,
-};
+use std::{sync::mpsc, time::Duration};
 
 use qubit_thread_pool::DelayedTaskScheduler;
 

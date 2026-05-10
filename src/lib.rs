@@ -19,28 +19,16 @@ mod pool_job;
 mod thread_pool_build_error;
 mod thread_pool_stats;
 
-pub use delayed::{
-    DelayedTaskHandle,
-    DelayedTaskScheduler,
-};
-pub use dynamic::{
-    ThreadPool,
-    ThreadPoolBuilder,
-};
-pub use fixed::{
-    FixedThreadPool,
-    FixedThreadPoolBuilder,
-};
+pub use delayed::{DelayedTaskHandle, DelayedTaskScheduler};
+pub use dynamic::{ThreadPool, ThreadPoolBuilder};
+pub use fixed::{FixedThreadPool, FixedThreadPoolBuilder};
 pub use pool_job::PoolJob;
 pub use qubit_executor::service::{
-    ExecutorService,
-    RejectedExecution,
-    ShutdownReport,
+    ExecutorService, ExecutorServiceLifecycle, RejectedExecution, StopReport,
 };
 pub use qubit_executor::{
-    TaskExecutionError,
-    TaskHandle,
-    TaskResult,
+    CancelResult, TaskExecutionError, TaskHandle, TaskResult, TaskResultHandle, TaskStatus,
+    TrackedTask, TrackedTaskHandle, TryGet,
 };
 pub use thread_pool_build_error::ThreadPoolBuildError;
 pub use thread_pool_stats::ThreadPoolStats;

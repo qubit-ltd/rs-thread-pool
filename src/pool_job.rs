@@ -7,11 +7,8 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-use qubit_executor::{
-    TaskCompletion,
-    TaskRunner,
-};
-use qubit_function::Callable;
+use qubit_executor::{TaskCompletion, TaskRunner};
+use qubit_function::{Callable, Runnable};
 
 /// Type-erased pool job with a cancellation path for queued work.
 ///
@@ -70,6 +67,31 @@ impl PoolJob {
             Box::new(move || {
                 cancel_completion.cancel();
             }),
+        )
+    }
+
+    /// Creates a pool job from a runnable task without retaining a result handle.
+    ///
+    /// # Parameters
+    ///
+    /// * `task` - Runnable task to execute when a worker starts this job.
+    ///
+    /// # Returns
+    ///
+    /// A type-erased job that runs the task and discards its final result. If
+    /// the job is abandoned while queued, cancellation has no result endpoint to
+    /// notify.
+    pub fn detached<T, E>(task: T) -> Self
+    where
+        T: Runnable<E> + Send + 'static,
+        E: Send + 'static,
+    {
+        Self::new(
+            Box::new(move || {
+                let mut task = task;
+                let _ignored = TaskRunner::new(move || task.run()).call::<(), E>();
+            }),
+            Box::new(|| {}),
         )
     }
 

@@ -8,8 +8,8 @@
 
 1. 保留全局队列作为默认与 fallback 路径。
 2. 引入 worker 本地队列和 steal 机制，用于有界队列场景下的竞争缓解。
-3. `queued_tasks` 统一计数全局与本地排队任务，确保 `queued_count/stats/shutdown_now` 语义一致。
-4. `shutdown_now` 同时清空全局与本地队列并触发取消。
+3. `queued_tasks` 统一计数全局与本地排队任务，确保 `queued_count/stats/stop` 语义一致。
+4. `stop` 同时清空全局与本地队列并触发取消。
 
 ## 验证命令
 

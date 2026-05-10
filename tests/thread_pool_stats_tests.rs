@@ -9,10 +9,7 @@
  ******************************************************************************/
 //! Tests for [`qubit_thread_pool::ThreadPoolStats`].
 
-use qubit_thread_pool::{
-    ExecutorService,
-    ThreadPool,
-};
+use qubit_thread_pool::{ExecutorService, ExecutorServiceLifecycle, ThreadPool};
 
 #[test]
 fn test_thread_pool_stats_reflect_configuration() {
@@ -27,13 +24,13 @@ fn test_thread_pool_stats_reflect_configuration() {
     assert_eq!(s.core_pool_size, 1);
     assert_eq!(s.maximum_pool_size, 3);
     assert_eq!(s.queued_tasks, 0);
-    assert!(!s.shutdown);
+    assert_eq!(s.lifecycle, ExecutorServiceLifecycle::Running);
     assert!(!s.terminated);
 
     pool.shutdown();
     create_runtime().block_on(pool.await_termination());
     let s = pool.stats();
-    assert!(s.shutdown);
+    assert_eq!(s.lifecycle, ExecutorServiceLifecycle::Terminated);
     assert!(s.terminated);
 }
 

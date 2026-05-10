@@ -7,13 +7,11 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-use std::sync::{
-    Arc,
-    atomic::Ordering,
-};
+use std::sync::{Arc, atomic::Ordering};
+
+use qubit_executor::service::ExecutorServiceLifecycle;
 
 use super::fixed_thread_pool_inner::FixedThreadPoolInner;
-use super::fixed_thread_pool_lifecycle::FixedThreadPoolLifecycle;
 use super::fixed_thread_pool_state::FixedThreadPoolState;
 use super::fixed_worker_queue::FixedWorkerQueue;
 use super::fixed_worker_runtime::FixedWorkerRuntime;
@@ -58,7 +56,7 @@ pub fn wait_for_fixed_pool_work(inner: &FixedThreadPoolInner) -> bool {
     let mut state = inner.state.lock();
     loop {
         match state.lifecycle {
-            FixedThreadPoolLifecycle::Running => {
+            ExecutorServiceLifecycle::Running => {
                 if inner.queued_count() > 0 {
                     return true;
                 }
@@ -70,7 +68,7 @@ pub fn wait_for_fixed_pool_work(inner: &FixedThreadPoolInner) -> bool {
                 state = state.wait();
                 unmark_fixed_worker_idle(inner, &mut state);
             }
-            FixedThreadPoolLifecycle::Shutdown => {
+            ExecutorServiceLifecycle::ShuttingDown => {
                 if inner.queued_count() > 0 {
                     return true;
                 }
@@ -88,7 +86,8 @@ pub fn wait_for_fixed_pool_work(inner: &FixedThreadPoolInner) -> bool {
                 state = state.wait();
                 unmark_fixed_worker_idle(inner, &mut state);
             }
-            FixedThreadPoolLifecycle::Stopping => return false,
+            ExecutorServiceLifecycle::Stopping => return false,
+            ExecutorServiceLifecycle::Terminated => return false,
         }
     }
 }

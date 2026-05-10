@@ -12,22 +12,13 @@ use std::{
     pin::Pin,
     sync::{
         Arc,
-        atomic::{
-            AtomicU8,
-            Ordering,
-        },
+        atomic::{AtomicU8, Ordering},
     },
     thread,
-    time::{
-        Duration,
-        Instant,
-    },
+    time::{Duration, Instant},
 };
 
-use qubit_executor::service::{
-    RejectedExecution,
-    ShutdownReport,
-};
+use qubit_executor::service::{ExecutorServiceLifecycle, RejectedExecution, StopReport};
 
 use super::delayed_task_handle::DelayedTaskHandle;
 use super::delayed_task_scheduler_inner::DelayedTaskSchedulerInner;
@@ -134,7 +125,7 @@ impl DelayedTaskScheduler {
             .state
             .lock()
             .expect("scheduler state should lock");
-        if !self.inner.accepts_tasks() || !state.lifecycle.is_running() {
+        if state.lifecycle != ExecutorServiceLifecycle::Running {
             return Err(RejectedExecution::Shutdown);
         }
         let sequence = state.next_sequence;
@@ -160,8 +151,46 @@ impl DelayedTaskScheduler {
     /// # Returns
     ///
     /// Count-based shutdown report.
-    pub fn shutdown_now(&self) -> ShutdownReport {
-        self.inner.shutdown_now()
+    pub fn stop(&self) -> StopReport {
+        self.inner.stop()
+    }
+
+    /// Returns the current lifecycle state.
+    ///
+    /// # Returns
+    ///
+    /// [`ExecutorServiceLifecycle::Terminated`] after the scheduler thread has
+    /// exited, otherwise the stored lifecycle state.
+    pub fn lifecycle(&self) -> ExecutorServiceLifecycle {
+        self.inner.lifecycle()
+    }
+
+    /// Returns whether this scheduler still accepts delayed tasks.
+    ///
+    /// # Returns
+    ///
+    /// `true` only while the lifecycle is [`ExecutorServiceLifecycle::Running`].
+    pub fn is_running(&self) -> bool {
+        self.lifecycle() == ExecutorServiceLifecycle::Running
+    }
+
+    /// Returns whether graceful shutdown is in progress.
+    ///
+    /// # Returns
+    ///
+    /// `true` only while the lifecycle is
+    /// [`ExecutorServiceLifecycle::ShuttingDown`].
+    pub fn is_shutting_down(&self) -> bool {
+        self.lifecycle() == ExecutorServiceLifecycle::ShuttingDown
+    }
+
+    /// Returns whether abrupt stop is in progress.
+    ///
+    /// # Returns
+    ///
+    /// `true` only while the lifecycle is [`ExecutorServiceLifecycle::Stopping`].
+    pub fn is_stopping(&self) -> bool {
+        self.lifecycle() == ExecutorServiceLifecycle::Stopping
     }
 
     /// Returns whether shutdown has started.
@@ -169,8 +198,8 @@ impl DelayedTaskScheduler {
     /// # Returns
     ///
     /// `true` if this scheduler rejects new tasks.
-    pub fn is_shutdown(&self) -> bool {
-        self.inner.is_shutdown()
+    pub fn is_not_running(&self) -> bool {
+        self.inner.is_not_running()
     }
 
     /// Returns whether the scheduler thread has exited.

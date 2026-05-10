@@ -1,18 +1,12 @@
 use std::{
     io,
-    sync::{
-        Arc,
-        atomic::Ordering,
-    },
+    sync::{Arc, atomic::Ordering},
 };
 
 use qubit_thread_pool::{
-    ExecutorService,
-    FixedThreadPool,
-    RejectedExecution,
+    ExecutorService, FixedThreadPool, RejectedExecution,
     fixed::{
-        fixed_submit_guard::FixedSubmitGuard,
-        fixed_thread_pool_inner::FixedThreadPoolInner,
+        fixed_submit_guard::FixedSubmitGuard, fixed_thread_pool_inner::FixedThreadPoolInner,
         fixed_worker_runtime::FixedWorkerRuntime,
     },
 };
