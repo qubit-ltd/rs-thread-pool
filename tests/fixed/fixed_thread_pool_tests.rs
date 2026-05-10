@@ -19,6 +19,7 @@ use std::{
         },
         mpsc,
     },
+    thread,
     time::Duration,
 };
 
@@ -364,6 +365,55 @@ fn test_fixed_thread_pool_large_pool_runs_global_queue_tasks() {
         .collect::<Vec<_>>();
     values.sort_unstable();
     assert_eq!(values, (0..10usize).collect::<Vec<_>>());
+    pool.shutdown();
+    create_runtime().block_on(pool.await_termination());
+}
+
+#[test]
+fn test_fixed_thread_pool_default_uses_builder_defaults() {
+    let pool = FixedThreadPool::default();
+
+    let expected_pool_size = thread::available_parallelism()
+        .map(usize::from)
+        .unwrap_or(1);
+    assert_eq!(pool.pool_size(), expected_pool_size);
+    let stats = pool.stats();
+    assert_eq!(stats.core_pool_size, expected_pool_size);
+    assert_eq!(stats.maximum_pool_size, expected_pool_size);
+
+    pool.shutdown();
+    create_runtime().block_on(pool.await_termination());
+    assert!(pool.is_terminated());
+}
+
+#[test]
+fn test_fixed_thread_pool_default_executes_tasks() {
+    let pool = FixedThreadPool::default();
+
+    let value = pool
+        .submit_callable(ok_usize_task as fn() -> Result<usize, io::Error>)
+        .expect("default fixed thread pool should accept callable")
+        .get()
+        .expect("callable should complete successfully");
+    assert_eq!(value, 42);
+
+    let name = pool
+        .submit_callable(|| {
+            Ok::<_, io::Error>(
+                thread::current()
+                    .name()
+                    .expect("default fixed worker should be named")
+                    .to_owned(),
+            )
+        })
+        .expect("default fixed thread pool should accept callable")
+        .get()
+        .expect("callable should return worker name");
+    assert!(
+        name.starts_with("qubit-fixed-thread-pool-"),
+        "default thread name should use the builder default prefix, got: {name}",
+    );
+
     pool.shutdown();
     create_runtime().block_on(pool.await_termination());
 }
