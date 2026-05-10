@@ -19,6 +19,7 @@ Qubit Thread Pool 为同步工作提供基于 OS 线程的 `ExecutorService` 实
 
 - 提供动态 `ThreadPool`，支持分离的 core worker 与 maximum worker 限制。
 - 提供固定大小 `FixedThreadPool`，用于可预测的 worker 数量。
+- `FixedThreadPool` 实现 `Default`：通过 `FixedThreadPoolBuilder::default()` 的默认配置构建（worker 数量取可用并行度、无界队列、默认线程名前缀）。若 worker 线程创建失败则会 panic；需要 `Result` 时请使用 `FixedThreadPoolBuilder::default().build()`。
 - 提供单线程 `DelayedTaskScheduler`，用于可取消的延迟回调。
 - 支持有界或无界队列配置。
 - 动态池支持懒创建 worker，也支持预启动 core worker。
@@ -34,6 +35,8 @@ Qubit Thread Pool 为同步工作提供基于 OS 线程的 `ExecutorService` 实
 `ThreadPool` 采用常见的 core-size / maximum-size 执行器模型。它会懒创建 worker 直到 core size，之后优先排队；当有界队列无法继续接收任务时，再向 maximum size 增长。这适用于负载不均匀，并希望短时间突发可以使用额外线程但不长期保留这些线程的场景。
 
 `FixedThreadPool` 启动并维持固定数量的 worker。它适合容量规划简单、worker 数量需要稳定，或调度可预测性比动态扩缩更重要的场景。
+
+`FixedThreadPool::default()` 与 `FixedThreadPoolBuilder::default().build()` 等价，但构建失败会转为 panic；若需要处理错误，请使用 builder 的 `build()` 并处理 `ThreadPoolBuildError`。
 
 ## 排队与拒绝
 
@@ -88,6 +91,8 @@ assert_eq!(handle.get()?, 42);
 pool.shutdown();
 # Ok::<(), Box<dyn std::error::Error>>(())
 ```
+
+若使用与 `FixedThreadPoolBuilder::default()` 相同的默认配置，也可写 `let pool = FixedThreadPool::default();`，等价于 `FixedThreadPoolBuilder::default().build()`，但若 worker 线程无法创建则会 panic。
 
 ### 延迟任务调度器
 

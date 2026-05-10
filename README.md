@@ -24,6 +24,7 @@ implementations. It does not require Tokio or Rayon for normal use.
 
 - Dynamic `ThreadPool` with separate core and maximum worker limits.
 - Fixed-size `FixedThreadPool` for predictable worker counts.
+- `FixedThreadPool` implements `Default`: it is built from `FixedThreadPoolBuilder::default()` with the same defaults (worker count from available parallelism, unbounded queue, default thread name prefix). On failure to spawn workers it panics; use `FixedThreadPoolBuilder::default().build()` when you need a `Result`.
 - Single-threaded `DelayedTaskScheduler` for cancellable delayed callbacks.
 - Bounded or unbounded queue configuration.
 - Lazy worker creation for the dynamic pool, with optional core-worker prestart.
@@ -45,6 +46,8 @@ threads without keeping them alive forever.
 `FixedThreadPool` starts and maintains a fixed number of workers. It is useful
 when capacity planning is simple, when worker count should be stable, or when
 predictable scheduling is more important than dynamic growth.
+
+`FixedThreadPool::default()` is equivalent to `FixedThreadPoolBuilder::default().build()` except that build errors become a panic; prefer the builder's `build()` when you must handle `ThreadPoolBuildError`.
 
 ## Queueing and Rejection
 
@@ -109,6 +112,8 @@ assert_eq!(handle.get()?, 42);
 pool.shutdown();
 # Ok::<(), Box<dyn std::error::Error>>(())
 ```
+
+With default builder settings you can also write `let pool = FixedThreadPool::default();`—same as `FixedThreadPoolBuilder::default().build()` but panics if worker threads cannot be spawned.
 
 ### Delayed task scheduler
 
