@@ -21,14 +21,3 @@ pub enum FixedThreadPoolLifecycle {
     /// The pool rejects new tasks and cancels queued work.
     Stopping,
 }
-
-impl FixedThreadPoolLifecycle {
-    /// Returns whether this lifecycle still accepts submissions.
-    ///
-    /// # Returns
-    ///
-    /// `true` only while the pool is running.
-    pub const fn is_running(self) -> bool {
-        matches!(self, Self::Running)
-    }
-}

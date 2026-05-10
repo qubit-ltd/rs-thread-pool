@@ -515,7 +515,7 @@ impl FixedThreadPoolInner {
     pub fn shutdown(&self) {
         self.accepting.store(false, Ordering::Release);
         self.state.write(|state| {
-            if state.lifecycle.is_running() {
+            if state.lifecycle == FixedThreadPoolLifecycle::Running {
                 state.lifecycle = FixedThreadPoolLifecycle::Shutdown;
             }
         });
@@ -591,7 +591,7 @@ impl FixedThreadPoolInner {
     ///
     /// `true` when lifecycle is not running.
     pub fn is_shutdown(&self) -> bool {
-        self.state.read(|state| !state.lifecycle.is_running())
+        self.state.read(|state| state.lifecycle != FixedThreadPoolLifecycle::Running)
     }
 
     /// Returns whether the pool is terminated.
@@ -613,7 +613,7 @@ impl FixedThreadPoolInner {
     ///
     /// `true` when the pool is terminal.
     fn is_terminated_locked(&self, state: &FixedThreadPoolState) -> bool {
-        !state.lifecycle.is_running()
+        state.lifecycle != FixedThreadPoolLifecycle::Running
             && state.live_workers == 0
             && self.queued_count() == 0
             && self.running_count() == 0
@@ -641,7 +641,7 @@ impl FixedThreadPoolInner {
             submitted_tasks,
             completed_tasks,
             cancelled_tasks,
-            shutdown: !state.lifecycle.is_running(),
+            shutdown: state.lifecycle != FixedThreadPoolLifecycle::Running,
             terminated: self.is_terminated_locked(state),
         })
     }

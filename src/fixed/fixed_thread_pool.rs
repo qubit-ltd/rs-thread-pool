@@ -45,14 +45,11 @@ pub struct FixedThreadPool {
 }
 
 impl FixedThreadPool {
-    /// Builds a fixed pool from validated builder options.
+    /// Builds a fixed pool from a validated [`FixedThreadPoolBuilder`].
     ///
     /// # Parameters
     ///
-    /// * `pool_size` - Number of workers to prestart.
-    /// * `queue_capacity` - Optional maximum queued task count.
-    /// * `thread_name_prefix` - Prefix used for worker thread names.
-    /// * `stack_size` - Optional worker stack size.
+    /// * `builder` - Configuration produced by [`FixedThreadPoolBuilder`].
     ///
     /// # Returns
     ///
@@ -61,12 +58,15 @@ impl FixedThreadPool {
     /// # Errors
     ///
     /// Returns [`ThreadPoolBuildError`] when a worker thread cannot be spawned.
-    pub(crate) fn build_with_options(
-        pool_size: usize,
-        queue_capacity: Option<usize>,
-        thread_name_prefix: String,
-        stack_size: Option<usize>,
+    pub(crate) fn new_with_builder(
+        builder: FixedThreadPoolBuilder,
     ) -> Result<Self, ThreadPoolBuildError> {
+        let FixedThreadPoolBuilder {
+            pool_size,
+            queue_capacity,
+            thread_name_prefix,
+            stack_size,
+        } = builder;
         let mut worker_runtimes = Vec::with_capacity(pool_size);
         let mut worker_queues = Vec::with_capacity(pool_size);
         for index in 0..pool_size {
@@ -168,6 +168,23 @@ impl FixedThreadPool {
     /// Snapshot containing queue, worker, and lifecycle counters.
     pub fn stats(&self) -> ThreadPoolStats {
         self.inner.stats()
+    }
+}
+
+impl Default for FixedThreadPool {
+    /// Creates a fixed thread pool using [`FixedThreadPoolBuilder::default`].
+    ///
+    /// # Returns
+    ///
+    /// A fixed thread pool with CPU parallelism defaults and prestarted workers.
+    ///
+    /// # Panics
+    ///
+    /// Panics when the default builder fails to spawn a worker thread.
+    fn default() -> Self {
+        FixedThreadPoolBuilder::default()
+            .build()
+            .expect("failed to build default FixedThreadPool")
     }
 }
 

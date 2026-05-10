@@ -24,13 +24,13 @@ const DEFAULT_FIXED_THREAD_NAME_PREFIX: &str = "qubit-fixed-thread-pool";
 #[derive(Debug, Clone)]
 pub struct FixedThreadPoolBuilder {
     /// Number of workers to prestart.
-    pool_size: usize,
+    pub(crate) pool_size: usize,
     /// Optional maximum queued task count.
-    queue_capacity: Option<usize>,
+    pub(crate) queue_capacity: Option<usize>,
     /// Prefix used for worker thread names.
-    thread_name_prefix: String,
+    pub(crate) thread_name_prefix: String,
     /// Optional worker stack size.
-    stack_size: Option<usize>,
+    pub(crate) stack_size: Option<usize>,
 }
 
 impl FixedThreadPoolBuilder {
@@ -121,12 +121,7 @@ impl FixedThreadPoolBuilder {
     /// worker thread cannot be spawned.
     pub fn build(self) -> Result<FixedThreadPool, ThreadPoolBuildError> {
         self.validate()?;
-        FixedThreadPool::build_with_options(
-            self.pool_size,
-            self.queue_capacity,
-            self.thread_name_prefix,
-            self.stack_size,
-        )
+        FixedThreadPool::new_with_builder(self)
     }
 
     /// Validates this builder configuration.
