@@ -214,34 +214,37 @@ Benchmark inputs and historical comparison data are kept under `test-data`.
 
 ### Latest local run
 
-The latest local run used `cargo bench --bench thread_pool_bench` on 2026-05-11
-with Rust 1.94.1 on an Apple M3 Max with 16 hardware threads. The tables below
-show Criterion mean wall-clock time for `thread_pool_submit_modes`; lower is
-better. Each case submits 2,000 tasks.
+The latest local run used
+`cargo bench --bench thread_pool_bench -- thread_pool_submit_modes` on
+2026-05-11 with Rust 1.94.1 on an Apple M3 Max with 16 hardware threads. The
+tables below show Criterion mean wall-clock time for `thread_pool_submit_modes`;
+lower is better. Each case submits 2,000 tasks. The `submit_tracked` cases use
+the same channel-based task completion wait as `submit`, so the table compares
+submission modes without mixing in handle wait costs.
 
 #### `cpu_light`
 
 | Workers | `ThreadPool.submit` | `ThreadPool.submit_tracked` | `FixedThreadPool.submit` | `FixedThreadPool.submit_tracked` | `threadpool.execute` | Rayon |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 1 | 0.564 ms | 1.007 ms | 0.574 ms | 0.975 ms | 0.923 ms | 0.261 ms |
-| 4 | 2.179 ms | 2.464 ms | 1.276 ms | 1.553 ms | 1.130 ms | 0.140 ms |
-| 8 | 3.046 ms | 6.914 ms | 1.837 ms | 2.050 ms | 1.754 ms | 0.215 ms |
+| 1 | 0.444 ms | 0.546 ms | 0.388 ms | 0.439 ms | 0.386 ms | 0.144 ms |
+| 4 | 0.726 ms | 1.285 ms | 0.560 ms | 0.981 ms | 0.740 ms | 0.082 ms |
+| 8 | 1.758 ms | 4.561 ms | 0.967 ms | 1.402 ms | 1.065 ms | 0.142 ms |
 
 #### `cpu_medium`
 
 | Workers | `ThreadPool.submit` | `ThreadPool.submit_tracked` | `FixedThreadPool.submit` | `FixedThreadPool.submit_tracked` | `threadpool.execute` | Rayon |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 1 | 2.775 ms | 2.083 ms | 2.006 ms | 2.275 ms | 2.069 ms | 1.524 ms |
-| 4 | 1.655 ms | 1.232 ms | 2.014 ms | 1.406 ms | 2.040 ms | 0.582 ms |
-| 8 | 3.500 ms | 5.804 ms | 1.315 ms | 1.442 ms | 2.287 ms | 0.464 ms |
+| 1 | 2.031 ms | 2.133 ms | 2.029 ms | 2.115 ms | 2.037 ms | 1.439 ms |
+| 4 | 1.354 ms | 1.057 ms | 1.321 ms | 1.296 ms | 1.455 ms | 0.425 ms |
+| 8 | 1.902 ms | 3.868 ms | 0.959 ms | 1.280 ms | 2.022 ms | 0.391 ms |
 
 #### `cpu_heavy`
 
 | Workers | `ThreadPool.submit` | `ThreadPool.submit_tracked` | `FixedThreadPool.submit` | `FixedThreadPool.submit_tracked` | `threadpool.execute` | Rayon |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 1 | 14.836 ms | 14.414 ms | 14.301 ms | 14.286 ms | 14.169 ms | 11.277 ms |
-| 4 | 5.052 ms | 4.094 ms | 4.650 ms | 4.655 ms | 4.714 ms | 3.852 ms |
-| 8 | 3.410 ms | 2.837 ms | 3.418 ms | 2.696 ms | 4.353 ms | 2.627 ms |
+| 1 | 14.256 ms | 14.360 ms | 14.251 ms | 14.198 ms | 14.157 ms | 11.078 ms |
+| 4 | 4.384 ms | 4.588 ms | 4.715 ms | 4.533 ms | 4.594 ms | 3.311 ms |
+| 8 | 3.505 ms | 3.502 ms | 3.391 ms | 3.993 ms | 4.335 ms | 2.965 ms |
 
 ## Testing
 
