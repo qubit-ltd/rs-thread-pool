@@ -440,6 +440,7 @@ name = "qubit-executor"
 version = "0.2.0"
 dependencies = [
  "oneshot",
+ "parking_lot",
  "qubit-atomic",
  "qubit-function",
  "qubit-lock",
