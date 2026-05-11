@@ -30,6 +30,7 @@ implementations. It does not require Tokio or Rayon for normal use.
 - Lazy worker creation for the dynamic pool, with optional core-worker prestart.
 - Keep-alive and optional core-thread timeout for dynamic-pool workers.
 - Configurable worker thread name prefixes and stack sizes.
+- Worker and task lifecycle hooks for lightweight instrumentation.
 - `ThreadPoolStats` for observing pool configuration and runtime counters.
 - Shared `ExecutorService` lifecycle methods including `shutdown`, `stop`, and `wait_termination`.
 - Criterion benchmarks and test data for comparing Qubit pools with `threadpool` and Rayon.
@@ -48,6 +49,12 @@ predictable scheduling is more important than dynamic growth.
 
 `FixedThreadPool::default()` is equivalent to `FixedThreadPoolBuilder::default().build()` except that build errors become a panic; prefer the builder's `build()` when you must handle `ExecutorBuildError`.
 
+Internally, the dynamic pool keeps a global FIFO queue for externally submitted
+work and uses worker-owned deques with registered stealers for direct handoff
+to newly created workers. The fixed pool uses a lock-free global injector with
+targeted idle-worker wakeups, which keeps the fire-and-forget submit path small
+and predictable.
+
 ## Queueing and Rejection
 
 A pool can use either an unbounded queue or a bounded queue. Bounded queues make
@@ -58,6 +65,39 @@ A successful `submit` means only that the pool accepted a fire-and-forget
 runnable. Use `submit_callable` when you need a `TaskHandle` for the final
 result, or `submit_tracked` / `submit_tracked_callable` when you also need
 status and pre-start cancellation.
+
+## Lifecycle Hooks
+
+Both `ThreadPoolBuilder` and `FixedThreadPoolBuilder` support optional hooks for
+worker and task instrumentation:
+
+- `before_worker_start`
+- `after_worker_stop`
+- `before_task`
+- `after_task`
+
+Each hook receives the stable worker index and runs on the worker thread. Hook
+panics are caught and ignored so instrumentation cannot terminate workers or
+corrupt executor accounting. Keep hooks short; they are part of the execution
+hot path.
+
+```rust
+use qubit_thread_pool::{ExecutorService, FixedThreadPool};
+
+let pool = FixedThreadPool::builder()
+    .pool_size(4)
+    .before_task(|worker| {
+        std::hint::black_box(worker);
+    })
+    .after_task(|worker| {
+        std::hint::black_box(worker);
+    })
+    .build()?;
+
+pool.submit(|| Ok::<(), std::io::Error>(()))?;
+pool.shutdown();
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
 
 ## Shutdown Behavior
 
@@ -161,6 +201,14 @@ Run the benchmark suite with:
 ```bash
 cargo bench --bench thread_pool_bench
 ```
+
+The submission-mode benchmark compares `ThreadPool.submit`,
+`ThreadPool.submit_tracked`, `FixedThreadPool.submit`,
+`FixedThreadPool.submit_tracked`, the external `threadpool` crate, and Rayon on
+`cpu_light`, `cpu_medium`, and `cpu_heavy` tasks. CPU task costs are
+deterministically varied with a bell-shaped distribution so worker scheduling
+and stealing behavior are visible instead of every task completing at the same
+time.
 
 Benchmark inputs and historical comparison data are kept under `test-data`.
 

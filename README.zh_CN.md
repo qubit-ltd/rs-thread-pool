@@ -25,6 +25,7 @@ Qubit Thread Pool 为同步工作提供基于 OS 线程的 `ExecutorService` 实
 - 动态池支持懒创建 worker，也支持预启动 core worker。
 - 动态池支持 keep-alive 与可选 core 线程超时。
 - 支持配置 worker 线程名前缀和栈大小。
+- 支持 worker 与 task 生命周期 hook，用于轻量级观测。
 - 提供 `ThreadPoolStats`，用于观察线程池配置和运行时计数。
 - 共享 `ExecutorService` 生命周期方法，包括 `shutdown`、`stop` 和 `wait_termination`。
 - 提供 Criterion benchmark 与测试数据，用于对比 Qubit 线程池、`threadpool` 和 Rayon。
@@ -37,11 +38,42 @@ Qubit Thread Pool 为同步工作提供基于 OS 线程的 `ExecutorService` 实
 
 `FixedThreadPool::default()` 与 `FixedThreadPoolBuilder::default().build()` 等价，但构建失败会转为 panic；若需要处理错误，请使用 builder 的 `build()` 并处理 `ExecutorBuildError`。
 
+内部实现上，动态池对外部提交使用全局 FIFO 队列，并为新建 worker 的直接任务交接保留 worker-owned deque 与 registered stealer。固定池使用 lock-free 全局 injector，并只唤醒有需要的 idle worker，使 fire-and-forget submit 路径更短且更可预测。
+
 ## 排队与拒绝
 
 线程池可以使用无界队列或有界队列。有界队列能明确表达背压：当线程池无法接收任务时，提交会返回 `RejectedExecution::Saturated`，而不是静默增加内存使用。
 
 `submit` 成功只表示线程池接受了一个 fire-and-forget runnable。需要最终结果时使用 `submit_callable` 获取 `TaskHandle`；还需要状态和启动前取消时，使用 `submit_tracked` 或 `submit_tracked_callable`。
+
+## 生命周期 Hook
+
+`ThreadPoolBuilder` 与 `FixedThreadPoolBuilder` 都支持可选的 worker / task 观测 hook：
+
+- `before_worker_start`
+- `after_worker_stop`
+- `before_task`
+- `after_task`
+
+每个 hook 都会收到稳定的 worker index，并在 worker 线程上执行。hook 发生 panic 时会被捕获并忽略，因此观测代码不会杀死 worker，也不会破坏 executor 计数。hook 位于执行热路径上，应该保持短小。
+
+```rust
+use qubit_thread_pool::{ExecutorService, FixedThreadPool};
+
+let pool = FixedThreadPool::builder()
+    .pool_size(4)
+    .before_task(|worker| {
+        std::hint::black_box(worker);
+    })
+    .after_task(|worker| {
+        std::hint::black_box(worker);
+    })
+    .build()?;
+
+pool.submit(|| Ok::<(), std::io::Error>(()))?;
+pool.shutdown();
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
 
 ## 关闭行为
 
@@ -129,6 +161,8 @@ CPU 密集型、适合 divide-and-conquer 的工作，优先使用 `qubit-rayon-
 ```bash
 cargo bench --bench thread_pool_bench
 ```
+
+提交模式 benchmark 会对比 `ThreadPool.submit`、`ThreadPool.submit_tracked`、`FixedThreadPool.submit`、`FixedThreadPool.submit_tracked`、外部 `threadpool` crate 和 Rayon，并覆盖 `cpu_light`、`cpu_medium`、`cpu_heavy` 三类任务。CPU 任务耗时使用确定性的钟形分布生成，避免所有任务几乎同时完成，从而更容易体现调度与 stealing 行为差异。
 
 benchmark 输入与历史对比数据保存在 `test-data` 下。
 
