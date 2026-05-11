@@ -52,10 +52,7 @@ impl PoolJob {
         run: Box<dyn FnOnce() + Send + 'static>,
         cancel: Box<dyn FnOnce() + Send + 'static>,
     ) -> Self {
-        Self::Completable {
-            run,
-            cancel,
-        }
+        Self::Completable { run, cancel }
     }
 
     /// Creates a pool job from a typed callable task and completion endpoint.
