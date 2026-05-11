@@ -29,7 +29,7 @@ doctest = true
 crossbeam-deque = "0.8"
 thiserror = "2.0"
 
-qubit-executor = { path = "../rs-executor" }
+qubit-executor = "0.2.1"
 qubit-function = "0.13"
 qubit-lock = "0.4"
 
