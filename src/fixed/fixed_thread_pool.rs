@@ -178,7 +178,6 @@ impl FixedThreadPool {
     pub fn stats(&self) -> ThreadPoolStats {
         self.inner.stats()
     }
-
 }
 
 impl Default for FixedThreadPool {

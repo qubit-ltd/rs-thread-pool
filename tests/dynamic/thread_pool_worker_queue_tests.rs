@@ -75,7 +75,7 @@ fn test_thread_pool_worker_queue_path_is_drained_by_public_stop() {
     let report = pool.stop();
 
     assert_eq!(report.queued, 1);
-    assert!(matches!(queued.get(), Err(TaskExecutionError::Cancelled)));
+    assert!(matches!(queued.get(), Err(TaskExecutionError::Dropped)));
     release_tx
         .send(())
         .expect("blocking task should receive release signal");

@@ -7,12 +7,10 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-use std::{
-    sync::atomic::{
-        AtomicBool,
-        AtomicUsize,
-        Ordering,
-    },
+use std::sync::atomic::{
+    AtomicBool,
+    AtomicUsize,
+    Ordering,
 };
 
 use crossbeam_deque::{

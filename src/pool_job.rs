@@ -77,6 +77,7 @@ impl PoolJob {
         R: Send + 'static,
         E: Send + 'static,
     {
+        completion.accept();
         let completion = Arc::new(Mutex::new(Some(completion)));
         let run_completion = Arc::clone(&completion);
         let cancel_completion = Arc::clone(&completion);
@@ -91,13 +92,10 @@ impl PoolJob {
                 });
             }),
             Box::new(move || {
-                let completion = cancel_completion
+                let _completion = cancel_completion
                     .lock()
                     .unwrap_or_else(std::sync::PoisonError::into_inner)
                     .take();
-                let _ignored = completion.map(|completion| {
-                    completion.cancel();
-                });
             }),
         )
     }
