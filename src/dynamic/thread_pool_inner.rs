@@ -38,6 +38,7 @@ use super::thread_pool_worker_runtime::ThreadPoolWorkerRuntime;
 use crate::{
     ExecutorBuildError,
     PoolJob,
+    ThreadPoolHooks,
     ThreadPoolStats,
 };
 
@@ -53,6 +54,8 @@ pub(crate) struct ThreadPoolInner {
     thread_name_prefix: String,
     /// Optional stack size in bytes for newly spawned workers.
     stack_size: Option<usize>,
+    /// Worker and task lifecycle hooks.
+    hooks: ThreadPoolHooks,
 }
 
 impl ThreadPoolInner {
@@ -65,7 +68,7 @@ impl ThreadPoolInner {
     /// # Returns
     ///
     /// A shared-state object ready to accept worker and queue operations.
-    pub(super) fn new(config: ThreadPoolConfig) -> Self {
+    pub(super) fn new(config: ThreadPoolConfig, hooks: ThreadPoolHooks) -> Self {
         let mut config = config;
         let thread_name_prefix = std::mem::take(&mut config.thread_name_prefix);
         let stack_size = config.stack_size;
@@ -75,7 +78,18 @@ impl ThreadPoolInner {
             next_enqueue_worker: AtomicUsize::new(0),
             thread_name_prefix,
             stack_size,
+            hooks,
         }
+    }
+
+    /// Returns the hook set used by worker threads.
+    ///
+    /// # Returns
+    ///
+    /// Worker and task lifecycle hooks.
+    #[inline]
+    pub(crate) fn hooks(&self) -> &ThreadPoolHooks {
+        &self.hooks
     }
 
     /// Acquires the pool state monitor while tolerating poisoned locks.
@@ -336,7 +350,7 @@ impl ThreadPoolInner {
             builder = builder.stack_size(stack_size);
         }
         match builder.spawn(move || {
-            ThreadPoolWorker::run(worker_inner, runtime, None);
+            ThreadPoolWorker::run(worker_inner, runtime);
         }) {
             Ok(_) => Ok(()),
             Err(source) => {

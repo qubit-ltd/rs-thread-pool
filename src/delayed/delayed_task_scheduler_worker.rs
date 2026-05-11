@@ -43,7 +43,7 @@ impl DelayedTaskSchedulerWorker {
 fn run_delayed_scheduler(inner: Arc<DelayedTaskSchedulerInner>) {
     loop {
         let task = {
-            let mut state = inner.state.lock().expect("scheduler state should lock");
+            let mut state = inner.state.lock();
             loop {
                 prune_cancelled_front(&mut state);
                 if state.lifecycle == ExecutorServiceLifecycle::Stopping {
@@ -55,19 +55,13 @@ fn run_delayed_scheduler(inner: Arc<DelayedTaskSchedulerInner>) {
                     return;
                 }
                 let Some(next_deadline) = state.tasks.peek().map(|task| task.deadline) else {
-                    state = inner
-                        .condition
-                        .wait(state)
-                        .expect("scheduler state wait should not poison");
+                    state = state.wait();
                     continue;
                 };
                 let now = Instant::now();
                 if next_deadline > now {
                     let timeout = next_deadline.saturating_duration_since(now);
-                    let (next_state, _) = inner
-                        .condition
-                        .wait_timeout(state, timeout)
-                        .expect("scheduler state wait should not poison");
+                    let (next_state, _) = state.wait_timeout(timeout);
                     state = next_state;
                     continue;
                 }
@@ -85,7 +79,7 @@ fn run_delayed_scheduler(inner: Arc<DelayedTaskSchedulerInner>) {
             let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(action));
             inner.running_task_count.fetch_sub(1, Ordering::AcqRel);
             inner.completed_task_count.fetch_add(1, Ordering::AcqRel);
-            inner.condition.notify_all();
+            inner.state.notify_all();
         }
     }
 }

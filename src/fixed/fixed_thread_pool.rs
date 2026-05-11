@@ -67,13 +67,18 @@ impl FixedThreadPool {
             queue_capacity,
             thread_name_prefix,
             stack_size,
+            hooks,
         } = builder;
         let mut worker_runtimes = Vec::with_capacity(pool_size);
         for index in 0..pool_size {
             let worker_runtime = FixedWorkerRuntime::new(index);
             worker_runtimes.push(worker_runtime);
         }
-        let inner = Arc::new(FixedThreadPoolInner::new(pool_size, queue_capacity));
+        let inner = Arc::new(FixedThreadPoolInner::with_hooks(
+            pool_size,
+            queue_capacity,
+            hooks,
+        ));
         for (index, worker_runtime) in worker_runtimes.into_iter().enumerate() {
             inner.reserve_worker_slot();
             let worker_inner = Arc::clone(&inner);

@@ -20,6 +20,10 @@ use qubit_executor::service::ExecutorServiceLifecycle;
 use super::fixed_thread_pool_inner::FixedThreadPoolInner;
 use super::fixed_thread_pool_state::FixedThreadPoolState;
 use super::fixed_worker_runtime::FixedWorkerRuntime;
+use crate::{
+    PoolJob,
+    ThreadPoolHooks,
+};
 
 /// Number of short queue probes before a fixed worker parks.
 const IDLE_SPIN_LIMIT: usize = 256;
@@ -35,9 +39,11 @@ impl FixedWorker {
     /// * `inner` - Shared fixed-pool state.
     /// * `worker_runtime` - Queue runtime owned by this worker.
     pub fn run(inner: Arc<FixedThreadPoolInner>, worker_runtime: FixedWorkerRuntime) {
+        let worker_index = worker_runtime.worker_index();
+        inner.hooks().run_before_worker_start(worker_index);
         loop {
             if let Some(job) = inner.try_take_job() {
-                job.run();
+                run_job(job, inner.hooks(), worker_index);
                 inner.finish_running_job();
                 continue;
             }
@@ -45,8 +51,22 @@ impl FixedWorker {
                 break;
             }
         }
-        worker_exited(&inner, worker_runtime.worker_index());
+        inner.hooks().run_after_worker_stop(worker_index);
+        worker_exited(&inner, worker_index);
     }
+}
+
+/// Runs one claimed job with configured task hooks.
+///
+/// # Parameters
+///
+/// * `job` - Claimed job to execute.
+/// * `hooks` - Hook set configured for the pool.
+/// * `worker_index` - Stable index of the worker running the job.
+fn run_job(job: PoolJob, hooks: &ThreadPoolHooks, worker_index: usize) {
+    hooks.run_before_task(worker_index);
+    job.run();
+    hooks.run_after_task(worker_index);
 }
 
 /// Waits until visible work exists or the worker should exit.

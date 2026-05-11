@@ -15,7 +15,10 @@ use qubit_lock::WaitTimeoutStatus;
 use super::thread_pool_inner::ThreadPoolInner;
 use super::thread_pool_state::ThreadPoolState;
 use super::thread_pool_worker_runtime::ThreadPoolWorkerRuntime;
-use crate::PoolJob;
+use crate::{
+    PoolJob,
+    ThreadPoolHooks,
+};
 
 /// Worker loop entry point for dynamic thread pools.
 pub(crate) struct ThreadPoolWorker;
@@ -26,28 +29,37 @@ impl ThreadPoolWorker {
     /// # Parameters
     ///
     /// * `inner` - Shared pool state used for queue access and counters.
-    /// * `worker_queue` - Local queue owned by this worker.
-    /// * `first_task` - Optional job assigned directly when the worker is spawned.
-    pub(crate) fn run(
-        inner: Arc<ThreadPoolInner>,
-        worker_runtime: ThreadPoolWorkerRuntime,
-        first_task: Option<PoolJob>,
-    ) {
-        if let Some(job) = first_task {
-            job.run();
-            finish_running_job(&inner);
-        }
+    /// * `worker_runtime` - Local runtime owned by this worker.
+    pub(crate) fn run(inner: Arc<ThreadPoolInner>, worker_runtime: ThreadPoolWorkerRuntime) {
+        let worker_index = worker_runtime.worker_index();
+        inner.hooks().run_before_worker_start(worker_index);
         loop {
             let job = wait_for_job(&inner, &worker_runtime);
             match job {
                 Some(job) => {
-                    job.run();
+                    run_job(job, inner.hooks(), worker_index);
                     finish_running_job(&inner);
                 }
-                None => return,
+                None => {
+                    inner.hooks().run_after_worker_stop(worker_index);
+                    return;
+                }
             }
         }
     }
+}
+
+/// Runs one claimed job with configured task hooks.
+///
+/// # Parameters
+///
+/// * `job` - Claimed job to execute.
+/// * `hooks` - Hook set configured for the pool.
+/// * `worker_index` - Stable index of the worker running the job.
+fn run_job(job: PoolJob, hooks: &ThreadPoolHooks, worker_index: usize) {
+    hooks.run_before_task(worker_index);
+    job.run();
+    hooks.run_after_task(worker_index);
 }
 
 /// Waits until a worker can take a job or should exit.

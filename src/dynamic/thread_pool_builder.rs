@@ -16,7 +16,10 @@ use std::{
 use super::thread_pool::ThreadPool;
 use super::thread_pool_config::ThreadPoolConfig;
 use super::thread_pool_inner::ThreadPoolInner;
-use crate::ExecutorBuildError;
+use crate::{
+    ExecutorBuildError,
+    ThreadPoolHooks,
+};
 
 /// Default thread name prefix used by [`ThreadPoolBuilder`].
 const DEFAULT_THREAD_NAME_PREFIX: &str = "qubit-thread-pool";
@@ -47,6 +50,8 @@ pub struct ThreadPoolBuilder {
     allow_core_thread_timeout: bool,
     /// Whether [`Self::build`] should start all core workers eagerly.
     prestart_core_threads: bool,
+    /// Optional worker and task lifecycle hooks.
+    hooks: ThreadPoolHooks,
 }
 
 impl ThreadPoolBuilder {
@@ -208,6 +213,78 @@ impl ThreadPoolBuilder {
         self
     }
 
+    /// Installs a callback invoked when a worker thread starts.
+    ///
+    /// # Parameters
+    ///
+    /// * `hook` - Callback receiving the stable worker index.
+    ///
+    /// # Returns
+    ///
+    /// This builder for fluent configuration.
+    #[inline]
+    pub fn before_worker_start<F>(mut self, hook: F) -> Self
+    where
+        F: Fn(usize) + Send + Sync + 'static,
+    {
+        self.hooks = self.hooks.before_worker_start(hook);
+        self
+    }
+
+    /// Installs a callback invoked before a worker thread exits.
+    ///
+    /// # Parameters
+    ///
+    /// * `hook` - Callback receiving the stable worker index.
+    ///
+    /// # Returns
+    ///
+    /// This builder for fluent configuration.
+    #[inline]
+    pub fn after_worker_stop<F>(mut self, hook: F) -> Self
+    where
+        F: Fn(usize) + Send + Sync + 'static,
+    {
+        self.hooks = self.hooks.after_worker_stop(hook);
+        self
+    }
+
+    /// Installs a callback invoked before each job is run.
+    ///
+    /// # Parameters
+    ///
+    /// * `hook` - Callback receiving the stable worker index.
+    ///
+    /// # Returns
+    ///
+    /// This builder for fluent configuration.
+    #[inline]
+    pub fn before_task<F>(mut self, hook: F) -> Self
+    where
+        F: Fn(usize) + Send + Sync + 'static,
+    {
+        self.hooks = self.hooks.before_task(hook);
+        self
+    }
+
+    /// Installs a callback invoked after each job is run.
+    ///
+    /// # Parameters
+    ///
+    /// * `hook` - Callback receiving the stable worker index.
+    ///
+    /// # Returns
+    ///
+    /// This builder for fluent configuration.
+    #[inline]
+    pub fn after_task<F>(mut self, hook: F) -> Self
+    where
+        F: Fn(usize) + Send + Sync + 'static,
+    {
+        self.hooks = self.hooks.after_task(hook);
+        self
+    }
+
     /// Builds the configured thread pool.
     ///
     /// # Returns
@@ -222,15 +299,18 @@ impl ThreadPoolBuilder {
     pub fn build(self) -> Result<ThreadPool, ExecutorBuildError> {
         self.validate()?;
         let prestart_core_threads = self.prestart_core_threads;
-        let inner = Arc::new(ThreadPoolInner::new(ThreadPoolConfig {
-            core_pool_size: self.core_pool_size,
-            maximum_pool_size: self.maximum_pool_size,
-            queue_capacity: self.queue_capacity,
-            thread_name_prefix: self.thread_name_prefix,
-            stack_size: self.stack_size,
-            keep_alive: self.keep_alive,
-            allow_core_thread_timeout: self.allow_core_thread_timeout,
-        }));
+        let inner = Arc::new(ThreadPoolInner::new(
+            ThreadPoolConfig {
+                core_pool_size: self.core_pool_size,
+                maximum_pool_size: self.maximum_pool_size,
+                queue_capacity: self.queue_capacity,
+                thread_name_prefix: self.thread_name_prefix,
+                stack_size: self.stack_size,
+                keep_alive: self.keep_alive,
+                allow_core_thread_timeout: self.allow_core_thread_timeout,
+            },
+            self.hooks,
+        ));
         if prestart_core_threads {
             inner
                 .prestart_all_core_threads()
@@ -291,6 +371,7 @@ impl Default for ThreadPoolBuilder {
             keep_alive: DEFAULT_KEEP_ALIVE,
             allow_core_thread_timeout: false,
             prestart_core_threads: false,
+            hooks: ThreadPoolHooks::default(),
         }
     }
 }

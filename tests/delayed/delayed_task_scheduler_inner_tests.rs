@@ -60,7 +60,7 @@ fn test_delayed_task_scheduler_inner_stop_cancels_heap_tasks() {
     let task_state = Arc::new(AtomicU8::new(DelayedTaskState::PENDING));
 
     {
-        let mut state = inner.state.lock().expect("scheduler state should lock");
+        let mut state = inner.state.lock();
         state.tasks.push(ScheduledTask::new(
             Instant::now() + Duration::from_secs(10),
             0,
@@ -86,13 +86,13 @@ fn test_delayed_task_scheduler_inner_lifecycle_reports_state_and_termination() {
     assert_eq!(inner.lifecycle(), ExecutorServiceLifecycle::Running);
 
     {
-        let mut state = inner.state.lock().expect("scheduler state should lock");
+        let mut state = inner.state.lock();
         state.lifecycle = ExecutorServiceLifecycle::ShuttingDown;
     }
     assert_eq!(inner.lifecycle(), ExecutorServiceLifecycle::ShuttingDown);
 
     {
-        let mut state = inner.state.lock().expect("scheduler state should lock");
+        let mut state = inner.state.lock();
         state.terminated = true;
     }
     assert_eq!(inner.lifecycle(), ExecutorServiceLifecycle::Terminated);

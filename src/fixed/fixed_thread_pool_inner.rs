@@ -31,6 +31,7 @@ use super::fixed_submit_guard::FixedSubmitGuard;
 use super::fixed_thread_pool_state::FixedThreadPoolState;
 use crate::{
     PoolJob,
+    ThreadPoolHooks,
     ThreadPoolStats,
 };
 
@@ -68,6 +69,8 @@ pub struct FixedThreadPoolInner {
     pub completed_task_count: AtomicUsize,
     /// Total number of queued jobs cancelled by immediate shutdown.
     pub cancelled_task_count: AtomicUsize,
+    /// Worker and task lifecycle hooks.
+    hooks: ThreadPoolHooks,
 }
 
 impl FixedThreadPoolInner {
@@ -82,6 +85,25 @@ impl FixedThreadPoolInner {
     ///
     /// A shared state object ready for worker startup.
     pub fn new(pool_size: usize, queue_capacity: Option<usize>) -> Self {
+        Self::with_hooks(pool_size, queue_capacity, ThreadPoolHooks::default())
+    }
+
+    /// Creates shared state with explicit lifecycle hooks.
+    ///
+    /// # Parameters
+    ///
+    /// * `pool_size` - Number of workers that will be prestarted.
+    /// * `queue_capacity` - Optional queue capacity.
+    /// * `hooks` - Worker and task lifecycle hooks.
+    ///
+    /// # Returns
+    ///
+    /// A shared state object ready for worker startup.
+    pub(crate) fn with_hooks(
+        pool_size: usize,
+        queue_capacity: Option<usize>,
+        hooks: ThreadPoolHooks,
+    ) -> Self {
         Self {
             pool_size,
             state: Monitor::new(FixedThreadPoolState::new()),
@@ -98,7 +120,18 @@ impl FixedThreadPoolInner {
             submitted_task_count: AtomicUsize::new(0),
             completed_task_count: AtomicUsize::new(0),
             cancelled_task_count: AtomicUsize::new(0),
+            hooks,
         }
+    }
+
+    /// Returns the hook set used by worker threads.
+    ///
+    /// # Returns
+    ///
+    /// Worker and task lifecycle hooks.
+    #[inline]
+    pub fn hooks(&self) -> &ThreadPoolHooks {
+        &self.hooks
     }
 
     /// Returns the fixed worker count.

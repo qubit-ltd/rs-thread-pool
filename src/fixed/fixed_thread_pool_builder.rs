@@ -12,7 +12,10 @@
 use std::thread;
 
 use super::fixed_thread_pool::FixedThreadPool;
-use crate::ExecutorBuildError;
+use crate::{
+    ExecutorBuildError,
+    ThreadPoolHooks,
+};
 
 /// Default thread name prefix used by [`FixedThreadPoolBuilder`].
 const DEFAULT_FIXED_THREAD_NAME_PREFIX: &str = "qubit-fixed-thread-pool";
@@ -31,6 +34,8 @@ pub struct FixedThreadPoolBuilder {
     pub(crate) thread_name_prefix: String,
     /// Optional worker stack size.
     pub(crate) stack_size: Option<usize>,
+    /// Optional worker and task lifecycle hooks.
+    pub(crate) hooks: ThreadPoolHooks,
 }
 
 impl FixedThreadPoolBuilder {
@@ -109,6 +114,74 @@ impl FixedThreadPoolBuilder {
         self
     }
 
+    /// Installs a callback invoked when a worker thread starts.
+    ///
+    /// # Parameters
+    ///
+    /// * `hook` - Callback receiving the stable worker index.
+    ///
+    /// # Returns
+    ///
+    /// This builder for fluent configuration.
+    pub fn before_worker_start<F>(mut self, hook: F) -> Self
+    where
+        F: Fn(usize) + Send + Sync + 'static,
+    {
+        self.hooks = self.hooks.before_worker_start(hook);
+        self
+    }
+
+    /// Installs a callback invoked before a worker thread exits.
+    ///
+    /// # Parameters
+    ///
+    /// * `hook` - Callback receiving the stable worker index.
+    ///
+    /// # Returns
+    ///
+    /// This builder for fluent configuration.
+    pub fn after_worker_stop<F>(mut self, hook: F) -> Self
+    where
+        F: Fn(usize) + Send + Sync + 'static,
+    {
+        self.hooks = self.hooks.after_worker_stop(hook);
+        self
+    }
+
+    /// Installs a callback invoked before each job is run.
+    ///
+    /// # Parameters
+    ///
+    /// * `hook` - Callback receiving the stable worker index.
+    ///
+    /// # Returns
+    ///
+    /// This builder for fluent configuration.
+    pub fn before_task<F>(mut self, hook: F) -> Self
+    where
+        F: Fn(usize) + Send + Sync + 'static,
+    {
+        self.hooks = self.hooks.before_task(hook);
+        self
+    }
+
+    /// Installs a callback invoked after each job is run.
+    ///
+    /// # Parameters
+    ///
+    /// * `hook` - Callback receiving the stable worker index.
+    ///
+    /// # Returns
+    ///
+    /// This builder for fluent configuration.
+    pub fn after_task<F>(mut self, hook: F) -> Self
+    where
+        F: Fn(usize) + Send + Sync + 'static,
+    {
+        self.hooks = self.hooks.after_task(hook);
+        self
+    }
+
     /// Builds the configured fixed thread pool.
     ///
     /// # Returns
@@ -160,6 +233,7 @@ impl Default for FixedThreadPoolBuilder {
             queue_capacity: None,
             thread_name_prefix: DEFAULT_FIXED_THREAD_NAME_PREFIX.to_owned(),
             stack_size: None,
+            hooks: ThreadPoolHooks::default(),
         }
     }
 }

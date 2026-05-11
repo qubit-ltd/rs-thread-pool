@@ -7,20 +7,17 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-use std::sync::{
-    Condvar,
-    Mutex,
-    atomic::{
-        AtomicU8,
-        AtomicUsize,
-        Ordering,
-    },
+use std::sync::atomic::{
+    AtomicU8,
+    AtomicUsize,
+    Ordering,
 };
 
 use qubit_executor::service::{
     ExecutorServiceLifecycle,
     StopReport,
 };
+use qubit_lock::Monitor;
 
 use super::delayed_task_scheduler_state::DelayedTaskSchedulerState;
 use super::delayed_task_state::{
@@ -31,9 +28,7 @@ use super::delayed_task_state::{
 /// Shared delayed scheduler state.
 pub struct DelayedTaskSchedulerInner {
     /// Mutable lifecycle and heap state.
-    pub state: Mutex<DelayedTaskSchedulerState>,
-    /// Wait set for scheduler state transitions and deadline changes.
-    pub condition: Condvar,
+    pub state: Monitor<DelayedTaskSchedulerState>,
     /// Number of tasks still pending in the delay heap.
     pub queued_task_count: AtomicUsize,
     /// Number of tasks currently executing on the scheduler thread.
@@ -52,8 +47,7 @@ impl DelayedTaskSchedulerInner {
     /// Shared scheduler state before its worker thread starts.
     pub fn new() -> Self {
         Self {
-            state: Mutex::new(DelayedTaskSchedulerState::new()),
-            condition: Condvar::new(),
+            state: Monitor::new(DelayedTaskSchedulerState::new()),
             queued_task_count: AtomicUsize::new(0),
             running_task_count: AtomicUsize::new(0),
             completed_task_count: AtomicUsize::new(0),
@@ -86,7 +80,7 @@ impl DelayedTaskSchedulerInner {
         let previous = self.queued_task_count.fetch_sub(1, Ordering::AcqRel);
         debug_assert!(previous > 0, "delayed scheduler queued counter underflow");
         self.cancelled_task_count.fetch_add(1, Ordering::AcqRel);
-        self.condition.notify_all();
+        self.state.notify_all();
     }
 
     /// Attempts to cancel a task state before it starts.
@@ -128,11 +122,12 @@ impl DelayedTaskSchedulerInner {
 
     /// Requests graceful shutdown.
     pub fn shutdown(&self) {
-        let mut state = self.state.lock().expect("scheduler state should lock");
-        if state.lifecycle == ExecutorServiceLifecycle::Running {
-            state.lifecycle = ExecutorServiceLifecycle::ShuttingDown;
-        }
-        self.condition.notify_all();
+        self.state.write(|state| {
+            if state.lifecycle == ExecutorServiceLifecycle::Running {
+                state.lifecycle = ExecutorServiceLifecycle::ShuttingDown;
+            }
+        });
+        self.state.notify_all();
     }
 
     /// Requests immediate shutdown and cancels all queued delayed tasks.
@@ -141,7 +136,7 @@ impl DelayedTaskSchedulerInner {
     ///
     /// Count-based shutdown report.
     pub fn stop(&self) -> StopReport {
-        let mut state = self.state.lock().expect("scheduler state should lock");
+        let mut state = self.state.lock();
         state.lifecycle = ExecutorServiceLifecycle::Stopping;
         let mut cancelled = 0;
         while let Some(task) = state.tasks.pop() {
@@ -150,7 +145,7 @@ impl DelayedTaskSchedulerInner {
             }
         }
         let running = self.running_count();
-        self.condition.notify_all();
+        self.state.notify_all();
         StopReport::new(cancelled, running, cancelled)
     }
 
@@ -160,8 +155,8 @@ impl DelayedTaskSchedulerInner {
     ///
     /// `true` if new delayed tasks are rejected.
     pub fn is_not_running(&self) -> bool {
-        let state = self.state.lock().expect("scheduler state should lock");
-        state.lifecycle != ExecutorServiceLifecycle::Running
+        self.state
+            .read(|state| state.lifecycle != ExecutorServiceLifecycle::Running)
     }
 
     /// Returns the current lifecycle state.
@@ -171,12 +166,13 @@ impl DelayedTaskSchedulerInner {
     /// [`ExecutorServiceLifecycle::Terminated`] after the worker has exited,
     /// otherwise the stored lifecycle state.
     pub fn lifecycle(&self) -> ExecutorServiceLifecycle {
-        let state = self.state.lock().expect("scheduler state should lock");
-        if state.terminated {
-            ExecutorServiceLifecycle::Terminated
-        } else {
-            state.lifecycle
-        }
+        self.state.read(|state| {
+            if state.terminated {
+                ExecutorServiceLifecycle::Terminated
+            } else {
+                state.lifecycle
+            }
+        })
     }
 
     /// Returns whether the scheduler thread has exited.
@@ -185,25 +181,18 @@ impl DelayedTaskSchedulerInner {
     ///
     /// `true` after shutdown and scheduler termination.
     pub fn is_terminated(&self) -> bool {
-        let state = self.state.lock().expect("scheduler state should lock");
-        state.terminated
+        self.state.read(|state| state.terminated)
     }
 
     /// Waits until the scheduler thread exits.
     pub fn wait_for_termination(&self) {
-        let mut state = self.state.lock().expect("scheduler state should lock");
-        while !state.terminated {
-            state = self
-                .condition
-                .wait(state)
-                .expect("scheduler state wait should not poison");
-        }
+        self.state.wait_until(|state| state.terminated, |_| ());
     }
 
     /// Marks the scheduler thread as terminated.
     pub fn terminate(&self, state: &mut DelayedTaskSchedulerState) {
         state.terminated = true;
-        self.condition.notify_all();
+        self.state.notify_all();
     }
 }
 

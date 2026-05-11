@@ -13,6 +13,7 @@ use std::{
     io,
     sync::{
         Arc,
+        Mutex,
         atomic::{
             AtomicBool,
             Ordering,
@@ -42,6 +43,43 @@ fn ok_unit_task() -> Result<(), io::Error> {
 
 fn ok_usize_task() -> Result<usize, io::Error> {
     Ok(42)
+}
+
+#[test]
+fn test_thread_pool_runs_configured_hooks() {
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let pool = ThreadPool::builder()
+        .pool_size(1)
+        .before_worker_start({
+            let events = Arc::clone(&events);
+            move |_| events.lock().expect("events should lock").push("start")
+        })
+        .before_task({
+            let events = Arc::clone(&events);
+            move |_| events.lock().expect("events should lock").push("before")
+        })
+        .after_task({
+            let events = Arc::clone(&events);
+            move |_| events.lock().expect("events should lock").push("after")
+        })
+        .after_worker_stop({
+            let events = Arc::clone(&events);
+            move |_| events.lock().expect("events should lock").push("stop")
+        })
+        .build()
+        .expect("thread pool should be created");
+
+    pool.submit(ok_unit_task as fn() -> Result<(), io::Error>)
+        .expect("thread pool should accept task");
+    pool.join();
+    pool.shutdown();
+    pool.wait_termination();
+
+    let events = events.lock().expect("events should lock");
+    assert!(events.contains(&"start"));
+    assert!(events.contains(&"before"));
+    assert!(events.contains(&"after"));
+    assert!(events.contains(&"stop"));
 }
 
 #[test]

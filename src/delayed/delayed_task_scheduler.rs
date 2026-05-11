@@ -128,11 +128,7 @@ impl DelayedTaskScheduler {
             }),
         );
         let deadline = Instant::now() + delay;
-        let mut state = self
-            .inner
-            .state
-            .lock()
-            .expect("scheduler state should lock");
+        let mut state = self.inner.state.lock();
         if state.lifecycle != ExecutorServiceLifecycle::Running {
             return Err(RejectedExecution::Shutdown);
         }
@@ -145,7 +141,7 @@ impl DelayedTaskScheduler {
             Box::new(task),
         ));
         self.inner.queued_task_count.fetch_add(1, Ordering::AcqRel);
-        self.inner.condition.notify_all();
+        self.inner.state.notify_all();
         Ok(handle)
     }
 

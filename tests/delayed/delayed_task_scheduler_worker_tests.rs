@@ -54,7 +54,7 @@ fn test_delayed_task_scheduler_worker_skips_empty_task_entry() {
     task.task = None;
 
     {
-        let mut state = inner.state.lock().expect("scheduler state should lock");
+        let mut state = inner.state.lock();
         state.tasks.push(task);
     }
     inner.queued_task_count.store(1, Ordering::Release);
@@ -65,9 +65,9 @@ fn test_delayed_task_scheduler_worker_skips_empty_task_entry() {
         std::thread::yield_now();
     }
     {
-        let mut state = inner.state.lock().expect("scheduler state should lock");
+        let mut state = inner.state.lock();
         state.lifecycle = ExecutorServiceLifecycle::Stopping;
-        inner.condition.notify_all();
+        inner.state.notify_all();
     }
 
     worker.join().expect("worker should exit");

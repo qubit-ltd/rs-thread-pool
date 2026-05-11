@@ -16,6 +16,7 @@ pub mod delayed;
 pub mod dynamic;
 pub mod fixed;
 mod pool_job;
+mod thread_pool_hooks;
 mod thread_pool_stats;
 
 pub use delayed::{
@@ -49,4 +50,5 @@ pub use qubit_executor::{
     TrackedTaskHandle,
     TryGet,
 };
+pub use thread_pool_hooks::ThreadPoolHooks;
 pub use thread_pool_stats::ThreadPoolStats;
