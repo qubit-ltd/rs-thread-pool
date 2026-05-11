@@ -13,7 +13,6 @@ use std::{
         AtomicUsize,
         Ordering,
     },
-    time::Duration,
 };
 
 use crossbeam_deque::{
@@ -33,9 +32,6 @@ use crate::{
     ThreadPoolHooks,
     ThreadPoolStats,
 };
-
-/// Maximum time an idle join wait may sleep before rechecking atomic counters.
-const IDLE_WAIT_RECHECK_INTERVAL: Duration = Duration::from_millis(1);
 
 /// Submit guard that leaves in-flight accounting on drop.
 struct FixedSubmitGuard<'a> {
@@ -73,8 +69,6 @@ pub struct FixedThreadPoolInner {
     pub idle_worker_count: AtomicUsize,
     /// Number of idle-worker wakeups already requested but not yet consumed.
     pub pending_worker_wakes: AtomicUsize,
-    /// Number of callers waiting for the pool to become idle.
-    pub idle_waiter_count: AtomicUsize,
     /// Number of callers waiting for in-flight submitters to leave admission.
     pub submit_waiter_count: AtomicUsize,
     /// Lock-free queue for externally submitted jobs.
@@ -120,7 +114,6 @@ impl FixedThreadPoolInner {
             inflight_submissions: AtomicUsize::new(0),
             idle_worker_count: AtomicUsize::new(0),
             pending_worker_wakes: AtomicUsize::new(0),
-            idle_waiter_count: AtomicUsize::new(0),
             submit_waiter_count: AtomicUsize::new(0),
             global_queue: Injector::new(),
             queue_capacity,
@@ -298,15 +291,6 @@ impl FixedThreadPoolInner {
         );
     }
 
-    /// Returns whether any caller is waiting for the pool to become idle.
-    ///
-    /// # Returns
-    ///
-    /// `true` when [`Self::wait_until_idle`] has at least one active waiter.
-    pub fn has_idle_waiters(&self) -> bool {
-        self.idle_waiter_count.load(Ordering::Acquire) > 0
-    }
-
     /// Returns whether any caller is waiting for submit admission to drain.
     ///
     /// # Returns
@@ -315,26 +299,6 @@ impl FixedThreadPoolInner {
     /// leaves admission.
     pub fn has_submit_waiters(&self) -> bool {
         self.submit_waiter_count.load(Ordering::Acquire) > 0
-    }
-
-    /// Returns whether no accepted or in-flight work remains.
-    ///
-    /// # Returns
-    ///
-    /// `true` when no submitter is publishing a job, no job is queued, and no
-    /// worker-held job is running.
-    pub fn is_idle(&self) -> bool {
-        let submitted = self.submitted_task_count.load(Ordering::Acquire);
-        let completed = self.completed_task_count.load(Ordering::Acquire);
-        let cancelled = self.cancelled_task_count.load(Ordering::Acquire);
-        self.inflight_count() == 0 && submitted == completed + cancelled
-    }
-
-    /// Notifies idle waiters when the pool has become idle.
-    pub fn notify_idle_waiters_if_idle(&self) {
-        if self.has_idle_waiters() && self.is_idle() {
-            self.notify_waiters_after_atomic_change();
-        }
     }
 
     /// Notifies monitor waiters after an atomic-only condition change.
@@ -423,8 +387,6 @@ impl FixedThreadPoolInner {
         self.completed_task_count.fetch_add(1, Ordering::Release);
         if previous == 1 && self.queued_count() == 0 {
             self.notify_waiters_after_atomic_change();
-        } else {
-            self.notify_idle_waiters_if_idle();
         }
     }
 
@@ -459,26 +421,6 @@ impl FixedThreadPoolInner {
     pub fn wait_for_termination(&self) {
         self.state
             .wait_until(|state| self.is_terminated_locked(state), |_| ());
-    }
-
-    /// Blocks until all currently accepted work has completed.
-    ///
-    /// This method waits for queued, running, and in-flight submissions to
-    /// drain, but it does not request shutdown and does not wait for worker
-    /// threads to exit.
-    pub fn wait_until_idle(&self) {
-        self.idle_waiter_count.fetch_add(1, Ordering::AcqRel);
-        self.submit_waiter_count.fetch_add(1, Ordering::AcqRel);
-        let mut state = self.state.lock();
-        while !self.is_idle() {
-            let (next_state, _) = state.wait_timeout(IDLE_WAIT_RECHECK_INTERVAL);
-            state = next_state;
-        }
-        drop(state);
-        let previous = self.idle_waiter_count.fetch_sub(1, Ordering::AcqRel);
-        debug_assert!(previous > 0, "fixed pool idle waiter counter underflow");
-        let previous = self.submit_waiter_count.fetch_sub(1, Ordering::AcqRel);
-        debug_assert!(previous > 0, "fixed pool submit waiter counter underflow");
     }
 
     /// Requests graceful shutdown.

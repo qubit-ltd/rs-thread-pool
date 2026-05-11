@@ -28,17 +28,22 @@ use qubit_thread_pool::{
 fn test_fixed_worker_runs_public_submitted_task() {
     let pool = FixedThreadPool::new(2).expect("fixed thread pool should build");
     let counter = Arc::new(AtomicUsize::new(0));
+    let mut handles = Vec::new();
 
     for _ in 0..8 {
         let counter = Arc::clone(&counter);
-        pool.submit(move || {
-            counter.fetch_add(1, Ordering::Relaxed);
-            Ok::<_, io::Error>(())
-        })
-        .expect("task should be accepted");
+        handles.push(
+            pool.submit_tracked(move || {
+                counter.fetch_add(1, Ordering::Relaxed);
+                Ok::<_, io::Error>(())
+            })
+            .expect("task should be accepted"),
+        );
     }
 
-    pool.join();
+    for handle in handles {
+        handle.get().expect("task should complete successfully");
+    }
     assert_eq!(counter.load(Ordering::Relaxed), 8);
 
     pool.shutdown();

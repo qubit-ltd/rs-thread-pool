@@ -24,16 +24,17 @@ fn test_fixed_thread_pool_inner_tracks_public_task_counts() {
     let (started_sender, started_receiver) = mpsc::channel();
     let (release_sender, release_receiver) = mpsc::channel();
 
-    pool.submit(move || {
-        started_sender
-            .send(())
-            .expect("test should observe task start");
-        release_receiver
-            .recv()
-            .expect("test should release running task");
-        Ok::<_, io::Error>(())
-    })
-    .expect("task should be accepted");
+    let handle = pool
+        .submit_tracked(move || {
+            started_sender
+                .send(())
+                .expect("test should observe task start");
+            release_receiver
+                .recv()
+                .expect("test should release running task");
+            Ok::<_, io::Error>(())
+        })
+        .expect("task should be accepted");
 
     started_receiver
         .recv()
@@ -45,7 +46,7 @@ fn test_fixed_thread_pool_inner_tracks_public_task_counts() {
     release_sender
         .send(())
         .expect("running task should still be waiting");
-    pool.join();
+    handle.get().expect("task should complete successfully");
     let idle_stats = pool.stats();
     assert_eq!(idle_stats.queued_tasks, 0);
     assert_eq!(idle_stats.running_tasks, 0);

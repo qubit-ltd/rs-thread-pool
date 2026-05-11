@@ -179,14 +179,6 @@ impl FixedThreadPool {
         self.inner.stats()
     }
 
-    /// Blocks until all accepted work has completed.
-    ///
-    /// This is a join-style wait for quiescence: it does not request shutdown
-    /// and does not wait for worker threads to exit. Concurrent submissions may
-    /// extend the wait until those accepted jobs also drain.
-    pub fn join(&self) {
-        self.inner.wait_until_idle();
-    }
 }
 
 impl Default for FixedThreadPool {
