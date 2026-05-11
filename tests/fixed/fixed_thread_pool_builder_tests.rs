@@ -23,7 +23,7 @@ use super::mod_tests::wait_until;
 fn test_fixed_thread_pool_builder_rejects_invalid_configuration() {
     assert!(matches!(
         FixedThreadPool::builder().pool_size(0).build(),
-        Err(ExecutorServiceBuilderError::ZeroMaximumPoolSize),
+        Err(ExecutorServiceBuilderError::ZeroPoolSize),
     ));
     assert!(matches!(
         FixedThreadPool::builder()

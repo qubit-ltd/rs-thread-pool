@@ -209,7 +209,7 @@ impl FixedThreadPoolBuilder {
     /// or zero stack size.
     fn validate(&self) -> Result<(), ExecutorServiceBuilderError> {
         if self.pool_size == 0 {
-            return Err(ExecutorServiceBuilderError::ZeroMaximumPoolSize);
+            return Err(ExecutorServiceBuilderError::ZeroPoolSize);
         }
         if self.queue_capacity == Some(0) {
             return Err(ExecutorServiceBuilderError::ZeroQueueCapacity);

@@ -7,7 +7,10 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-use std::sync::Arc;
+use std::{
+    sync::Arc,
+    thread::JoinHandle,
+};
 
 use qubit_executor::service::{
     ExecutorService,
@@ -79,6 +82,7 @@ impl FixedThreadPool {
             queue_capacity,
             hooks,
         ));
+        let mut worker_handles = Vec::with_capacity(pool_size);
         for (index, worker_runtime) in worker_runtimes.into_iter().enumerate() {
             inner.reserve_worker_slot();
             let worker_inner = Arc::clone(&inner);
@@ -87,15 +91,17 @@ impl FixedThreadPool {
             if let Some(stack_size) = stack_size {
                 builder = builder.stack_size(stack_size);
             }
-            if let Err(source) =
-                builder.spawn(move || FixedWorker::run(worker_inner, worker_runtime))
-            {
-                inner.rollback_worker_slot();
-                inner.stop_after_failed_build();
-                return Err(ExecutorServiceBuilderError::SpawnWorker {
-                    index: Some(index),
-                    source,
-                });
+            match builder.spawn(move || FixedWorker::run(worker_inner, worker_runtime)) {
+                Ok(handle) => worker_handles.push(handle),
+                Err(source) => {
+                    inner.rollback_worker_slot();
+                    inner.stop_after_failed_build();
+                    join_started_workers(worker_handles);
+                    return Err(ExecutorServiceBuilderError::SpawnWorker {
+                        index: Some(index),
+                        source,
+                    });
+                }
             }
         }
         Ok(Self { inner })
@@ -256,6 +262,20 @@ impl ExecutorService for FixedThreadPool {
     }
 
     /// Accepts a callable and queues it with a tracked handle.
+    ///
+    /// # Parameters
+    ///
+    /// * `task` - Callable to execute on a fixed pool worker.
+    ///
+    /// # Returns
+    ///
+    /// A [`TrackedTask`] that reports task status and can observe completion,
+    /// failure, or queued cancellation.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SubmissionError::Shutdown`] after shutdown or
+    /// [`SubmissionError::Saturated`] when a bounded queue is full.
     fn submit_tracked_callable<C, R, E>(
         &self,
         task: C,
@@ -311,5 +331,16 @@ impl ExecutorService for FixedThreadPool {
     /// Blocks until this fixed pool has terminated.
     fn wait_termination(&self) {
         self.inner.wait_for_termination();
+    }
+}
+
+/// Joins workers that were already spawned during a failed build.
+///
+/// # Parameters
+///
+/// * `worker_handles` - Join handles for workers started before construction failed.
+fn join_started_workers(worker_handles: Vec<JoinHandle<()>>) {
+    for worker_handle in worker_handles {
+        let _ignored = worker_handle.join();
     }
 }

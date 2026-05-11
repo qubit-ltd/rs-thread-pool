@@ -27,7 +27,6 @@ use qubit_executor::service::{
 };
 use qubit_lock::Monitor;
 
-use super::fixed_submit_guard::FixedSubmitGuard;
 use super::fixed_thread_pool_state::FixedThreadPoolState;
 use crate::{
     PoolJob,
@@ -37,6 +36,27 @@ use crate::{
 
 /// Maximum time an idle join wait may sleep before rechecking atomic counters.
 const IDLE_WAIT_RECHECK_INTERVAL: Duration = Duration::from_millis(1);
+
+/// Submit guard that leaves in-flight accounting on drop.
+struct FixedSubmitGuard<'a> {
+    /// Pool whose in-flight counter was entered.
+    inner: &'a FixedThreadPoolInner,
+}
+
+impl Drop for FixedSubmitGuard<'_> {
+    /// Leaves submit accounting and wakes shutdown waiters if needed.
+    fn drop(&mut self) {
+        let previous = self
+            .inner
+            .inflight_submissions
+            .fetch_sub(1, Ordering::Release);
+        debug_assert!(previous > 0, "fixed pool submit counter underflow");
+        if previous == 1 && self.inner.has_submit_waiters() {
+            self.inner.notify_waiters_after_atomic_change();
+        }
+    }
+}
+
 /// Shared state for a fixed-size thread pool.
 pub struct FixedThreadPoolInner {
     /// Number of workers in this fixed pool.
@@ -76,20 +96,6 @@ pub struct FixedThreadPoolInner {
 }
 
 impl FixedThreadPoolInner {
-    /// Creates shared state for a fixed-size pool.
-    ///
-    /// # Parameters
-    ///
-    /// * `pool_size` - Number of workers that will be prestarted.
-    /// * `queue_capacity` - Optional queue capacity.
-    ///
-    /// # Returns
-    ///
-    /// A shared state object ready for worker startup.
-    pub fn new(pool_size: usize, queue_capacity: Option<usize>) -> Self {
-        Self::with_hooks(pool_size, queue_capacity, ThreadPoolHooks::default())
-    }
-
     /// Creates shared state with explicit lifecycle hooks.
     ///
     /// # Parameters
@@ -478,11 +484,17 @@ impl FixedThreadPoolInner {
     /// Requests graceful shutdown.
     pub fn shutdown(&self) {
         self.accepting.store(false, Ordering::Release);
-        self.state.write(|state| {
-            if state.lifecycle == ExecutorServiceLifecycle::Running {
-                state.lifecycle = ExecutorServiceLifecycle::ShuttingDown;
-            }
-        });
+        self.submit_waiter_count.fetch_add(1, Ordering::AcqRel);
+        let mut state = self.state.lock();
+        while self.inflight_count() > 0 {
+            state = state.wait();
+        }
+        let previous = self.submit_waiter_count.fetch_sub(1, Ordering::AcqRel);
+        debug_assert!(previous > 0, "fixed pool submit waiter counter underflow");
+        if state.lifecycle == ExecutorServiceLifecycle::Running {
+            state.lifecycle = ExecutorServiceLifecycle::ShuttingDown;
+        }
+        drop(state);
         self.state.notify_all();
     }
 

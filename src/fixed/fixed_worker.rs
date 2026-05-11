@@ -121,22 +121,11 @@ pub fn wait_for_fixed_pool_work(inner: &FixedThreadPoolInner) -> bool {
                 if inner.queued_count() > 0 {
                     return true;
                 }
-                if inner.queued_count() == 0 && inner.inflight_count() == 0 {
-                    return false;
-                }
-                mark_fixed_worker_idle(inner, &mut state);
-                if inner.queued_count() > 0
-                    || inner.inflight_count() == 0
-                    || inner.has_pending_worker_wake()
-                {
-                    unmark_fixed_worker_idle(inner, &mut state);
-                    continue;
-                }
-                state = state.wait();
-                unmark_fixed_worker_idle(inner, &mut state);
+                return false;
             }
-            ExecutorServiceLifecycle::Stopping => return false,
-            ExecutorServiceLifecycle::Terminated => return false,
+            ExecutorServiceLifecycle::Stopping | ExecutorServiceLifecycle::Terminated => {
+                return false;
+            }
         }
     }
 }

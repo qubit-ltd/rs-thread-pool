@@ -9,13 +9,12 @@
  ******************************************************************************/
 //! Fixed-size thread pool implementation.
 
-pub mod fixed_submit_guard;
 mod fixed_thread_pool;
 mod fixed_thread_pool_builder;
-pub mod fixed_thread_pool_inner;
-pub mod fixed_thread_pool_state;
-pub mod fixed_worker;
-pub mod fixed_worker_runtime;
+mod fixed_thread_pool_inner;
+mod fixed_thread_pool_state;
+mod fixed_worker;
+mod fixed_worker_runtime;
 
 pub use fixed_thread_pool::FixedThreadPool;
 pub use fixed_thread_pool_builder::FixedThreadPoolBuilder;
