@@ -36,13 +36,13 @@ Qubit Thread Pool 为同步工作提供基于 OS 线程的 `ExecutorService` 实
 
 `FixedThreadPool` 启动并维持固定数量的 worker。它适合容量规划简单、worker 数量需要稳定，或调度可预测性比动态扩缩更重要的场景。
 
-`FixedThreadPool::default()` 与 `FixedThreadPoolBuilder::default().build()` 等价，但构建失败会转为 panic；若需要处理错误，请使用 builder 的 `build()` 并处理 `ExecutorBuildError`。
+`FixedThreadPool::default()` 与 `FixedThreadPoolBuilder::default().build()` 等价，但构建失败会转为 panic；若需要处理错误，请使用 builder 的 `build()` 并处理 `ExecutorServiceBuilderError`。
 
 内部实现上，动态池对外部提交使用全局 FIFO 队列，并为新建 worker 的直接任务交接保留 worker-owned deque 与 registered stealer。固定池使用 lock-free 全局 injector，并只唤醒有需要的 idle worker，使 fire-and-forget submit 路径更短且更可预测。
 
 ## 排队与拒绝
 
-线程池可以使用无界队列或有界队列。有界队列能明确表达背压：当线程池无法接收任务时，提交会返回 `RejectedExecution::Saturated`，而不是静默增加内存使用。
+线程池可以使用无界队列或有界队列。有界队列能明确表达背压：当线程池无法接收任务时，提交会返回 `SubmissionError::Saturated`，而不是静默增加内存使用。
 
 `submit` 成功只表示线程池接受了一个 fire-and-forget runnable。需要最终结果时使用 `submit_callable` 获取 `TaskHandle`；还需要状态和启动前取消时，使用 `submit_tracked` 或 `submit_tracked_callable`。
 

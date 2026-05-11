@@ -47,7 +47,7 @@ threads without keeping them alive forever.
 when capacity planning is simple, when worker count should be stable, or when
 predictable scheduling is more important than dynamic growth.
 
-`FixedThreadPool::default()` is equivalent to `FixedThreadPoolBuilder::default().build()` except that build errors become a panic; prefer the builder's `build()` when you must handle `ExecutorBuildError`.
+`FixedThreadPool::default()` is equivalent to `FixedThreadPoolBuilder::default().build()` except that build errors become a panic; prefer the builder's `build()` when you must handle `ExecutorServiceBuilderError`.
 
 Internally, the dynamic pool keeps a global FIFO queue for externally submitted
 work and uses worker-owned deques with registered stealers for direct handoff
@@ -59,7 +59,7 @@ and predictable.
 
 A pool can use either an unbounded queue or a bounded queue. Bounded queues make
 back pressure explicit: when the pool cannot accept a task, submission returns
-`RejectedExecution::Saturated` instead of silently growing memory use.
+`SubmissionError::Saturated` instead of silently growing memory use.
 
 A successful `submit` means only that the pool accepted a fire-and-forget
 runnable. Use `submit_callable` when you need a `TaskHandle` for the final
