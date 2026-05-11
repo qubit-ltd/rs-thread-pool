@@ -33,6 +33,7 @@ fn test_fixed_submit_guard_notifies_when_last_submitter_leaves_closed_admission(
     let inner = create_inner();
     inner.inflight_submissions.store(1, Ordering::Release);
     inner.accepting.store(false, Ordering::Release);
+    inner.submit_waiter_count.store(1, Ordering::Release);
 
     drop(FixedSubmitGuard { inner: &inner });
 
@@ -44,6 +45,7 @@ fn test_fixed_submit_guard_notifies_idle_waiters_when_pool_becomes_idle() {
     let inner = create_inner();
     inner.inflight_submissions.store(1, Ordering::Release);
     inner.idle_waiter_count.store(1, Ordering::Release);
+    inner.submit_waiter_count.store(1, Ordering::Release);
 
     drop(FixedSubmitGuard { inner: &inner });
 
