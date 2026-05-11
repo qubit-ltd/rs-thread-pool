@@ -1,6 +1,6 @@
 # Qubit Thread Pool
 
-[![CircleCI](https://circleci.com/gh/qubit-ltd/rs-thread-pool.svg?style=shield)](https://circleci.com/gh/qubit-ltd/rs-thread-pool)
+[![Rust CI](https://github.com/qubit-ltd/rs-thread-pool/actions/workflows/ci.yml/badge.svg)](https://github.com/qubit-ltd/rs-thread-pool/actions/workflows/ci.yml)
 [![Coverage Status](https://coveralls.io/repos/github/qubit-ltd/rs-thread-pool/badge.svg?branch=main)](https://coveralls.io/github/qubit-ltd/rs-thread-pool?branch=main)
 [![Crates.io](https://img.shields.io/crates/v/qubit-thread-pool.svg?color=blue)](https://crates.io/crates/qubit-thread-pool)
 [![Rust](https://img.shields.io/badge/rust-1.94+-blue.svg?logo=rust)](https://www.rust-lang.org)
