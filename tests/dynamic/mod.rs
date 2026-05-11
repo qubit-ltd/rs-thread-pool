@@ -15,4 +15,5 @@ mod thread_pool_lifecycle_tests;
 mod thread_pool_state_tests;
 mod thread_pool_tests;
 mod thread_pool_worker_queue_tests;
+mod thread_pool_worker_runtime_tests;
 mod thread_pool_worker_tests;

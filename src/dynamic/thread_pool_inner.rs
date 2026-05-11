@@ -34,6 +34,7 @@ use super::thread_pool_config::ThreadPoolConfig;
 use super::thread_pool_state::ThreadPoolState;
 use super::thread_pool_worker::ThreadPoolWorker;
 use super::thread_pool_worker_queue::ThreadPoolWorkerQueue;
+use super::thread_pool_worker_runtime::ThreadPoolWorkerRuntime;
 use crate::{
     ExecutorBuildError,
     PoolJob,
@@ -160,8 +161,13 @@ impl ThreadPoolInner {
             return Err(RejectedExecution::Shutdown);
         }
         if state.live_workers < state.core_pool_size {
-            self.spawn_worker_locked(&mut state, Some(job))?;
             state.submitted_tasks += 1;
+            let worker = self.reserve_worker_locked(&mut state, Some(job));
+            drop(state);
+            if let Err(error) = self.spawn_reserved_worker(worker) {
+                self.rollback_submitted_task();
+                return Err(error);
+            }
             return Ok(());
         }
         if !state.is_saturated() {
@@ -171,37 +177,27 @@ impl ThreadPoolInner {
             // Busy workers will eventually pull from the queue after finishing
             // their current task, so a broadcast wake-up is unnecessary.
             let should_wake_one_idle_worker = state.idle_workers > 0;
-            // Keep unbounded-queue pools on the global-queue fast path.
-            // For bounded pools under sustained load and without idle workers,
-            // local queues can reduce submit-path contention on the shared
-            // global queue.
-            let use_local_queue =
-                state.queue_capacity.is_some() && state.idle_workers == 0 && state.live_workers > 0;
-            if !use_local_queue {
-                state.queue.push_back(job);
-            } else {
-                let mut pending_job = Some(job);
-                self.try_enqueue_worker_job_locked(&mut pending_job);
-                if let Some(job) = pending_job {
-                    state.queue.push_back(job);
+            state.queue.push_back(job);
+            if state.live_workers == 0 {
+                let worker = self.reserve_worker_locked(&mut state, None);
+                drop(state);
+                if let Err(error) = self.spawn_reserved_worker(worker) {
+                    let mut state = self.lock_state();
+                    if let Some(job) = state.queue.pop_back() {
+                        state.submitted_tasks = state
+                            .submitted_tasks
+                            .checked_sub(1)
+                            .expect("thread pool submitted task counter underflow");
+                        state.queued_tasks = state
+                            .queued_tasks
+                            .checked_sub(1)
+                            .expect("thread pool queued task counter underflow");
+                        drop(state);
+                        job.cancel();
+                    }
+                    return Err(error);
                 }
-            }
-            if state.live_workers == 0
-                && let Err(error) = self.spawn_worker_locked(&mut state, None)
-            {
-                if let Some(job) = state.queue.pop_back() {
-                    state.submitted_tasks = state
-                        .submitted_tasks
-                        .checked_sub(1)
-                        .expect("thread pool submitted task counter underflow");
-                    state.queued_tasks = state
-                        .queued_tasks
-                        .checked_sub(1)
-                        .expect("thread pool queued task counter underflow");
-                    drop(state);
-                    job.cancel();
-                }
-                return Err(error);
+                return Ok(());
             }
             // Release the monitor before notifying to keep the critical section
             // short and reduce lock handoff contention.
@@ -212,46 +208,27 @@ impl ThreadPoolInner {
             return Ok(());
         }
         if state.live_workers < state.maximum_pool_size {
-            self.spawn_worker_locked(&mut state, Some(job))?;
             state.submitted_tasks += 1;
+            let worker = self.reserve_worker_locked(&mut state, Some(job));
+            drop(state);
+            if let Err(error) = self.spawn_reserved_worker(worker) {
+                self.rollback_submitted_task();
+                return Err(error);
+            }
             Ok(())
         } else {
             Err(RejectedExecution::Saturated)
         }
     }
 
-    /// Tries to enqueue a job into one worker-local queue.
-    ///
-    /// # Parameters
-    ///
-    /// * `job` - Slot containing one pending job. This method moves the job
-    ///   out of the slot on success.
-    ///
-    /// # Returns
-    ///
-    /// `true` when a worker-local queue accepted the job, otherwise `false`.
-    ///
-    /// # Overall logic
-    ///
-    /// The submit path keeps this operation O(1): choose exactly one local
-    /// queue with a round-robin cursor and push once, then fallback to the
-    /// global queue when local enqueue is unavailable.
-    fn try_enqueue_worker_job_locked(&self, job: &mut Option<PoolJob>) -> bool {
-        let queues = self
-            .worker_queues
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        if queues.is_empty() {
-            return false;
-        }
-        let start = self.next_enqueue_worker.fetch_add(1, Ordering::Relaxed);
-        let slot = start % queues.len();
-        if let Some(job) = job.take() {
-            queues[slot].push_back(job);
-            true
-        } else {
-            false
-        }
+    /// Rolls back one submitted-task count after worker spawn failure.
+    fn rollback_submitted_task(&self) {
+        self.write_state(|state| {
+            state.submitted_tasks = state
+                .submitted_tasks
+                .checked_sub(1)
+                .expect("thread pool submitted task counter underflow");
+        });
     }
 
     /// Starts one missing core worker.
@@ -274,7 +251,9 @@ impl ThreadPoolInner {
         if state.live_workers >= state.core_pool_size {
             return Ok(false);
         }
-        self.spawn_worker_locked(&mut state, None)?;
+        let worker = self.reserve_worker_locked(&mut state, None);
+        drop(state);
+        self.spawn_reserved_worker(worker)?;
         Ok(true)
     }
 
@@ -296,12 +275,42 @@ impl ThreadPoolInner {
         Ok(started)
     }
 
-    /// Spawns a worker while the caller holds the pool state lock.
+    /// Reserves a worker while the caller holds the pool state lock.
     ///
     /// # Parameters
     ///
     /// * `state` - Locked mutable pool state to update while spawning.
     /// * `first_task` - Optional first job assigned directly to the new worker.
+    ///
+    /// # Returns
+    ///
+    /// A worker reservation ready to spawn after releasing the lock.
+    fn reserve_worker_locked(
+        self: &Arc<Self>,
+        state: &mut ThreadPoolState,
+        first_task: Option<PoolJob>,
+    ) -> ReservedWorker {
+        let index = state.next_worker_index;
+        state.next_worker_index += 1;
+        state.live_workers += 1;
+        let runtime = self.register_worker_queue_locked(index);
+        let has_initial_job = first_task.is_some();
+        if let Some(job) = first_task {
+            runtime.push_back(job);
+            state.queued_tasks += 1;
+        }
+        ReservedWorker {
+            index,
+            runtime,
+            has_initial_job,
+        }
+    }
+
+    /// Spawns a previously reserved worker without holding the state lock.
+    ///
+    /// # Parameters
+    ///
+    /// * `worker` - Worker reservation created while holding the state lock.
     ///
     /// # Returns
     ///
@@ -311,39 +320,43 @@ impl ThreadPoolInner {
     ///
     /// Returns [`RejectedExecution::WorkerSpawnFailed`] if
     /// [`thread::Builder::spawn`] fails.
-    fn spawn_worker_locked(
+    fn spawn_reserved_worker(
         self: &Arc<Self>,
-        state: &mut ThreadPoolState,
-        first_task: Option<PoolJob>,
+        worker: ReservedWorker,
     ) -> Result<(), RejectedExecution> {
-        let index = state.next_worker_index;
-        state.next_worker_index += 1;
-        state.live_workers += 1;
-        if first_task.is_some() {
-            state.running_tasks += 1;
-        }
-        let worker_queue = self.register_worker_queue_locked(index);
-
+        let ReservedWorker {
+            index,
+            runtime,
+            has_initial_job,
+        } = worker;
         let worker_inner = Arc::clone(self);
         let mut builder =
             thread::Builder::new().name(format!("{}-{index}", self.thread_name_prefix));
         if let Some(stack_size) = self.stack_size {
             builder = builder.stack_size(stack_size);
         }
-        match builder.spawn(move || ThreadPoolWorker::run(worker_inner, worker_queue, first_task)) {
+        match builder.spawn(move || {
+            ThreadPoolWorker::run(worker_inner, runtime, None);
+        }) {
             Ok(_) => Ok(()),
             Err(source) => {
-                // Roll back the queue registration because this worker never
-                // reached the run loop.
-                self.remove_worker_queue_locked(index);
+                let mut state = self.lock_state();
+                let cancelled_jobs = self.remove_worker_queue_locked(index);
                 state.live_workers = state
                     .live_workers
                     .checked_sub(1)
                     .expect("thread pool live worker counter underflow");
-                if state.running_tasks > 0 {
-                    state.running_tasks -= 1;
+                if has_initial_job {
+                    state.queued_tasks = state
+                        .queued_tasks
+                        .checked_sub(cancelled_jobs.len())
+                        .expect("thread pool queued task counter underflow");
                 }
-                self.notify_if_terminated(state);
+                self.notify_if_terminated(&state);
+                drop(state);
+                for job in cancelled_jobs {
+                    job.cancel();
+                }
                 Err(RejectedExecution::WorkerSpawnFailed {
                     source: Arc::new(source),
                 })
@@ -356,13 +369,13 @@ impl ThreadPoolInner {
     /// # Parameters
     ///
     /// * `worker_index` - Stable index of the new worker.
-    fn register_worker_queue_locked(&self, worker_index: usize) -> Arc<ThreadPoolWorkerQueue> {
-        let queue = Arc::new(ThreadPoolWorkerQueue::new(worker_index));
+    fn register_worker_queue_locked(&self, worker_index: usize) -> ThreadPoolWorkerRuntime {
+        let runtime = ThreadPoolWorkerRuntime::new(worker_index);
         self.worker_queues
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .push(Arc::clone(&queue));
-        queue
+            .push(runtime.queue());
+        runtime
     }
 
     /// Removes one worker-local queue and returns all jobs still queued in it.
@@ -412,28 +425,28 @@ impl ThreadPoolInner {
     pub(crate) fn try_take_queued_job_locked(
         &self,
         state: &mut ThreadPoolState,
-        worker_queue: &ThreadPoolWorkerQueue,
+        worker_runtime: &ThreadPoolWorkerRuntime,
     ) -> Option<PoolJob> {
-        if state.queue_capacity.is_some() {
-            let worker_index = worker_queue.worker_index();
-            let own_job = worker_queue.pop_front();
-            if let Some(job) = own_job {
-                state.queued_tasks = state
-                    .queued_tasks
-                    .checked_sub(1)
-                    .expect("thread pool queued task counter underflow");
-                state.running_tasks += 1;
-                return Some(job);
-            }
+        let worker_index = worker_runtime.worker_index();
+        let own_job = worker_runtime.pop_front();
+        if let Some(job) = own_job {
+            state.queued_tasks = state
+                .queued_tasks
+                .checked_sub(1)
+                .expect("thread pool queued task counter underflow");
+            state.running_tasks += 1;
+            return Some(job);
+        }
 
-            if let Some(job) = self.try_steal_job_locked(worker_index) {
-                state.queued_tasks = state
-                    .queued_tasks
-                    .checked_sub(1)
-                    .expect("thread pool queued task counter underflow");
-                state.running_tasks += 1;
-                return Some(job);
-            }
+        if state.queue_capacity.is_some()
+            && let Some(job) = self.try_steal_job_locked(worker_index)
+        {
+            state.queued_tasks = state
+                .queued_tasks
+                .checked_sub(1)
+                .expect("thread pool queued task counter underflow");
+            state.running_tasks += 1;
+            return Some(job);
         }
 
         if let Some(job) = state.queue.pop_front() {
@@ -737,4 +750,15 @@ impl ThreadPoolInner {
             self.state_monitor.notify_all();
         }
     }
+}
+
+/// Worker reservation created under the pool state lock and spawned after the
+/// lock is released.
+struct ReservedWorker {
+    /// Stable worker index assigned in pool state.
+    index: usize,
+    /// Worker-local runtime owning the local queue.
+    runtime: ThreadPoolWorkerRuntime,
+    /// Whether one initial job was placed into the worker-local deque.
+    has_initial_job: bool,
 }

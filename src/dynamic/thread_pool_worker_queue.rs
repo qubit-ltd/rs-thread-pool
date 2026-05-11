@@ -8,8 +8,8 @@
  *
  ******************************************************************************/
 use crossbeam_deque::{
-    Injector,
     Steal,
+    Stealer,
 };
 
 use crate::PoolJob;
@@ -18,24 +18,25 @@ use crate::PoolJob;
 pub struct ThreadPoolWorkerQueue {
     /// Logical worker index used as a stable identity key.
     worker_index: usize,
-    /// Lock-free deque of queued jobs assigned to this worker.
-    jobs: Injector<PoolJob>,
+    /// Stealing handle for the worker-owned deque.
+    stealer: Stealer<PoolJob>,
 }
 
 impl ThreadPoolWorkerQueue {
-    /// Creates an empty local queue for one worker.
+    /// Creates a steal handle for one worker-owned local queue.
     ///
     /// # Parameters
     ///
     /// * `worker_index` - Stable index of the worker owning this queue.
+    /// * `stealer` - Stealing handle created from the worker-owned deque.
     ///
     /// # Returns
     ///
-    /// A local queue with no jobs.
-    pub fn new(worker_index: usize) -> Self {
+    /// A shared queue descriptor for the worker.
+    pub fn new(worker_index: usize, stealer: Stealer<PoolJob>) -> Self {
         Self {
             worker_index,
-            jobs: Injector::new(),
+            stealer,
         }
     }
 
@@ -47,29 +48,6 @@ impl ThreadPoolWorkerQueue {
     #[inline]
     pub fn worker_index(&self) -> usize {
         self.worker_index
-    }
-
-    /// Appends a job to the back of this queue.
-    ///
-    /// # Parameters
-    ///
-    /// * `job` - Job to enqueue.
-    pub fn push_back(&self, job: PoolJob) {
-        self.jobs.push(job);
-    }
-
-    /// Pops one job from the front of this queue.
-    ///
-    /// # Returns
-    ///
-    /// `Some(job)` when this queue is non-empty, otherwise `None`.
-    ///
-    /// # Implementation notes
-    ///
-    /// [`Injector`] does not expose an owner-only pop operation. Both "local
-    /// pop" and "remote steal" therefore share the same `steal()` primitive.
-    pub fn pop_front(&self) -> Option<PoolJob> {
-        self.steal_one()
     }
 
     /// Steals one job from the back of this queue.
@@ -107,7 +85,7 @@ impl ThreadPoolWorkerQueue {
     /// `Some(job)` when a job is available, otherwise `None`.
     fn steal_one(&self) -> Option<PoolJob> {
         loop {
-            match self.jobs.steal() {
+            match self.stealer.steal() {
                 Steal::Success(job) => return Some(job),
                 Steal::Empty => return None,
                 // Another thread raced us while mutating queue internals.
