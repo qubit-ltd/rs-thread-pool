@@ -7,7 +7,10 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-use std::sync::{Arc, atomic::Ordering};
+use std::{
+    hint::spin_loop,
+    sync::{Arc, atomic::Ordering},
+};
 
 use qubit_executor::service::ExecutorServiceLifecycle;
 
@@ -15,6 +18,9 @@ use super::fixed_thread_pool_inner::FixedThreadPoolInner;
 use super::fixed_thread_pool_state::FixedThreadPoolState;
 use super::fixed_worker_queue::FixedWorkerQueue;
 use super::fixed_worker_runtime::FixedWorkerRuntime;
+
+/// Number of short queue probes before a fixed worker parks.
+const IDLE_SPIN_LIMIT: usize = 256;
 
 /// Worker loop entry point for fixed-size thread pools.
 pub struct FixedWorker;
@@ -60,6 +66,14 @@ pub fn wait_for_fixed_pool_work(inner: &FixedThreadPoolInner) -> bool {
                 if inner.queued_count() > 0 {
                     return true;
                 }
+                drop(state);
+                if spin_for_fixed_pool_work(inner) {
+                    return true;
+                }
+                state = inner.state.lock();
+                if state.lifecycle != ExecutorServiceLifecycle::Running {
+                    continue;
+                }
                 mark_fixed_worker_idle(inner, &mut state);
                 if inner.queued_count() > 0 || inner.has_pending_worker_wake() {
                     unmark_fixed_worker_idle(inner, &mut state);
@@ -90,6 +104,31 @@ pub fn wait_for_fixed_pool_work(inner: &FixedThreadPoolInner) -> bool {
             ExecutorServiceLifecycle::Terminated => return false,
         }
     }
+}
+
+/// Briefly probes for new work before a worker enters the parked idle path.
+///
+/// # Parameters
+///
+/// * `inner` - Fixed pool whose queue counters are checked.
+///
+/// # Returns
+///
+/// `true` when work or a pending wake appears during the spin window.
+fn spin_for_fixed_pool_work(inner: &FixedThreadPoolInner) -> bool {
+    if inner.pool_size() <= 4 {
+        return false;
+    }
+    for _ in 0..IDLE_SPIN_LIMIT {
+        if inner.queued_count() > 0 || inner.has_pending_worker_wake() {
+            return true;
+        }
+        if !inner.accepting.load(Ordering::Acquire) {
+            return false;
+        }
+        spin_loop();
+    }
+    false
 }
 
 /// Marks a fixed-pool worker as idle in locked and lock-free state.

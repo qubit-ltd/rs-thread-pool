@@ -124,6 +124,16 @@ impl ThreadPoolState {
             && self.live_workers == 0
     }
 
+    /// Returns whether no accepted work is queued or running.
+    ///
+    /// # Returns
+    ///
+    /// `true` when all currently accepted tasks have completed or been
+    /// cancelled, regardless of whether worker threads remain alive.
+    pub(super) fn is_idle(&self) -> bool {
+        self.queued_tasks == 0 && self.running_tasks == 0
+    }
+
     /// Returns whether an idle worker should use a timed wait.
     ///
     /// # Returns

@@ -574,6 +574,15 @@ impl ThreadPoolInner {
             .wait_until(|state| state.is_terminated(), |_| ());
     }
 
+    /// Blocks until all currently accepted work has completed.
+    ///
+    /// This method waits for queued and running tasks to drain, but it does not
+    /// request shutdown and does not wait for worker threads to exit.
+    pub(crate) fn wait_until_idle(&self) {
+        self.state_monitor
+            .wait_until(|state| state.is_idle(), |_| ());
+    }
+
     /// Returns a point-in-time pool snapshot.
     ///
     /// # Returns
@@ -699,6 +708,17 @@ impl ThreadPoolInner {
     /// * `state` - Current pool state observed while holding the state lock.
     pub(crate) fn notify_if_terminated(&self, state: &ThreadPoolState) {
         if state.is_terminated() {
+            self.state_monitor.notify_all();
+        }
+    }
+
+    /// Notifies waiters when the pool is idle or fully terminated.
+    ///
+    /// # Parameters
+    ///
+    /// * `state` - Current pool state observed while holding the state lock.
+    pub(crate) fn notify_if_idle_or_terminated(&self, state: &ThreadPoolState) {
+        if state.is_idle() || state.is_terminated() {
             self.state_monitor.notify_all();
         }
     }

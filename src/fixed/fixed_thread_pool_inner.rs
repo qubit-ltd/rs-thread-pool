@@ -7,9 +7,12 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-use std::sync::{
-    Arc,
-    atomic::{AtomicBool, AtomicUsize, Ordering},
+use std::{
+    sync::{
+        Arc,
+        atomic::{AtomicBool, AtomicUsize, Ordering},
+    },
+    time::Duration,
 };
 
 use crossbeam_deque::Injector;
@@ -26,7 +29,9 @@ use crate::{PoolJob, ThreadPoolStats};
 /// Maximum number of worker-local queues probed by one submit call.
 const LOCAL_ENQUEUE_MAX_PROBES: usize = 4;
 /// Maximum worker count that uses worker-local batch queues.
-const LOCAL_QUEUE_WORKER_LIMIT: usize = 4;
+const LOCAL_QUEUE_WORKER_LIMIT: usize = 0;
+/// Maximum time an idle join wait may sleep before rechecking atomic counters.
+const IDLE_WAIT_RECHECK_INTERVAL: Duration = Duration::from_millis(1);
 /// Shared state for a fixed-size thread pool.
 pub struct FixedThreadPoolInner {
     /// Number of workers in this fixed pool.
@@ -43,6 +48,8 @@ pub struct FixedThreadPoolInner {
     pub idle_worker_count: AtomicUsize,
     /// Number of idle-worker wakeups already requested but not yet consumed.
     pub pending_worker_wakes: AtomicUsize,
+    /// Number of callers waiting for the pool to become idle.
+    pub idle_waiter_count: AtomicUsize,
     /// Lock-free queue for externally submitted jobs.
     pub global_queue: Injector<PoolJob>,
     /// Worker-local queues used for submit routing and work stealing.
@@ -87,6 +94,7 @@ impl FixedThreadPoolInner {
             inflight_submissions: AtomicUsize::new(0),
             idle_worker_count: AtomicUsize::new(0),
             pending_worker_wakes: AtomicUsize::new(0),
+            idle_waiter_count: AtomicUsize::new(0),
             global_queue: Injector::new(),
             worker_queues,
             next_enqueue_worker: AtomicUsize::new(0),
@@ -149,11 +157,11 @@ impl FixedThreadPoolInner {
     ///
     /// Returns [`RejectedExecution::Shutdown`] when admission is closed.
     fn begin_submit(&self) -> Result<FixedSubmitGuard<'_>, RejectedExecution> {
-        self.inflight_submissions.fetch_add(1, Ordering::AcqRel);
+        self.inflight_submissions.fetch_add(1, Ordering::Release);
         if self.accepting.load(Ordering::Acquire) {
             Ok(FixedSubmitGuard { inner: self })
         } else {
-            let previous = self.inflight_submissions.fetch_sub(1, Ordering::AcqRel);
+            let previous = self.inflight_submissions.fetch_sub(1, Ordering::Release);
             debug_assert!(previous > 0, "fixed pool submit counter underflow");
             if previous == 1 {
                 self.state.notify_all();
@@ -176,7 +184,7 @@ impl FixedThreadPoolInner {
                 })
                 .is_ok();
         }
-        self.queued_task_count.fetch_add(1, Ordering::AcqRel);
+        self.queued_task_count.fetch_add(1, Ordering::Release);
         true
     }
 
@@ -199,7 +207,7 @@ impl FixedThreadPoolInner {
         if !self.reserve_queue_slot() {
             return Err(RejectedExecution::Saturated);
         }
-        self.submitted_task_count.fetch_add(1, Ordering::Relaxed);
+        self.submitted_task_count.fetch_add(1, Ordering::Release);
         self.enqueue_job(job);
         Ok(())
     }
@@ -237,6 +245,7 @@ impl FixedThreadPoolInner {
             |pending_wakes| (pending_wakes < idle_workers).then_some(pending_wakes + 1),
         );
         if requested.is_ok() {
+            let _state = self.state.lock();
             self.state.notify_one();
         }
     }
@@ -258,6 +267,46 @@ impl FixedThreadPoolInner {
             Ordering::Acquire,
             |current| current.checked_sub(1),
         );
+    }
+
+    /// Returns whether any caller is waiting for the pool to become idle.
+    ///
+    /// # Returns
+    ///
+    /// `true` when [`Self::wait_until_idle`] has at least one active waiter.
+    pub fn has_idle_waiters(&self) -> bool {
+        self.idle_waiter_count.load(Ordering::Acquire) > 0
+    }
+
+    /// Returns whether no accepted or in-flight work remains.
+    ///
+    /// # Returns
+    ///
+    /// `true` when no submitter is publishing a job, no job is queued, and no
+    /// worker-held job is running.
+    pub fn is_idle(&self) -> bool {
+        let submitted = self.submitted_task_count.load(Ordering::Acquire);
+        let completed = self.completed_task_count.load(Ordering::Acquire);
+        let cancelled = self.cancelled_task_count.load(Ordering::Acquire);
+        self.inflight_count() == 0 && submitted == completed + cancelled
+    }
+
+    /// Notifies idle waiters when the pool has become idle.
+    pub fn notify_idle_waiters_if_idle(&self) {
+        if self.has_idle_waiters() && self.is_idle() {
+            self.notify_waiters_after_atomic_change();
+        }
+    }
+
+    /// Notifies monitor waiters after an atomic-only condition change.
+    ///
+    /// Fixed-pool queue and running counters are atomics, not fields protected
+    /// by the lifecycle monitor. Taking the monitor lock before notifying
+    /// closes the condition-variable lost-wakeup window for waiters that check
+    /// those atomic predicates while holding the same monitor.
+    pub fn notify_waiters_after_atomic_change(&self) {
+        let _state = self.state.lock();
+        self.state.notify_all();
     }
 
     /// Attempts to route one job directly to an active worker queue.
@@ -436,9 +485,9 @@ impl FixedThreadPoolInner {
 
     /// Marks one claimed queued job as running.
     fn mark_queued_job_running(&self) {
-        let previous = self.queued_task_count.fetch_sub(1, Ordering::AcqRel);
+        let previous = self.queued_task_count.fetch_sub(1, Ordering::Release);
         debug_assert!(previous > 0, "fixed pool queued counter underflow");
-        self.running_task_count.fetch_add(1, Ordering::AcqRel);
+        self.running_task_count.fetch_add(1, Ordering::Release);
     }
 
     /// Cancels one job claimed after immediate shutdown started.
@@ -447,20 +496,22 @@ impl FixedThreadPoolInner {
     ///
     /// * `job` - Queued job that must not be run.
     pub fn cancel_claimed_job(&self, job: PoolJob) {
-        let previous = self.queued_task_count.fetch_sub(1, Ordering::AcqRel);
+        let previous = self.queued_task_count.fetch_sub(1, Ordering::Release);
         debug_assert!(previous > 0, "fixed pool queued counter underflow");
-        self.cancelled_task_count.fetch_add(1, Ordering::Relaxed);
+        self.cancelled_task_count.fetch_add(1, Ordering::Release);
         job.cancel();
-        self.state.notify_all();
+        self.notify_waiters_after_atomic_change();
     }
 
     /// Marks one running job as finished.
     pub fn finish_running_job(&self) {
-        let previous = self.running_task_count.fetch_sub(1, Ordering::AcqRel);
+        let previous = self.running_task_count.fetch_sub(1, Ordering::Release);
         debug_assert!(previous > 0, "fixed pool running counter underflow");
-        self.completed_task_count.fetch_add(1, Ordering::Relaxed);
+        self.completed_task_count.fetch_add(1, Ordering::Release);
         if previous == 1 && self.queued_count() == 0 {
-            self.state.notify_all();
+            self.notify_waiters_after_atomic_change();
+        } else {
+            self.notify_idle_waiters_if_idle();
         }
     }
 
@@ -495,6 +546,23 @@ impl FixedThreadPoolInner {
     pub fn wait_for_termination(&self) {
         self.state
             .wait_until(|state| self.is_terminated_locked(state), |_| ());
+    }
+
+    /// Blocks until all currently accepted work has completed.
+    ///
+    /// This method waits for queued, running, and in-flight submissions to
+    /// drain, but it does not request shutdown and does not wait for worker
+    /// threads to exit.
+    pub fn wait_until_idle(&self) {
+        self.idle_waiter_count.fetch_add(1, Ordering::AcqRel);
+        let mut state = self.state.lock();
+        while !self.is_idle() {
+            let (next_state, _) = state.wait_timeout(IDLE_WAIT_RECHECK_INTERVAL);
+            state = next_state;
+        }
+        drop(state);
+        let previous = self.idle_waiter_count.fetch_sub(1, Ordering::AcqRel);
+        debug_assert!(previous > 0, "fixed pool idle waiter counter underflow");
     }
 
     /// Requests graceful shutdown.

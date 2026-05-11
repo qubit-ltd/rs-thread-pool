@@ -60,6 +60,63 @@ fn test_fixed_thread_pool_submit_acceptance_is_not_task_success() {
 }
 
 #[test]
+fn test_fixed_thread_pool_join_waits_for_submit_batch() {
+    let pool = Arc::new(create_single_worker_pool());
+    for _ in 0..2_000 {
+        pool.submit(ok_unit_task as fn() -> Result<(), io::Error>)
+            .expect("fixed thread pool should accept submitted task");
+    }
+
+    let join_pool = Arc::clone(&pool);
+    let (joined_tx, joined_rx) = mpsc::channel();
+    thread::spawn(move || {
+        join_pool.join();
+        joined_tx
+            .send(())
+            .expect("test should receive join completion");
+    });
+
+    joined_rx
+        .recv_timeout(Duration::from_secs(1))
+        .unwrap_or_else(|error| {
+            panic!(
+                "join should complete within timeout: {error:?}, stats={:?}",
+                pool.stats()
+            )
+        });
+    assert_eq!(pool.queued_count(), 0);
+    assert_eq!(pool.running_count(), 0);
+}
+
+#[test]
+fn test_fixed_thread_pool_join_survives_repeated_submit_batches() {
+    for iteration in 0..100 {
+        let pool = Arc::new(FixedThreadPool::new(1).expect("fixed thread pool should be created"));
+        for _ in 0..2_000 {
+            pool.submit(|| {
+                std::hint::black_box(1usize);
+                Ok::<(), io::Error>(())
+            })
+            .expect("fixed thread pool should accept submitted task");
+        }
+        let join_pool = Arc::clone(&pool);
+        let (joined_tx, joined_rx) = mpsc::channel();
+        thread::spawn(move || {
+            join_pool.join();
+            joined_tx
+                .send(())
+                .expect("test should receive join completion");
+        });
+        joined_rx.recv_timeout(Duration::from_secs(1)).unwrap_or_else(|error| {
+            panic!(
+                "join should complete within timeout on iteration {iteration}: {error:?}, stats={:?}",
+                pool.stats()
+            )
+        });
+    }
+}
+
+#[test]
 fn test_fixed_thread_pool_submit_callable_returns_value() {
     let pool = FixedThreadPool::new(2).expect("fixed thread pool should be created");
 

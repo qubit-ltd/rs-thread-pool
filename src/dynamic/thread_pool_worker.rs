@@ -130,7 +130,7 @@ fn finish_running_job(inner: &ThreadPoolInner) {
         .checked_sub(1)
         .expect("thread pool running task counter underflow");
     state.completed_tasks += 1;
-    inner.notify_if_terminated(&state);
+    inner.notify_if_idle_or_terminated(&state);
 }
 
 /// Marks a worker as exited.

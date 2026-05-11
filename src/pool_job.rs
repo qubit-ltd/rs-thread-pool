@@ -7,6 +7,8 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
+use std::panic::{AssertUnwindSafe, catch_unwind};
+
 use qubit_executor::{TaskCompletion, TaskRunner};
 use qubit_function::{Callable, Runnable};
 
@@ -20,7 +22,7 @@ pub struct PoolJob {
     /// Callback executed once a worker starts the job.
     run: Box<dyn FnOnce() + Send + 'static>,
     /// Callback executed if the job is cancelled before a worker starts it.
-    cancel: Box<dyn FnOnce() + Send + 'static>,
+    cancel: Option<Box<dyn FnOnce() + Send + 'static>>,
 }
 
 impl PoolJob {
@@ -38,7 +40,10 @@ impl PoolJob {
         run: Box<dyn FnOnce() + Send + 'static>,
         cancel: Box<dyn FnOnce() + Send + 'static>,
     ) -> Self {
-        Self { run, cancel }
+        Self {
+            run,
+            cancel: Some(cancel),
+        }
     }
 
     /// Creates a pool job from a typed callable task and completion endpoint.
@@ -86,13 +91,13 @@ impl PoolJob {
         T: Runnable<E> + Send + 'static,
         E: Send + 'static,
     {
-        Self::new(
-            Box::new(move || {
+        Self {
+            run: Box::new(move || {
                 let mut task = task;
-                let _ignored = TaskRunner::new(move || task.run()).call::<(), E>();
+                let _ignored = catch_unwind(AssertUnwindSafe(|| task.run()));
             }),
-            Box::new(|| {}),
-        )
+            cancel: None,
+        }
     }
 
     /// Runs this job if it has not been cancelled first.
@@ -106,6 +111,8 @@ impl PoolJob {
     ///
     /// Consumes the job and invokes the cancellation callback at most once.
     pub(crate) fn cancel(self) {
-        (self.cancel)();
+        if let Some(cancel) = self.cancel {
+            cancel();
+        }
     }
 }
