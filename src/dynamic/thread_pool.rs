@@ -269,30 +269,6 @@ impl ThreadPool {
     pub fn allow_core_thread_timeout(&self, allow: bool) {
         self.inner.allow_core_thread_timeout(allow);
     }
-
-    /// Submits an already type-erased pool job.
-    ///
-    /// This low-level hook is intended for higher-level service crates that
-    /// need to attach their own lifecycle callbacks while still using this
-    /// pool's queueing, cancellation, and shutdown behavior.
-    ///
-    /// # Parameters
-    ///
-    /// * `job` - Type-erased job containing run and cancellation callbacks.
-    ///
-    /// # Returns
-    ///
-    /// `Ok(())` when the job is accepted.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`RejectedExecution::Shutdown`] after shutdown, returns
-    /// [`RejectedExecution::Saturated`] when a bounded pool cannot accept more
-    /// work, or returns [`RejectedExecution::WorkerSpawnFailed`] when the pool
-    /// fails to create a required worker.
-    pub fn submit_job(&self, job: PoolJob) -> Result<(), RejectedExecution> {
-        self.inner.submit(job)
-    }
 }
 
 impl Drop for ThreadPool {

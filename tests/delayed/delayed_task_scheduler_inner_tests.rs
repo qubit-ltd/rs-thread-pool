@@ -24,9 +24,9 @@ use qubit_thread_pool::delayed::{
 };
 
 #[test]
-fn test_delayed_task_scheduler_inner_rejects_after_shutdown() {
+fn test_delayed_task_scheduler_inner_rejects_after_shutdown_via_public_scheduler() {
     let scheduler =
-        DelayedTaskScheduler::new("test-delayed-inner").expect("scheduler should start");
+        DelayedTaskScheduler::new("test-delayed-inner-public").expect("scheduler should start");
 
     scheduler.shutdown();
     assert!(matches!(

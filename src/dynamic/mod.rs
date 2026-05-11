@@ -15,7 +15,7 @@ pub(crate) mod thread_pool_config;
 pub(crate) mod thread_pool_inner;
 pub(crate) mod thread_pool_state;
 pub(crate) mod thread_pool_worker;
-pub mod thread_pool_worker_queue;
+pub(crate) mod thread_pool_worker_queue;
 
 pub use thread_pool::ThreadPool;
 pub use thread_pool_builder::ThreadPoolBuilder;

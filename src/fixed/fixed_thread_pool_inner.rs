@@ -55,7 +55,7 @@ pub struct FixedThreadPoolInner {
     /// Number of callers waiting for the pool to become idle.
     pub idle_waiter_count: AtomicUsize,
     /// Lock-free queue for externally submitted jobs.
-    pub global_queue: Injector<PoolJob>,
+    pub(crate) global_queue: Injector<PoolJob>,
     /// Optional maximum number of queued jobs.
     pub queue_capacity: Option<usize>,
     /// Number of queued jobs not yet started or cancelled.
@@ -196,7 +196,7 @@ impl FixedThreadPoolInner {
     ///
     /// Returns [`RejectedExecution::Shutdown`] after shutdown or
     /// [`RejectedExecution::Saturated`] when the bounded queue is full.
-    pub fn submit(&self, job: PoolJob) -> Result<(), RejectedExecution> {
+    pub(crate) fn submit(&self, job: PoolJob) -> Result<(), RejectedExecution> {
         let _guard = self.begin_submit()?;
         if !self.reserve_queue_slot() {
             return Err(RejectedExecution::Saturated);
@@ -301,7 +301,7 @@ impl FixedThreadPoolInner {
     /// # Returns
     ///
     /// `Some(job)` when a job was claimed, otherwise `None`.
-    pub fn try_take_job(&self) -> Option<PoolJob> {
+    pub(crate) fn try_take_job(&self) -> Option<PoolJob> {
         if self.stop_now.load(Ordering::Acquire) {
             return None;
         }
@@ -335,7 +335,7 @@ impl FixedThreadPoolInner {
     /// # Returns
     ///
     /// `Some(job)` when the job may run, otherwise `None`.
-    pub fn accept_claimed_job(&self, job: PoolJob) -> Option<PoolJob> {
+    pub(crate) fn accept_claimed_job(&self, job: PoolJob) -> Option<PoolJob> {
         if self.stop_now.load(Ordering::Acquire) {
             self.cancel_claimed_job(job);
             return None;
@@ -356,7 +356,7 @@ impl FixedThreadPoolInner {
     /// # Parameters
     ///
     /// * `job` - Queued job that must not be run.
-    pub fn cancel_claimed_job(&self, job: PoolJob) {
+    pub(crate) fn cancel_claimed_job(&self, job: PoolJob) {
         let previous = self.queued_task_count.fetch_sub(1, Ordering::Release);
         debug_assert!(previous > 0, "fixed pool queued counter underflow");
         self.cancelled_task_count.fetch_add(1, Ordering::Release);

@@ -1,51 +1,84 @@
-use std::io;
+use std::{
+    io,
+    sync::mpsc,
+};
 
 use qubit_thread_pool::{
     ExecutorService,
-    PoolJob,
+    TaskExecutionError,
     ThreadPool,
-    dynamic::thread_pool_worker_queue::ThreadPoolWorkerQueue,
 };
 
-fn noop_job() -> PoolJob {
-    PoolJob::new(Box::new(|| {}), Box::new(|| {}))
-}
+use super::mod_tests::wait_started;
 
 #[test]
-fn test_worker_queue_executes_multiple_enqueued_jobs() {
+fn test_thread_pool_worker_queue_path_runs_bounded_public_workload() {
     let pool = ThreadPool::builder()
         .core_pool_size(1)
         .maximum_pool_size(1)
         .queue_capacity(4)
         .build()
-        .unwrap();
-    let handles: Vec<_> = (0..4)
-        .map(|value| {
-            pool.submit_callable(move || Ok::<_, io::Error>(value))
-                .unwrap()
+        .expect("thread pool should be created");
+    let (started_tx, started_rx) = mpsc::channel();
+    let (release_tx, release_rx) = mpsc::channel();
+    let running = pool
+        .submit_tracked(move || {
+            started_tx
+                .send(())
+                .expect("test should receive task start signal");
+            release_rx
+                .recv()
+                .map_err(|err| io::Error::other(err.to_string()))?;
+            Ok::<(), io::Error>(())
         })
-        .collect();
-    let mut values: Vec<_> = handles
-        .into_iter()
-        .map(|handle| handle.get().unwrap())
-        .collect();
+        .expect("running task should be accepted");
+    wait_started(started_rx);
+    let queued = pool
+        .submit_callable(|| Ok::<usize, io::Error>(7))
+        .expect("queued task should be accepted");
 
-    values.sort_unstable();
-    assert_eq!(vec![0, 1, 2, 3], values);
+    release_tx
+        .send(())
+        .expect("blocking task should receive release signal");
+    running.get().expect("running task should complete");
+    assert_eq!(queued.get().expect("queued task should complete"), 7);
     pool.shutdown();
+    pool.wait_termination();
 }
 
 #[test]
-fn test_thread_pool_worker_queue_drains_local_jobs() {
-    let queue = ThreadPoolWorkerQueue::new(3);
+fn test_thread_pool_worker_queue_path_is_drained_by_public_stop() {
+    let pool = ThreadPool::builder()
+        .core_pool_size(1)
+        .maximum_pool_size(1)
+        .queue_capacity(4)
+        .build()
+        .expect("thread pool should be created");
+    let (started_tx, started_rx) = mpsc::channel();
+    let (release_tx, release_rx) = mpsc::channel();
+    let running = pool
+        .submit_tracked(move || {
+            started_tx
+                .send(())
+                .expect("test should receive task start signal");
+            release_rx
+                .recv()
+                .map_err(|err| io::Error::other(err.to_string()))?;
+            Ok::<(), io::Error>(())
+        })
+        .expect("running task should be accepted");
+    wait_started(started_rx);
+    let queued = pool
+        .submit_tracked_callable(|| Ok::<usize, io::Error>(7))
+        .expect("queued task should be accepted");
 
-    assert_eq!(queue.worker_index(), 3);
-    assert!(queue.pop_front().is_none());
-    queue.push_back(noop_job());
-    queue.push_back(noop_job());
+    let report = pool.stop();
 
-    let jobs = queue.drain();
-
-    assert_eq!(jobs.len(), 2);
-    assert!(queue.steal_back().is_none());
+    assert_eq!(report.queued, 1);
+    assert!(matches!(queued.get(), Err(TaskExecutionError::Cancelled)));
+    release_tx
+        .send(())
+        .expect("blocking task should receive release signal");
+    running.get().expect("running task should complete");
+    pool.wait_termination();
 }

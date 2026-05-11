@@ -19,7 +19,7 @@ use qubit_thread_pool::{
 use super::mod_tests::wait_until;
 
 #[test]
-fn test_fixed_worker_runs_submitted_task() {
+fn test_fixed_worker_runs_public_submitted_task() {
     let pool = FixedThreadPool::new(1).expect("fixed thread pool should build");
     let value = pool
         .submit_callable(|| Ok::<_, io::Error>(42))

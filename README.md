@@ -30,7 +30,6 @@ implementations. It does not require Tokio or Rayon for normal use.
 - Lazy worker creation for the dynamic pool, with optional core-worker prestart.
 - Keep-alive and optional core-thread timeout for dynamic-pool workers.
 - Configurable worker thread name prefixes and stack sizes.
-- `PoolJob` for advanced integrations that need to submit type-erased jobs.
 - `ThreadPoolStats` for observing pool configuration and runtime counters.
 - Shared `ExecutorService` lifecycle methods including `shutdown`, `stop`, and `wait_termination`.
 - Criterion benchmarks and test data for comparing Qubit pools with `threadpool` and Rayon.

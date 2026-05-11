@@ -23,11 +23,9 @@ use qubit_function::{
 
 /// Type-erased pool job with a cancellation path for queued work.
 ///
-/// `PoolJob` is a low-level extension point for building custom services on
-/// top of [`crate::ThreadPool`]. The pool calls the run callback after a worker takes
-/// the job, or the cancel callback if the job is still queued during immediate
-/// shutdown.
-pub struct PoolJob {
+/// The pool calls the run callback after a worker takes the job, or the cancel
+/// callback if the job is still queued during immediate shutdown.
+pub(crate) struct PoolJob {
     /// Callback executed once a worker starts the job.
     run: Box<dyn FnOnce() + Send + 'static>,
     /// Callback executed if the job is cancelled before a worker starts it.
@@ -44,8 +42,8 @@ impl PoolJob {
     ///
     /// # Returns
     ///
-    /// A type-erased job accepted by [`crate::ThreadPool::submit_job`].
-    pub fn new(
+    /// A type-erased job used by thread-pool internals.
+    pub(crate) fn new(
         run: Box<dyn FnOnce() + Send + 'static>,
         cancel: Box<dyn FnOnce() + Send + 'static>,
     ) -> Self {
@@ -67,7 +65,7 @@ impl PoolJob {
     ///
     /// A type-erased job that runs the task on worker start and cancels the
     /// completion endpoint if the job is abandoned while queued.
-    pub fn from_task<C, R, E>(task: C, completion: TaskCompletion<R, E>) -> Self
+    pub(crate) fn from_task<C, R, E>(task: C, completion: TaskCompletion<R, E>) -> Self
     where
         C: Callable<R, E> + Send + 'static,
         R: Send + 'static,
@@ -95,7 +93,7 @@ impl PoolJob {
     /// A type-erased job that runs the task and discards its final result. If
     /// the job is abandoned while queued, cancellation has no result endpoint to
     /// notify.
-    pub fn detached<T, E>(task: T) -> Self
+    pub(crate) fn detached<T, E>(task: T) -> Self
     where
         T: Runnable<E> + Send + 'static,
         E: Send + 'static,

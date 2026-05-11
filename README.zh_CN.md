@@ -25,7 +25,6 @@ Qubit Thread Pool 为同步工作提供基于 OS 线程的 `ExecutorService` 实
 - 动态池支持懒创建 worker，也支持预启动 core worker。
 - 动态池支持 keep-alive 与可选 core 线程超时。
 - 支持配置 worker 线程名前缀和栈大小。
-- 提供 `PoolJob`，用于需要提交类型擦除 job 的高级集成场景。
 - 提供 `ThreadPoolStats`，用于观察线程池配置和运行时计数。
 - 共享 `ExecutorService` 生命周期方法，包括 `shutdown`、`stop` 和 `wait_termination`。
 - 提供 Criterion benchmark 与测试数据，用于对比 Qubit 线程池、`threadpool` 和 Rayon。

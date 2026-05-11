@@ -1,28 +1,9 @@
 use std::{
-    sync::{
-        Arc,
-        atomic::{
-            AtomicU8,
-            Ordering,
-        },
-        mpsc,
-    },
-    time::{
-        Duration,
-        Instant,
-    },
+    sync::mpsc,
+    time::Duration,
 };
 
-use qubit_thread_pool::delayed::{
-    delayed_task_scheduler_inner::DelayedTaskSchedulerInner,
-    delayed_task_scheduler_worker::DelayedTaskSchedulerWorker,
-    delayed_task_state::DelayedTaskState,
-    scheduled_task::ScheduledTask,
-};
-use qubit_thread_pool::{
-    DelayedTaskScheduler,
-    ExecutorServiceLifecycle,
-};
+use qubit_thread_pool::DelayedTaskScheduler;
 
 #[test]
 fn test_delayed_task_scheduler_worker_runs_due_task() {
@@ -48,6 +29,25 @@ fn test_delayed_task_scheduler_worker_runs_due_task() {
 
 #[test]
 fn test_delayed_task_scheduler_worker_skips_empty_task_entry() {
+    use std::{
+        sync::{
+            Arc,
+            atomic::{
+                AtomicU8,
+                Ordering,
+            },
+        },
+        time::Instant,
+    };
+
+    use qubit_thread_pool::ExecutorServiceLifecycle;
+    use qubit_thread_pool::delayed::{
+        delayed_task_scheduler_inner::DelayedTaskSchedulerInner,
+        delayed_task_scheduler_worker::DelayedTaskSchedulerWorker,
+        delayed_task_state::DelayedTaskState,
+        scheduled_task::ScheduledTask,
+    };
+
     let inner = Arc::new(DelayedTaskSchedulerInner::new());
     let task_state = Arc::new(AtomicU8::new(DelayedTaskState::PENDING));
     let mut task = ScheduledTask::new(Instant::now(), 0, task_state, Box::new(|| {}));

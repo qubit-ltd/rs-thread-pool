@@ -18,14 +18,14 @@ fn create_inner() -> FixedThreadPoolInner {
 }
 
 #[test]
-fn test_fixed_submit_guard_rejects_after_shutdown_closes_admission() {
+fn test_fixed_submit_guard_rejects_after_public_shutdown() {
     let pool = FixedThreadPool::new(1).expect("fixed thread pool should build");
 
     pool.shutdown();
     let rejected = pool.submit(|| Ok::<_, io::Error>(()));
-    pool.wait_termination();
 
     assert!(matches!(rejected, Err(RejectedExecution::Shutdown)));
+    pool.wait_termination();
 }
 
 #[test]
