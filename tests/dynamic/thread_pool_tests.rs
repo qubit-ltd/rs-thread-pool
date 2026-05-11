@@ -25,9 +25,9 @@ use std::{
 
 use qubit_thread_pool::{
     CancelResult,
-    ExecutorBuildError,
     ExecutorService,
-    RejectedExecution,
+    ExecutorServiceBuilderError,
+    SubmissionError,
     TaskExecutionError,
     ThreadPool,
 };
@@ -215,7 +215,7 @@ fn test_thread_pool_shutdown_rejects_new_tasks() {
     pool.shutdown();
     let result = pool.submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>);
 
-    assert!(matches!(result, Err(RejectedExecution::Shutdown)));
+    assert!(matches!(result, Err(SubmissionError::Shutdown)));
     pool.wait_termination();
     assert!(pool.is_not_running());
     assert!(pool.is_terminated());
@@ -252,7 +252,7 @@ fn test_thread_pool_shutdown_drains_queued_tasks() {
         .get()
         .expect("first task should complete successfully");
 
-    assert!(matches!(rejected, Err(RejectedExecution::Shutdown)));
+    assert!(matches!(rejected, Err(SubmissionError::Shutdown)));
     assert_eq!(second.get().expect("queued task should still run"), 42);
     pool.wait_termination();
     assert!(pool.is_terminated());
@@ -364,20 +364,20 @@ fn test_thread_pool_accessors_and_dynamic_settings() {
     assert_eq!(pool.maximum_pool_size(), 3);
     assert!(matches!(
         pool.set_core_pool_size(4),
-        Err(ExecutorBuildError::CorePoolSizeExceedsMaximum { .. }),
+        Err(ExecutorServiceBuilderError::CorePoolSizeExceedsMaximum { .. }),
     ));
     assert!(matches!(
         pool.set_maximum_pool_size(0),
-        Err(ExecutorBuildError::ZeroMaximumPoolSize),
+        Err(ExecutorServiceBuilderError::ZeroMaximumPoolSize),
     ));
     assert!(pool.set_core_pool_size(2).is_ok());
     assert!(matches!(
         pool.set_maximum_pool_size(1),
-        Err(ExecutorBuildError::CorePoolSizeExceedsMaximum { .. }),
+        Err(ExecutorServiceBuilderError::CorePoolSizeExceedsMaximum { .. }),
     ));
     assert!(matches!(
         pool.set_keep_alive(Duration::ZERO),
-        Err(ExecutorBuildError::ZeroKeepAlive),
+        Err(ExecutorServiceBuilderError::ZeroKeepAlive),
     ));
     pool.shutdown();
     pool.wait_termination();
@@ -395,7 +395,7 @@ fn test_thread_pool_reports_worker_spawn_failure() {
 
     assert!(matches!(
         result,
-        Err(RejectedExecution::WorkerSpawnFailed { .. }),
+        Err(SubmissionError::WorkerSpawnFailed { .. }),
     ));
     pool.shutdown();
     pool.wait_termination();
@@ -415,7 +415,7 @@ fn test_thread_pool_cancels_queued_job_when_initial_worker_spawn_fails() {
 
     assert!(matches!(
         result,
-        Err(RejectedExecution::WorkerSpawnFailed { .. }),
+        Err(SubmissionError::WorkerSpawnFailed { .. }),
     ));
     assert_eq!(pool.queued_count(), 0);
     pool.shutdown();
@@ -424,17 +424,17 @@ fn test_thread_pool_cancels_queued_job_when_initial_worker_spawn_fails() {
 
 #[test]
 fn test_rejected_execution_compares_by_variant() {
-    let left = RejectedExecution::WorkerSpawnFailed {
+    let left = SubmissionError::WorkerSpawnFailed {
         source: Arc::new(io::Error::other("left")),
     };
-    let right = RejectedExecution::WorkerSpawnFailed {
+    let right = SubmissionError::WorkerSpawnFailed {
         source: Arc::new(io::Error::other("right")),
     };
 
     assert_eq!(left, right);
-    assert_ne!(RejectedExecution::Shutdown, RejectedExecution::Saturated);
+    assert_ne!(SubmissionError::Shutdown, SubmissionError::Saturated);
     assert_eq!(
-        RejectedExecution::Saturated.to_string(),
+        SubmissionError::Saturated.to_string(),
         "task rejected because the executor service is saturated",
     );
 }

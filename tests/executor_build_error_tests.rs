@@ -7,18 +7,18 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-//! Tests for [`qubit_thread_pool::ExecutorBuildError`].
+//! Tests for [`qubit_thread_pool::ExecutorServiceBuilderError`].
 
 use qubit_thread_pool::{
-    ExecutorBuildError,
-    RejectedExecution,
+    ExecutorServiceBuilderError,
+    SubmissionError,
 };
 
 #[test]
-fn test_executor_build_error_from_rejected_execution_shutdown() {
-    let error: ExecutorBuildError = RejectedExecution::Shutdown.into();
+fn test_executor_build_error_from_submission_error_shutdown() {
+    let error: ExecutorServiceBuilderError = SubmissionError::Shutdown.into();
 
-    let ExecutorBuildError::SpawnWorker { source, .. } = error else {
+    let ExecutorServiceBuilderError::SpawnWorker { source, .. } = error else {
         panic!("expected spawn worker build error");
     };
     assert_eq!(
@@ -28,10 +28,10 @@ fn test_executor_build_error_from_rejected_execution_shutdown() {
 }
 
 #[test]
-fn test_executor_build_error_from_rejected_execution_saturated() {
-    let error: ExecutorBuildError = RejectedExecution::Saturated.into();
+fn test_executor_build_error_from_submission_error_saturated() {
+    let error: ExecutorServiceBuilderError = SubmissionError::Saturated.into();
 
-    let ExecutorBuildError::SpawnWorker { source, .. } = error else {
+    let ExecutorServiceBuilderError::SpawnWorker { source, .. } = error else {
         panic!("expected spawn worker build error");
     };
     assert_eq!(

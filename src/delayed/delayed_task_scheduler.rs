@@ -24,8 +24,8 @@ use std::{
 
 use qubit_executor::service::{
     ExecutorServiceLifecycle,
-    RejectedExecution,
     StopReport,
+    SubmissionError,
 };
 
 use super::delayed_task_handle::DelayedTaskHandle;
@@ -33,7 +33,7 @@ use super::delayed_task_scheduler_inner::DelayedTaskSchedulerInner;
 use super::delayed_task_scheduler_worker::DelayedTaskSchedulerWorker;
 use super::delayed_task_state::TASK_PENDING;
 use super::scheduled_task::ScheduledTask;
-use crate::ExecutorBuildError;
+use crate::ExecutorServiceBuilderError;
 
 /// Single-threaded scheduler for cancellable delayed tasks.
 ///
@@ -57,9 +57,9 @@ impl DelayedTaskScheduler {
     ///
     /// # Errors
     ///
-    /// Returns [`ExecutorBuildError::SpawnWorker`] if the scheduler thread
+    /// Returns [`ExecutorServiceBuilderError::SpawnWorker`] if the scheduler thread
     /// cannot be created.
-    pub fn new(thread_name: &str) -> Result<Self, ExecutorBuildError> {
+    pub fn new(thread_name: &str) -> Result<Self, ExecutorServiceBuilderError> {
         Self::with_stack_size(thread_name, None)
     }
 
@@ -76,12 +76,12 @@ impl DelayedTaskScheduler {
     ///
     /// # Errors
     ///
-    /// Returns [`ExecutorBuildError::SpawnWorker`] if the scheduler thread
+    /// Returns [`ExecutorServiceBuilderError::SpawnWorker`] if the scheduler thread
     /// cannot be created.
     pub fn with_stack_size(
         thread_name: &str,
         stack_size: Option<usize>,
-    ) -> Result<Self, ExecutorBuildError> {
+    ) -> Result<Self, ExecutorServiceBuilderError> {
         let inner = Arc::new(DelayedTaskSchedulerInner::new());
         let worker_inner = Arc::clone(&inner);
         let mut builder = thread::Builder::new().name(thread_name.to_string());
@@ -90,7 +90,10 @@ impl DelayedTaskScheduler {
         }
         let worker = builder.spawn(move || DelayedTaskSchedulerWorker::run(worker_inner));
         if let Err(source) = worker {
-            return Err(ExecutorBuildError::SpawnWorker { index: 0, source });
+            return Err(ExecutorServiceBuilderError::SpawnWorker {
+                index: Some(0),
+                source,
+            });
         }
         Ok(Self { inner })
     }
@@ -108,12 +111,12 @@ impl DelayedTaskScheduler {
     ///
     /// # Errors
     ///
-    /// Returns [`RejectedExecution::Shutdown`] after shutdown starts.
+    /// Returns [`SubmissionError::Shutdown`] after shutdown starts.
     pub fn schedule<F>(
         &self,
         delay: Duration,
         task: F,
-    ) -> Result<DelayedTaskHandle, RejectedExecution>
+    ) -> Result<DelayedTaskHandle, SubmissionError>
     where
         F: FnOnce() + Send + 'static,
     {
@@ -130,7 +133,7 @@ impl DelayedTaskScheduler {
         let deadline = Instant::now() + delay;
         let mut state = self.inner.state.lock();
         if state.lifecycle != ExecutorServiceLifecycle::Running {
-            return Err(RejectedExecution::Shutdown);
+            return Err(SubmissionError::Shutdown);
         }
         let sequence = state.next_sequence;
         state.next_sequence = state.next_sequence.wrapping_add(1);

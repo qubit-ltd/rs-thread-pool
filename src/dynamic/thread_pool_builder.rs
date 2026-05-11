@@ -17,7 +17,7 @@ use super::thread_pool::ThreadPool;
 use super::thread_pool_config::ThreadPoolConfig;
 use super::thread_pool_inner::ThreadPoolInner;
 use crate::{
-    ExecutorBuildError,
+    ExecutorServiceBuilderError,
     ThreadPoolHooks,
 };
 
@@ -294,9 +294,9 @@ impl ThreadPoolBuilder {
     ///
     /// # Errors
     ///
-    /// Returns [`ExecutorBuildError`] if the configuration is invalid or a
+    /// Returns [`ExecutorServiceBuilderError`] if the configuration is invalid or a
     /// prestarted worker thread cannot be spawned.
-    pub fn build(self) -> Result<ThreadPool, ExecutorBuildError> {
+    pub fn build(self) -> Result<ThreadPool, ExecutorServiceBuilderError> {
         self.validate()?;
         let prestart_core_threads = self.prestart_core_threads;
         let inner = Arc::new(ThreadPoolInner::new(
@@ -314,7 +314,7 @@ impl ThreadPoolBuilder {
         if prestart_core_threads {
             inner
                 .prestart_all_core_threads()
-                .map_err(ExecutorBuildError::from_rejected_execution)?;
+                .map_err(ExecutorServiceBuilderError::from_submission_error)?;
         }
         Ok(ThreadPool::from_inner(inner))
     }
@@ -327,27 +327,27 @@ impl ThreadPoolBuilder {
     ///
     /// # Errors
     ///
-    /// Returns [`ExecutorBuildError`] for zero maximum size, core size larger
+    /// Returns [`ExecutorServiceBuilderError`] for zero maximum size, core size larger
     /// than maximum size, zero bounded queue capacity, zero stack size, or zero
     /// keep-alive timeout.
-    fn validate(&self) -> Result<(), ExecutorBuildError> {
+    fn validate(&self) -> Result<(), ExecutorServiceBuilderError> {
         if self.maximum_pool_size == 0 {
-            return Err(ExecutorBuildError::ZeroMaximumPoolSize);
+            return Err(ExecutorServiceBuilderError::ZeroMaximumPoolSize);
         }
         if self.core_pool_size > self.maximum_pool_size {
-            return Err(ExecutorBuildError::CorePoolSizeExceedsMaximum {
+            return Err(ExecutorServiceBuilderError::CorePoolSizeExceedsMaximum {
                 core_pool_size: self.core_pool_size,
                 maximum_pool_size: self.maximum_pool_size,
             });
         }
         if self.queue_capacity == Some(0) {
-            return Err(ExecutorBuildError::ZeroQueueCapacity);
+            return Err(ExecutorServiceBuilderError::ZeroQueueCapacity);
         }
         if self.stack_size == Some(0) {
-            return Err(ExecutorBuildError::ZeroStackSize);
+            return Err(ExecutorServiceBuilderError::ZeroStackSize);
         }
         if self.keep_alive.is_zero() {
-            return Err(ExecutorBuildError::ZeroKeepAlive);
+            return Err(ExecutorServiceBuilderError::ZeroKeepAlive);
         }
         Ok(())
     }

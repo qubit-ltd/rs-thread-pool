@@ -17,7 +17,7 @@ use qubit_function::{
     Runnable,
 };
 
-use qubit_executor::task::TaskCompletionPair;
+use qubit_executor::task::spi::TaskEndpointPair;
 use qubit_executor::{
     TaskHandle,
     TrackedTask,
@@ -26,15 +26,15 @@ use qubit_executor::{
 use super::thread_pool_builder::ThreadPoolBuilder;
 use super::thread_pool_inner::ThreadPoolInner;
 use crate::{
-    ExecutorBuildError,
+    ExecutorServiceBuilderError,
     PoolJob,
     ThreadPoolStats,
 };
 use qubit_executor::service::{
     ExecutorService,
     ExecutorServiceLifecycle,
-    RejectedExecution,
     StopReport,
+    SubmissionError,
 };
 
 /// OS thread pool implementing [`ExecutorService`].
@@ -72,10 +72,10 @@ impl ThreadPool {
     ///
     /// # Errors
     ///
-    /// Returns [`ExecutorBuildError`] if the resulting maximum pool size is
+    /// Returns [`ExecutorServiceBuilderError`] if the resulting maximum pool size is
     /// zero or a worker thread cannot be spawned.
     #[inline]
-    pub fn new(pool_size: usize) -> Result<Self, ExecutorBuildError> {
+    pub fn new(pool_size: usize) -> Result<Self, ExecutorServiceBuilderError> {
         Self::builder().pool_size(pool_size).build()
     }
 
@@ -173,10 +173,10 @@ impl ThreadPool {
     ///
     /// # Errors
     ///
-    /// Returns [`RejectedExecution::Shutdown`] if the pool is shut down, or
-    /// [`RejectedExecution::WorkerSpawnFailed`] if worker creation fails.
+    /// Returns [`SubmissionError::Shutdown`] if the pool is shut down, or
+    /// [`SubmissionError::WorkerSpawnFailed`] if worker creation fails.
     #[inline]
-    pub fn prestart_core_thread(&self) -> Result<bool, RejectedExecution> {
+    pub fn prestart_core_thread(&self) -> Result<bool, SubmissionError> {
         self.inner.prestart_core_thread()
     }
 
@@ -188,10 +188,10 @@ impl ThreadPool {
     ///
     /// # Errors
     ///
-    /// Returns [`RejectedExecution::Shutdown`] if the pool is shut down, or
-    /// [`RejectedExecution::WorkerSpawnFailed`] if worker creation fails.
+    /// Returns [`SubmissionError::Shutdown`] if the pool is shut down, or
+    /// [`SubmissionError::WorkerSpawnFailed`] if worker creation fails.
     #[inline]
-    pub fn prestart_all_core_threads(&self) -> Result<usize, RejectedExecution> {
+    pub fn prestart_all_core_threads(&self) -> Result<usize, SubmissionError> {
         self.inner.prestart_all_core_threads()
     }
 
@@ -212,9 +212,12 @@ impl ThreadPool {
     ///
     /// # Errors
     ///
-    /// Returns [`ExecutorBuildError::CorePoolSizeExceedsMaximum`] when the
+    /// Returns [`ExecutorServiceBuilderError::CorePoolSizeExceedsMaximum`] when the
     /// new core size would exceed the current maximum size.
-    pub fn set_core_pool_size(&self, core_pool_size: usize) -> Result<(), ExecutorBuildError> {
+    pub fn set_core_pool_size(
+        &self,
+        core_pool_size: usize,
+    ) -> Result<(), ExecutorServiceBuilderError> {
         self.inner.set_core_pool_size(core_pool_size)
     }
 
@@ -233,13 +236,13 @@ impl ThreadPool {
     ///
     /// # Errors
     ///
-    /// Returns [`ExecutorBuildError::ZeroMaximumPoolSize`] when the maximum
-    /// size is zero, or [`ExecutorBuildError::CorePoolSizeExceedsMaximum`]
+    /// Returns [`ExecutorServiceBuilderError::ZeroMaximumPoolSize`] when the maximum
+    /// size is zero, or [`ExecutorServiceBuilderError::CorePoolSizeExceedsMaximum`]
     /// when it would be smaller than the current core size.
     pub fn set_maximum_pool_size(
         &self,
         maximum_pool_size: usize,
-    ) -> Result<(), ExecutorBuildError> {
+    ) -> Result<(), ExecutorServiceBuilderError> {
         self.inner.set_maximum_pool_size(maximum_pool_size)
     }
 
@@ -255,9 +258,9 @@ impl ThreadPool {
     ///
     /// # Errors
     ///
-    /// Returns [`ExecutorBuildError::ZeroKeepAlive`] when `keep_alive` is
+    /// Returns [`ExecutorServiceBuilderError::ZeroKeepAlive`] when `keep_alive` is
     /// zero.
-    pub fn set_keep_alive(&self, keep_alive: Duration) -> Result<(), ExecutorBuildError> {
+    pub fn set_keep_alive(&self, keep_alive: Duration) -> Result<(), ExecutorServiceBuilderError> {
         self.inner.set_keep_alive(keep_alive)
     }
 
@@ -292,7 +295,7 @@ impl ExecutorService for ThreadPool {
         E: Send + 'static;
 
     /// Accepts a runnable and queues it for pool workers.
-    fn submit<T, E>(&self, task: T) -> Result<(), RejectedExecution>
+    fn submit<T, E>(&self, task: T) -> Result<(), SubmissionError>
     where
         T: Runnable<E> + Send + 'static,
         E: Send + 'static,
@@ -312,20 +315,17 @@ impl ExecutorService for ThreadPool {
     ///
     /// # Errors
     ///
-    /// Returns [`RejectedExecution::Shutdown`] after shutdown, returns
-    /// [`RejectedExecution::Saturated`] when the bounded pool cannot accept
-    /// more work, or returns [`RejectedExecution::WorkerSpawnFailed`] when a
+    /// Returns [`SubmissionError::Shutdown`] after shutdown, returns
+    /// [`SubmissionError::Saturated`] when the bounded pool cannot accept
+    /// more work, or returns [`SubmissionError::WorkerSpawnFailed`] when a
     /// required worker cannot be created.
-    fn submit_callable<C, R, E>(
-        &self,
-        task: C,
-    ) -> Result<Self::ResultHandle<R, E>, RejectedExecution>
+    fn submit_callable<C, R, E>(&self, task: C) -> Result<Self::ResultHandle<R, E>, SubmissionError>
     where
         C: Callable<R, E> + Send + 'static,
         R: Send + 'static,
         E: Send + 'static,
     {
-        let (handle, completion) = TaskCompletionPair::new().into_parts();
+        let (handle, completion) = TaskEndpointPair::new().into_parts();
         let job = PoolJob::from_task(task, completion);
         self.inner.submit(job)?;
         Ok(handle)
@@ -335,13 +335,13 @@ impl ExecutorService for ThreadPool {
     fn submit_tracked_callable<C, R, E>(
         &self,
         task: C,
-    ) -> Result<Self::TrackedHandle<R, E>, RejectedExecution>
+    ) -> Result<Self::TrackedHandle<R, E>, SubmissionError>
     where
         C: Callable<R, E> + Send + 'static,
         R: Send + 'static,
         E: Send + 'static,
     {
-        let (handle, completion) = TaskCompletionPair::new().into_tracked_parts();
+        let (handle, completion) = TaskEndpointPair::new().into_tracked_parts();
         let job = PoolJob::from_task(task, completion);
         self.inner.submit(job)?;
         Ok(handle)

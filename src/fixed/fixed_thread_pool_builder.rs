@@ -13,7 +13,7 @@ use std::thread;
 
 use super::fixed_thread_pool::FixedThreadPool;
 use crate::{
-    ExecutorBuildError,
+    ExecutorServiceBuilderError,
     ThreadPoolHooks,
 };
 
@@ -190,9 +190,9 @@ impl FixedThreadPoolBuilder {
     ///
     /// # Errors
     ///
-    /// Returns [`ExecutorBuildError`] when configuration is invalid or a
+    /// Returns [`ExecutorServiceBuilderError`] when configuration is invalid or a
     /// worker thread cannot be spawned.
-    pub fn build(self) -> Result<FixedThreadPool, ExecutorBuildError> {
+    pub fn build(self) -> Result<FixedThreadPool, ExecutorServiceBuilderError> {
         self.validate()?;
         FixedThreadPool::new_with_builder(self)
     }
@@ -205,17 +205,17 @@ impl FixedThreadPoolBuilder {
     ///
     /// # Errors
     ///
-    /// Returns [`ExecutorBuildError`] for zero pool size, zero queue capacity,
+    /// Returns [`ExecutorServiceBuilderError`] for zero pool size, zero queue capacity,
     /// or zero stack size.
-    fn validate(&self) -> Result<(), ExecutorBuildError> {
+    fn validate(&self) -> Result<(), ExecutorServiceBuilderError> {
         if self.pool_size == 0 {
-            return Err(ExecutorBuildError::ZeroMaximumPoolSize);
+            return Err(ExecutorServiceBuilderError::ZeroMaximumPoolSize);
         }
         if self.queue_capacity == Some(0) {
-            return Err(ExecutorBuildError::ZeroQueueCapacity);
+            return Err(ExecutorServiceBuilderError::ZeroQueueCapacity);
         }
         if self.stack_size == Some(0) {
-            return Err(ExecutorBuildError::ZeroStackSize);
+            return Err(ExecutorServiceBuilderError::ZeroStackSize);
         }
         Ok(())
     }

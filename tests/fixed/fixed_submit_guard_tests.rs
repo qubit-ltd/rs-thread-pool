@@ -6,7 +6,7 @@ use std::{
 use qubit_thread_pool::{
     ExecutorService,
     FixedThreadPool,
-    RejectedExecution,
+    SubmissionError,
     fixed::{
         fixed_submit_guard::FixedSubmitGuard,
         fixed_thread_pool_inner::FixedThreadPoolInner,
@@ -24,7 +24,7 @@ fn test_fixed_submit_guard_rejects_after_public_shutdown() {
     pool.shutdown();
     let rejected = pool.submit(|| Ok::<_, io::Error>(()));
 
-    assert!(matches!(rejected, Err(RejectedExecution::Shutdown)));
+    assert!(matches!(rejected, Err(SubmissionError::Shutdown)));
     pool.wait_termination();
 }
 

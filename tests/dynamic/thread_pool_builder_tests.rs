@@ -16,9 +16,9 @@ use std::{
 };
 
 use qubit_thread_pool::{
-    ExecutorBuildError,
     ExecutorService,
-    RejectedExecution,
+    ExecutorServiceBuilderError,
+    SubmissionError,
     ThreadPool,
 };
 
@@ -59,7 +59,7 @@ fn test_thread_pool_bounded_queue_rejects_when_saturated() {
         .expect("second task should fill the queue");
     let third = pool.submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>);
 
-    assert!(matches!(third, Err(RejectedExecution::Saturated)));
+    assert!(matches!(third, Err(SubmissionError::Saturated)));
     release_tx
         .send(())
         .expect("blocking task should receive release signal");
@@ -118,7 +118,7 @@ fn test_thread_pool_grows_above_core_when_queue_is_full() {
 
     let fourth = pool.submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>);
 
-    assert!(matches!(fourth, Err(RejectedExecution::Saturated)));
+    assert!(matches!(fourth, Err(SubmissionError::Saturated)));
     assert_eq!(pool.stats().live_workers, 2);
     release_third_tx
         .send(())
@@ -237,7 +237,7 @@ fn test_thread_pool_prestart_core_thread_reports_state() {
     pool.shutdown();
     assert!(matches!(
         pool.prestart_core_thread(),
-        Err(RejectedExecution::Shutdown),
+        Err(SubmissionError::Shutdown),
     ));
     pool.wait_termination();
 }
@@ -262,7 +262,7 @@ fn test_thread_pool_prestart_all_core_threads_reports_state() {
     pool.shutdown();
     assert!(matches!(
         pool.prestart_all_core_threads(),
-        Err(RejectedExecution::Shutdown),
+        Err(SubmissionError::Shutdown),
     ));
     pool.wait_termination();
 }
@@ -329,7 +329,7 @@ fn test_thread_pool_prestart_reports_build_spawn_failure() {
 
     assert!(matches!(
         result,
-        Err(ExecutorBuildError::SpawnWorker { .. })
+        Err(ExecutorServiceBuilderError::SpawnWorker { .. })
     ));
 }
 
@@ -337,25 +337,25 @@ fn test_thread_pool_prestart_reports_build_spawn_failure() {
 fn test_thread_pool_builder_rejects_invalid_configuration() {
     assert!(matches!(
         ThreadPool::builder().pool_size(0).build(),
-        Err(ExecutorBuildError::ZeroMaximumPoolSize),
+        Err(ExecutorServiceBuilderError::ZeroMaximumPoolSize),
     ));
     assert!(matches!(
         ThreadPool::builder().queue_capacity(0).build(),
-        Err(ExecutorBuildError::ZeroQueueCapacity),
+        Err(ExecutorServiceBuilderError::ZeroQueueCapacity),
     ));
     assert!(matches!(
         ThreadPool::builder().stack_size(0).build(),
-        Err(ExecutorBuildError::ZeroStackSize),
+        Err(ExecutorServiceBuilderError::ZeroStackSize),
     ));
     assert!(matches!(
         ThreadPool::builder()
             .core_pool_size(2)
             .maximum_pool_size(1)
             .build(),
-        Err(ExecutorBuildError::CorePoolSizeExceedsMaximum { .. }),
+        Err(ExecutorServiceBuilderError::CorePoolSizeExceedsMaximum { .. }),
     ));
     assert!(matches!(
         ThreadPool::builder().keep_alive(Duration::ZERO).build(),
-        Err(ExecutorBuildError::ZeroKeepAlive),
+        Err(ExecutorServiceBuilderError::ZeroKeepAlive),
     ));
 }

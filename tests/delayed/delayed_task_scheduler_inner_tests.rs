@@ -14,7 +14,7 @@ use std::{
 
 use qubit_executor::service::{
     ExecutorServiceLifecycle,
-    RejectedExecution,
+    SubmissionError,
 };
 use qubit_thread_pool::DelayedTaskScheduler;
 use qubit_thread_pool::delayed::{
@@ -31,7 +31,7 @@ fn test_delayed_task_scheduler_inner_rejects_after_shutdown_via_public_scheduler
     scheduler.shutdown();
     assert!(matches!(
         scheduler.schedule(Duration::ZERO, || {}),
-        Err(RejectedExecution::Shutdown),
+        Err(SubmissionError::Shutdown),
     ));
     scheduler.wait_termination();
 }

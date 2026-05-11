@@ -12,10 +12,10 @@ use std::sync::Arc;
 use qubit_executor::service::{
     ExecutorService,
     ExecutorServiceLifecycle,
-    RejectedExecution,
     StopReport,
+    SubmissionError,
 };
-use qubit_executor::task::TaskCompletionPair;
+use qubit_executor::task::spi::TaskEndpointPair;
 use qubit_executor::{
     TaskHandle,
     TrackedTask,
@@ -30,7 +30,7 @@ use super::fixed_thread_pool_inner::FixedThreadPoolInner;
 use super::fixed_worker::FixedWorker;
 use super::fixed_worker_runtime::FixedWorkerRuntime;
 use crate::{
-    ExecutorBuildError,
+    ExecutorServiceBuilderError,
     PoolJob,
     ThreadPoolStats,
 };
@@ -58,10 +58,10 @@ impl FixedThreadPool {
     ///
     /// # Errors
     ///
-    /// Returns [`ExecutorBuildError`] when a worker thread cannot be spawned.
+    /// Returns [`ExecutorServiceBuilderError`] when a worker thread cannot be spawned.
     pub(crate) fn new_with_builder(
         builder: FixedThreadPoolBuilder,
-    ) -> Result<Self, ExecutorBuildError> {
+    ) -> Result<Self, ExecutorServiceBuilderError> {
         let FixedThreadPoolBuilder {
             pool_size,
             queue_capacity,
@@ -92,7 +92,10 @@ impl FixedThreadPool {
             {
                 inner.rollback_worker_slot();
                 inner.stop_after_failed_build();
-                return Err(ExecutorBuildError::SpawnWorker { index, source });
+                return Err(ExecutorServiceBuilderError::SpawnWorker {
+                    index: Some(index),
+                    source,
+                });
             }
         }
         Ok(Self { inner })
@@ -110,9 +113,9 @@ impl FixedThreadPool {
     ///
     /// # Errors
     ///
-    /// Returns [`ExecutorBuildError`] if the worker count is zero or a worker
+    /// Returns [`ExecutorServiceBuilderError`] if the worker count is zero or a worker
     /// cannot be spawned.
-    pub fn new(pool_size: usize) -> Result<Self, ExecutorBuildError> {
+    pub fn new(pool_size: usize) -> Result<Self, ExecutorServiceBuilderError> {
         Self::builder().pool_size(pool_size).build()
     }
 
@@ -218,7 +221,7 @@ impl ExecutorService for FixedThreadPool {
         E: Send + 'static;
 
     /// Accepts a runnable and queues it for fixed pool workers.
-    fn submit<T, E>(&self, task: T) -> Result<(), RejectedExecution>
+    fn submit<T, E>(&self, task: T) -> Result<(), SubmissionError>
     where
         T: Runnable<E> + Send + 'static,
         E: Send + 'static,
@@ -238,18 +241,15 @@ impl ExecutorService for FixedThreadPool {
     ///
     /// # Errors
     ///
-    /// Returns [`RejectedExecution::Shutdown`] after shutdown or
-    /// [`RejectedExecution::Saturated`] when a bounded queue is full.
-    fn submit_callable<C, R, E>(
-        &self,
-        task: C,
-    ) -> Result<Self::ResultHandle<R, E>, RejectedExecution>
+    /// Returns [`SubmissionError::Shutdown`] after shutdown or
+    /// [`SubmissionError::Saturated`] when a bounded queue is full.
+    fn submit_callable<C, R, E>(&self, task: C) -> Result<Self::ResultHandle<R, E>, SubmissionError>
     where
         C: Callable<R, E> + Send + 'static,
         R: Send + 'static,
         E: Send + 'static,
     {
-        let (handle, completion) = TaskCompletionPair::new().into_parts();
+        let (handle, completion) = TaskEndpointPair::new().into_parts();
         let job = PoolJob::from_task(task, completion);
         self.inner.submit(job)?;
         Ok(handle)
@@ -259,13 +259,13 @@ impl ExecutorService for FixedThreadPool {
     fn submit_tracked_callable<C, R, E>(
         &self,
         task: C,
-    ) -> Result<Self::TrackedHandle<R, E>, RejectedExecution>
+    ) -> Result<Self::TrackedHandle<R, E>, SubmissionError>
     where
         C: Callable<R, E> + Send + 'static,
         R: Send + 'static,
         E: Send + 'static,
     {
-        let (handle, completion) = TaskCompletionPair::new().into_tracked_parts();
+        let (handle, completion) = TaskEndpointPair::new().into_tracked_parts();
         let job = PoolJob::from_task(task, completion);
         self.inner.submit(job)?;
         Ok(handle)

@@ -28,7 +28,7 @@ use qubit_thread_pool::{
     CancelResult,
     ExecutorService,
     FixedThreadPool,
-    RejectedExecution,
+    SubmissionError,
     TaskExecutionError,
 };
 
@@ -200,7 +200,7 @@ fn test_fixed_thread_pool_shutdown_rejects_new_tasks() {
     pool.shutdown();
     let result = pool.submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>);
 
-    assert!(matches!(result, Err(RejectedExecution::Shutdown)));
+    assert!(matches!(result, Err(SubmissionError::Shutdown)));
     pool.wait_termination();
     assert!(pool.is_not_running());
     assert!(pool.is_terminated());
@@ -234,7 +234,7 @@ fn test_fixed_thread_pool_bounded_queue_rejects_when_saturated() {
 
     let saturated = pool.submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>);
 
-    assert!(matches!(saturated, Err(RejectedExecution::Saturated)));
+    assert!(matches!(saturated, Err(SubmissionError::Saturated)));
     release_tx
         .send(())
         .expect("blocking task should receive release signal");
@@ -275,7 +275,7 @@ fn test_fixed_thread_pool_shutdown_drains_queued_tasks() {
         .get()
         .expect("first task should complete successfully");
 
-    assert!(matches!(rejected, Err(RejectedExecution::Shutdown)));
+    assert!(matches!(rejected, Err(SubmissionError::Shutdown)));
     assert_eq!(second.get().expect("queued task should still run"), 42);
     pool.wait_termination();
     assert!(pool.is_terminated());

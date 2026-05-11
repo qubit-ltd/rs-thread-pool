@@ -22,8 +22,8 @@ use std::{
 
 use qubit_executor::service::{
     ExecutorServiceLifecycle,
-    RejectedExecution,
     StopReport,
+    SubmissionError,
 };
 use qubit_lock::{
     Monitor,
@@ -36,7 +36,7 @@ use super::thread_pool_worker::ThreadPoolWorker;
 use super::thread_pool_worker_queue::ThreadPoolWorkerQueue;
 use super::thread_pool_worker_runtime::ThreadPoolWorkerRuntime;
 use crate::{
-    ExecutorBuildError,
+    ExecutorServiceBuilderError,
     PoolJob,
     ThreadPoolHooks,
     ThreadPoolStats,
@@ -165,14 +165,14 @@ impl ThreadPoolInner {
     ///
     /// # Errors
     ///
-    /// Returns [`RejectedExecution::Shutdown`] after shutdown, returns
-    /// [`RejectedExecution::Saturated`] when the queue and worker capacity are
-    /// full, or returns [`RejectedExecution::WorkerSpawnFailed`] if a required
+    /// Returns [`SubmissionError::Shutdown`] after shutdown, returns
+    /// [`SubmissionError::Saturated`] when the queue and worker capacity are
+    /// full, or returns [`SubmissionError::WorkerSpawnFailed`] if a required
     /// worker cannot be created.
-    pub(crate) fn submit(self: &Arc<Self>, job: PoolJob) -> Result<(), RejectedExecution> {
+    pub(crate) fn submit(self: &Arc<Self>, job: PoolJob) -> Result<(), SubmissionError> {
         let mut state = self.lock_state();
         if state.lifecycle != ExecutorServiceLifecycle::Running {
-            return Err(RejectedExecution::Shutdown);
+            return Err(SubmissionError::Shutdown);
         }
         if state.live_workers < state.core_pool_size {
             state.submitted_tasks += 1;
@@ -231,7 +231,7 @@ impl ThreadPoolInner {
             }
             Ok(())
         } else {
-            Err(RejectedExecution::Saturated)
+            Err(SubmissionError::Saturated)
         }
     }
 
@@ -254,13 +254,13 @@ impl ThreadPoolInner {
     ///
     /// # Errors
     ///
-    /// Returns [`RejectedExecution::Shutdown`] after shutdown or
-    /// [`RejectedExecution::WorkerSpawnFailed`] if the worker cannot be
+    /// Returns [`SubmissionError::Shutdown`] after shutdown or
+    /// [`SubmissionError::WorkerSpawnFailed`] if the worker cannot be
     /// created.
-    pub(crate) fn prestart_core_thread(self: &Arc<Self>) -> Result<bool, RejectedExecution> {
+    pub(crate) fn prestart_core_thread(self: &Arc<Self>) -> Result<bool, SubmissionError> {
         let mut state = self.lock_state();
         if state.lifecycle != ExecutorServiceLifecycle::Running {
-            return Err(RejectedExecution::Shutdown);
+            return Err(SubmissionError::Shutdown);
         }
         if state.live_workers >= state.core_pool_size {
             return Ok(false);
@@ -279,9 +279,9 @@ impl ThreadPoolInner {
     ///
     /// # Errors
     ///
-    /// Returns [`RejectedExecution`] if shutdown is observed or a worker cannot
+    /// Returns [`SubmissionError`] if shutdown is observed or a worker cannot
     /// be created.
-    pub(crate) fn prestart_all_core_threads(self: &Arc<Self>) -> Result<usize, RejectedExecution> {
+    pub(crate) fn prestart_all_core_threads(self: &Arc<Self>) -> Result<usize, SubmissionError> {
         let mut started = 0;
         while self.prestart_core_thread()? {
             started += 1;
@@ -332,12 +332,12 @@ impl ThreadPoolInner {
     ///
     /// # Errors
     ///
-    /// Returns [`RejectedExecution::WorkerSpawnFailed`] if
+    /// Returns [`SubmissionError::WorkerSpawnFailed`] if
     /// [`thread::Builder::spawn`] fails.
     fn spawn_reserved_worker(
         self: &Arc<Self>,
         worker: ReservedWorker,
-    ) -> Result<(), RejectedExecution> {
+    ) -> Result<(), SubmissionError> {
         let ReservedWorker {
             index,
             runtime,
@@ -371,7 +371,7 @@ impl ThreadPoolInner {
                 for job in cancelled_jobs {
                     job.cancel();
                 }
-                Err(RejectedExecution::WorkerSpawnFailed {
+                Err(SubmissionError::WorkerSpawnFailed {
                     source: Arc::new(source),
                 })
             }
@@ -646,12 +646,12 @@ impl ThreadPoolInner {
     ///
     /// # Errors
     ///
-    /// Returns [`ExecutorBuildError::CorePoolSizeExceedsMaximum`] when the
+    /// Returns [`ExecutorServiceBuilderError::CorePoolSizeExceedsMaximum`] when the
     /// new core size is greater than the current maximum size.
     pub(crate) fn set_core_pool_size(
         self: &Arc<Self>,
         core_pool_size: usize,
-    ) -> Result<(), ExecutorBuildError> {
+    ) -> Result<(), ExecutorServiceBuilderError> {
         let err = self.write_state(|state| {
             if core_pool_size > state.maximum_pool_size {
                 Some(state.maximum_pool_size)
@@ -661,7 +661,7 @@ impl ThreadPoolInner {
             }
         });
         if let Some(maximum_pool_size) = err {
-            return Err(ExecutorBuildError::CorePoolSizeExceedsMaximum {
+            return Err(ExecutorServiceBuilderError::CorePoolSizeExceedsMaximum {
                 core_pool_size,
                 maximum_pool_size,
             });
@@ -682,15 +682,15 @@ impl ThreadPoolInner {
     ///
     /// # Errors
     ///
-    /// Returns [`ExecutorBuildError::ZeroMaximumPoolSize`] for zero, or
-    /// [`ExecutorBuildError::CorePoolSizeExceedsMaximum`] when the current
+    /// Returns [`ExecutorServiceBuilderError::ZeroMaximumPoolSize`] for zero, or
+    /// [`ExecutorServiceBuilderError::CorePoolSizeExceedsMaximum`] when the current
     /// core size is greater than the new maximum size.
     pub(crate) fn set_maximum_pool_size(
         self: &Arc<Self>,
         maximum_pool_size: usize,
-    ) -> Result<(), ExecutorBuildError> {
+    ) -> Result<(), ExecutorServiceBuilderError> {
         if maximum_pool_size == 0 {
-            return Err(ExecutorBuildError::ZeroMaximumPoolSize);
+            return Err(ExecutorServiceBuilderError::ZeroMaximumPoolSize);
         }
         let exceeds = self.write_state(|state| {
             if state.core_pool_size > maximum_pool_size {
@@ -701,7 +701,7 @@ impl ThreadPoolInner {
             }
         });
         if let Some(core_pool_size) = exceeds {
-            return Err(ExecutorBuildError::CorePoolSizeExceedsMaximum {
+            return Err(ExecutorServiceBuilderError::CorePoolSizeExceedsMaximum {
                 core_pool_size,
                 maximum_pool_size,
             });
@@ -722,11 +722,14 @@ impl ThreadPoolInner {
     ///
     /// # Errors
     ///
-    /// Returns [`ExecutorBuildError::ZeroKeepAlive`] when the duration is
+    /// Returns [`ExecutorServiceBuilderError::ZeroKeepAlive`] when the duration is
     /// zero.
-    pub(crate) fn set_keep_alive(&self, keep_alive: Duration) -> Result<(), ExecutorBuildError> {
+    pub(crate) fn set_keep_alive(
+        &self,
+        keep_alive: Duration,
+    ) -> Result<(), ExecutorServiceBuilderError> {
         if keep_alive.is_zero() {
-            return Err(ExecutorBuildError::ZeroKeepAlive);
+            return Err(ExecutorServiceBuilderError::ZeroKeepAlive);
         }
         self.write_state(|state| state.keep_alive = keep_alive);
         self.state_monitor.notify_all();

@@ -12,8 +12,8 @@ use std::panic::{
     catch_unwind,
 };
 
-use qubit_executor::task::{
-    TaskCompletion,
+use qubit_executor::task::spi::{
+    TaskCompleter,
     TaskRunner,
 };
 use qubit_function::{
@@ -65,7 +65,7 @@ impl PoolJob {
     ///
     /// A type-erased job that runs the task on worker start and cancels the
     /// completion endpoint if the job is abandoned while queued.
-    pub(crate) fn from_task<C, R, E>(task: C, completion: TaskCompletion<R, E>) -> Self
+    pub(crate) fn from_task<C, R, E>(task: C, completion: TaskCompleter<R, E>) -> Self
     where
         C: Callable<R, E> + Send + 'static,
         R: Send + 'static,

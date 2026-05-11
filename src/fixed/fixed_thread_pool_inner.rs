@@ -22,8 +22,8 @@ use crossbeam_deque::{
 };
 use qubit_executor::service::{
     ExecutorServiceLifecycle,
-    RejectedExecution,
     StopReport,
+    SubmissionError,
 };
 use qubit_lock::Monitor;
 
@@ -182,8 +182,8 @@ impl FixedThreadPoolInner {
     ///
     /// # Errors
     ///
-    /// Returns [`RejectedExecution::Shutdown`] when admission is closed.
-    fn begin_submit(&self) -> Result<FixedSubmitGuard<'_>, RejectedExecution> {
+    /// Returns [`SubmissionError::Shutdown`] when admission is closed.
+    fn begin_submit(&self) -> Result<FixedSubmitGuard<'_>, SubmissionError> {
         self.inflight_submissions.fetch_add(1, Ordering::Release);
         if self.accepting.load(Ordering::Acquire) {
             Ok(FixedSubmitGuard { inner: self })
@@ -193,7 +193,7 @@ impl FixedThreadPoolInner {
             if previous == 1 {
                 self.state.notify_all();
             }
-            Err(RejectedExecution::Shutdown)
+            Err(SubmissionError::Shutdown)
         }
     }
 
@@ -227,12 +227,12 @@ impl FixedThreadPoolInner {
     ///
     /// # Errors
     ///
-    /// Returns [`RejectedExecution::Shutdown`] after shutdown or
-    /// [`RejectedExecution::Saturated`] when the bounded queue is full.
-    pub(crate) fn submit(&self, job: PoolJob) -> Result<(), RejectedExecution> {
+    /// Returns [`SubmissionError::Shutdown`] after shutdown or
+    /// [`SubmissionError::Saturated`] when the bounded queue is full.
+    pub(crate) fn submit(&self, job: PoolJob) -> Result<(), SubmissionError> {
         let _guard = self.begin_submit()?;
         if !self.reserve_queue_slot() {
-            return Err(RejectedExecution::Saturated);
+            return Err(SubmissionError::Saturated);
         }
         self.submitted_task_count.fetch_add(1, Ordering::Release);
         self.enqueue_job(job);

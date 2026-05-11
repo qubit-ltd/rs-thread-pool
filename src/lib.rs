@@ -33,21 +33,23 @@ pub use fixed::{
 };
 pub(crate) use pool_job::PoolJob;
 pub use qubit_executor::service::{
-    ExecutorBuildError,
     ExecutorService,
+    ExecutorServiceBuilderError,
     ExecutorServiceLifecycle,
-    RejectedExecution,
     StopReport,
+    SubmissionError,
+};
+pub use qubit_executor::task::spi::{
+    TaskResultHandle,
+    TrackedTaskHandle,
 };
 pub use qubit_executor::{
     CancelResult,
     TaskExecutionError,
     TaskHandle,
     TaskResult,
-    TaskResultHandle,
     TaskStatus,
     TrackedTask,
-    TrackedTaskHandle,
     TryGet,
 };
 pub use thread_pool_hooks::ThreadPoolHooks;

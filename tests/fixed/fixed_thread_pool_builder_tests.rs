@@ -12,8 +12,8 @@
 use std::io;
 
 use qubit_thread_pool::{
-    ExecutorBuildError,
     ExecutorService,
+    ExecutorServiceBuilderError,
     FixedThreadPool,
 };
 
@@ -23,21 +23,21 @@ use super::mod_tests::wait_until;
 fn test_fixed_thread_pool_builder_rejects_invalid_configuration() {
     assert!(matches!(
         FixedThreadPool::builder().pool_size(0).build(),
-        Err(ExecutorBuildError::ZeroMaximumPoolSize),
+        Err(ExecutorServiceBuilderError::ZeroMaximumPoolSize),
     ));
     assert!(matches!(
         FixedThreadPool::builder()
             .pool_size(1)
             .queue_capacity(0)
             .build(),
-        Err(ExecutorBuildError::ZeroQueueCapacity),
+        Err(ExecutorServiceBuilderError::ZeroQueueCapacity),
     ));
     assert!(matches!(
         FixedThreadPool::builder()
             .pool_size(1)
             .stack_size(0)
             .build(),
-        Err(ExecutorBuildError::ZeroStackSize),
+        Err(ExecutorServiceBuilderError::ZeroStackSize),
     ));
 }
 
@@ -50,7 +50,7 @@ fn test_fixed_thread_pool_builder_reports_worker_spawn_failure() {
 
     assert!(matches!(
         result,
-        Err(ExecutorBuildError::SpawnWorker { .. })
+        Err(ExecutorServiceBuilderError::SpawnWorker { .. })
     ));
 }
 

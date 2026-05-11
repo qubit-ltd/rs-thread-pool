@@ -16,7 +16,7 @@ use std::{
 
 use qubit_thread_pool::{
     DelayedTaskScheduler,
-    ExecutorBuildError,
+    ExecutorServiceBuilderError,
 };
 
 #[test]
@@ -58,7 +58,7 @@ fn test_delayed_task_scheduler_reports_spawn_failure() {
 
     assert!(matches!(
         result,
-        Err(ExecutorBuildError::SpawnWorker { .. })
+        Err(ExecutorServiceBuilderError::SpawnWorker { .. })
     ));
 }
 
