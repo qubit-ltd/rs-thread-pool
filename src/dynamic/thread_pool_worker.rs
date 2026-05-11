@@ -33,11 +33,16 @@ impl ThreadPoolWorker {
     pub(crate) fn run(inner: Arc<ThreadPoolInner>, worker_runtime: ThreadPoolWorkerRuntime) {
         let worker_index = worker_runtime.worker_index();
         inner.hooks().run_before_worker_start(worker_index);
+        let has_task_hooks = inner.hooks().has_task_hooks();
         loop {
             let job = wait_for_job(&inner, &worker_runtime);
             match job {
                 Some(job) => {
-                    run_job(job, inner.hooks(), worker_index);
+                    if has_task_hooks {
+                        run_with_task_hooks(job, inner.hooks(), worker_index);
+                    } else {
+                        run_without_hooks(job);
+                    }
                     finish_running_job(&inner);
                 }
                 None => {
@@ -49,6 +54,15 @@ impl ThreadPoolWorker {
     }
 }
 
+/// Runs one claimed job without invoking task hooks.
+///
+/// # Parameters
+///
+/// * `job` - Claimed job to execute.
+fn run_without_hooks(job: PoolJob) {
+    job.run();
+}
+
 /// Runs one claimed job with configured task hooks.
 ///
 /// # Parameters
@@ -56,7 +70,7 @@ impl ThreadPoolWorker {
 /// * `job` - Claimed job to execute.
 /// * `hooks` - Hook set configured for the pool.
 /// * `worker_index` - Stable index of the worker running the job.
-fn run_job(job: PoolJob, hooks: &ThreadPoolHooks, worker_index: usize) {
+fn run_with_task_hooks(job: PoolJob, hooks: &ThreadPoolHooks, worker_index: usize) {
     hooks.run_before_task(worker_index);
     job.run();
     hooks.run_after_task(worker_index);

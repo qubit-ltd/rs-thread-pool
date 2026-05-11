@@ -25,10 +25,7 @@ impl Drop for FixedSubmitGuard<'_> {
             .inflight_submissions
             .fetch_sub(1, Ordering::Release);
         debug_assert!(previous > 0, "fixed pool submit counter underflow");
-        if previous == 1
-            && (!self.inner.accepting.load(Ordering::Acquire)
-                || (self.inner.has_idle_waiters() && self.inner.is_idle()))
-        {
+        if previous == 1 && self.inner.has_submit_waiters() {
             self.inner.notify_waiters_after_atomic_change();
         }
     }

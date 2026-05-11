@@ -55,6 +55,8 @@ pub struct FixedThreadPoolInner {
     pub pending_worker_wakes: AtomicUsize,
     /// Number of callers waiting for the pool to become idle.
     pub idle_waiter_count: AtomicUsize,
+    /// Number of callers waiting for in-flight submitters to leave admission.
+    pub submit_waiter_count: AtomicUsize,
     /// Lock-free queue for externally submitted jobs.
     pub(crate) global_queue: Injector<PoolJob>,
     /// Optional maximum number of queued jobs.
@@ -113,6 +115,7 @@ impl FixedThreadPoolInner {
             idle_worker_count: AtomicUsize::new(0),
             pending_worker_wakes: AtomicUsize::new(0),
             idle_waiter_count: AtomicUsize::new(0),
+            submit_waiter_count: AtomicUsize::new(0),
             global_queue: Injector::new(),
             queue_capacity,
             queued_task_count: AtomicUsize::new(0),
@@ -190,8 +193,8 @@ impl FixedThreadPoolInner {
         } else {
             let previous = self.inflight_submissions.fetch_sub(1, Ordering::Release);
             debug_assert!(previous > 0, "fixed pool submit counter underflow");
-            if previous == 1 {
-                self.state.notify_all();
+            if previous == 1 && self.has_submit_waiters() {
+                self.notify_waiters_after_atomic_change();
             }
             Err(SubmissionError::Shutdown)
         }
@@ -296,6 +299,16 @@ impl FixedThreadPoolInner {
     /// `true` when [`Self::wait_until_idle`] has at least one active waiter.
     pub fn has_idle_waiters(&self) -> bool {
         self.idle_waiter_count.load(Ordering::Acquire) > 0
+    }
+
+    /// Returns whether any caller is waiting for submit admission to drain.
+    ///
+    /// # Returns
+    ///
+    /// `true` when a waiter needs notification after the last in-flight submit
+    /// leaves admission.
+    pub fn has_submit_waiters(&self) -> bool {
+        self.submit_waiter_count.load(Ordering::Acquire) > 0
     }
 
     /// Returns whether no accepted or in-flight work remains.
@@ -449,6 +462,7 @@ impl FixedThreadPoolInner {
     /// threads to exit.
     pub fn wait_until_idle(&self) {
         self.idle_waiter_count.fetch_add(1, Ordering::AcqRel);
+        self.submit_waiter_count.fetch_add(1, Ordering::AcqRel);
         let mut state = self.state.lock();
         while !self.is_idle() {
             let (next_state, _) = state.wait_timeout(IDLE_WAIT_RECHECK_INTERVAL);
@@ -457,6 +471,8 @@ impl FixedThreadPoolInner {
         drop(state);
         let previous = self.idle_waiter_count.fetch_sub(1, Ordering::AcqRel);
         debug_assert!(previous > 0, "fixed pool idle waiter counter underflow");
+        let previous = self.submit_waiter_count.fetch_sub(1, Ordering::AcqRel);
+        debug_assert!(previous > 0, "fixed pool submit waiter counter underflow");
     }
 
     /// Requests graceful shutdown.
@@ -481,8 +497,13 @@ impl FixedThreadPoolInner {
         let running = self.running_count();
         let mut state = self.state.lock();
         state.lifecycle = ExecutorServiceLifecycle::Stopping;
-        while self.inflight_count() > 0 {
-            state = state.wait();
+        if self.inflight_count() > 0 {
+            self.submit_waiter_count.fetch_add(1, Ordering::AcqRel);
+            while self.inflight_count() > 0 {
+                state = state.wait();
+            }
+            let previous = self.submit_waiter_count.fetch_sub(1, Ordering::AcqRel);
+            debug_assert!(previous > 0, "fixed pool submit waiter counter underflow");
         }
         drop(state);
         let jobs = self.drain_visible_queued_jobs();

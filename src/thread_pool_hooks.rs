@@ -160,6 +160,16 @@ impl ThreadPoolHooks {
         Self::run_hook(&self.after_task, worker_index);
     }
 
+    /// Returns whether any per-task hook is configured.
+    ///
+    /// # Returns
+    ///
+    /// `true` when worker loops must invoke task hooks around each job.
+    #[inline]
+    pub(crate) fn has_task_hooks(&self) -> bool {
+        self.before_task.is_some() || self.after_task.is_some()
+    }
+
     /// Runs one hook callback while isolating hook panics.
     ///
     /// # Parameters

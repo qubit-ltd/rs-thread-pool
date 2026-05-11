@@ -13,23 +13,28 @@ use std::panic::{
 };
 
 use qubit_executor::task::spi::{
-    TaskCompleter,
     TaskRunner,
+    TaskSlot,
 };
 use qubit_function::{
     Callable,
     Runnable,
 };
 
-/// Type-erased pool job with a cancellation path for queued work.
-///
-/// The pool calls the run callback after a worker takes the job, or the cancel
-/// callback if the job is still queued during immediate shutdown.
-pub(crate) struct PoolJob {
-    /// Callback executed once a worker starts the job.
-    run: Box<dyn FnOnce() + Send + 'static>,
-    /// Callback executed if the job is cancelled before a worker starts it.
-    cancel: Option<Box<dyn FnOnce() + Send + 'static>>,
+/// Type-erased pool job with separate detached and cancellable forms.
+pub(crate) enum PoolJob {
+    /// Fire-and-forget job submitted without a completion endpoint.
+    Detached {
+        /// Callback executed once a worker starts the job.
+        run: Box<dyn FnOnce() + Send + 'static>,
+    },
+    /// Job whose queued cancellation must complete a result endpoint.
+    Completable {
+        /// Callback executed once a worker starts the job.
+        run: Box<dyn FnOnce() + Send + 'static>,
+        /// Callback executed if the job is cancelled before a worker starts it.
+        cancel: Box<dyn FnOnce() + Send + 'static>,
+    },
 }
 
 impl PoolJob {
@@ -47,9 +52,9 @@ impl PoolJob {
         run: Box<dyn FnOnce() + Send + 'static>,
         cancel: Box<dyn FnOnce() + Send + 'static>,
     ) -> Self {
-        Self {
+        Self::Completable {
             run,
-            cancel: Some(cancel),
+            cancel,
         }
     }
 
@@ -65,7 +70,7 @@ impl PoolJob {
     ///
     /// A type-erased job that runs the task on worker start and cancels the
     /// completion endpoint if the job is abandoned while queued.
-    pub(crate) fn from_task<C, R, E>(task: C, completion: TaskCompleter<R, E>) -> Self
+    pub(crate) fn from_task<C, R, E>(task: C, completion: TaskSlot<R, E>) -> Self
     where
         C: Callable<R, E> + Send + 'static,
         R: Send + 'static,
@@ -98,12 +103,11 @@ impl PoolJob {
         T: Runnable<E> + Send + 'static,
         E: Send + 'static,
     {
-        Self {
+        Self::Detached {
             run: Box::new(move || {
                 let mut task = task;
                 let _ignored = catch_unwind(AssertUnwindSafe(|| task.run()));
             }),
-            cancel: None,
         }
     }
 
@@ -111,14 +115,17 @@ impl PoolJob {
     ///
     /// Consumes the job and invokes the run callback at most once.
     pub(crate) fn run(self) {
-        (self.run)();
+        match self {
+            Self::Detached { run } => run(),
+            Self::Completable { run, .. } => run(),
+        }
     }
 
     /// Cancels this queued job if it has not been run first.
     ///
     /// Consumes the job and invokes the cancellation callback at most once.
     pub(crate) fn cancel(self) {
-        if let Some(cancel) = self.cancel {
+        if let Self::Completable { cancel, .. } = self {
             cancel();
         }
     }

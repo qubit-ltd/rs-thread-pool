@@ -211,19 +211,25 @@ fn run_dynamic_submit_batch(pool_size: usize, task_count: usize, workload: Workl
 /// Runs one batch on the dynamic Qubit pool through `submit_tracked`.
 fn run_dynamic_submit_tracked_batch(pool_size: usize, task_count: usize, workload: Workload) {
     let pool = ThreadPool::new(pool_size).expect("thread pool should be created");
+    let (sender, receiver) = mpsc::channel();
     let mut handles = Vec::with_capacity(task_count);
     for task_index in 0..task_count {
+        let sender = sender.clone();
         let handle = pool
             .submit_tracked(move || {
-                black_box(run_workload(workload, task_index));
+                let _ignored = sender.send(run_workload(workload, task_index));
                 Ok::<(), Infallible>(())
             })
             .expect("task should be accepted");
         handles.push(handle);
     }
-    for handle in handles {
-        handle.get().expect("tracked task should complete");
-    }
+    drop(sender);
+    let sum = receiver
+        .into_iter()
+        .take(task_count)
+        .fold(0usize, usize::wrapping_add);
+    black_box(sum);
+    black_box(handles.len());
 }
 
 /// Runs one batch on the fixed Qubit pool through `submit`.
@@ -249,19 +255,25 @@ fn run_fixed_submit_batch(pool_size: usize, task_count: usize, workload: Workloa
 /// Runs one batch on the fixed Qubit pool through `submit_tracked`.
 fn run_fixed_submit_tracked_batch(pool_size: usize, task_count: usize, workload: Workload) {
     let pool = FixedThreadPool::new(pool_size).expect("fixed thread pool should be created");
+    let (sender, receiver) = mpsc::channel();
     let mut handles = Vec::with_capacity(task_count);
     for task_index in 0..task_count {
+        let sender = sender.clone();
         let handle = pool
             .submit_tracked(move || {
-                black_box(run_workload(workload, task_index));
+                let _ignored = sender.send(run_workload(workload, task_index));
                 Ok::<(), Infallible>(())
             })
             .expect("task should be accepted");
         handles.push(handle);
     }
-    for handle in handles {
-        handle.get().expect("tracked task should complete");
-    }
+    drop(sender);
+    let sum = receiver
+        .into_iter()
+        .take(task_count)
+        .fold(0usize, usize::wrapping_add);
+    black_box(sum);
+    black_box(handles.len());
 }
 
 /// Runs one batch with the external `threadpool` crate through `execute`.
