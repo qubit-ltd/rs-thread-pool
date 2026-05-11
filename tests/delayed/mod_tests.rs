@@ -1,13 +1,9 @@
-use std::{sync::mpsc, time::Duration};
+use std::{
+    sync::mpsc,
+    time::Duration,
+};
 
 use qubit_thread_pool::DelayedTaskScheduler;
-
-pub(crate) fn create_runtime() -> tokio::runtime::Runtime {
-    tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .expect("tokio runtime should build for delayed scheduler tests")
-}
 
 #[test]
 fn test_delayed_module_exports_scheduler_entrypoint() {
@@ -25,5 +21,5 @@ fn test_delayed_module_exports_scheduler_entrypoint() {
         .recv_timeout(Duration::from_secs(1))
         .expect("scheduled task should run");
     scheduler.shutdown();
-    create_runtime().block_on(scheduler.await_termination());
+    scheduler.wait_termination();
 }

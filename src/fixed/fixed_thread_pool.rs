@@ -7,19 +7,33 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-use std::{future::Future, pin::Pin, sync::Arc};
+use std::sync::Arc;
 
 use qubit_executor::service::{
-    ExecutorService, ExecutorServiceLifecycle, RejectedExecution, StopReport,
+    ExecutorService,
+    ExecutorServiceLifecycle,
+    RejectedExecution,
+    StopReport,
 };
-use qubit_executor::{TaskCompletionPair, TaskHandle, TrackedTask};
-use qubit_function::{Callable, Runnable};
+use qubit_executor::task::TaskCompletionPair;
+use qubit_executor::{
+    TaskHandle,
+    TrackedTask,
+};
+use qubit_function::{
+    Callable,
+    Runnable,
+};
 
 use super::fixed_thread_pool_builder::FixedThreadPoolBuilder;
 use super::fixed_thread_pool_inner::FixedThreadPoolInner;
 use super::fixed_worker::FixedWorker;
 use super::fixed_worker_runtime::FixedWorkerRuntime;
-use crate::{PoolJob, ThreadPoolBuildError, ThreadPoolStats};
+use crate::{
+    ExecutorBuildError,
+    PoolJob,
+    ThreadPoolStats,
+};
 
 /// Fixed-size thread pool implementing [`ExecutorService`].
 ///
@@ -44,10 +58,10 @@ impl FixedThreadPool {
     ///
     /// # Errors
     ///
-    /// Returns [`ThreadPoolBuildError`] when a worker thread cannot be spawned.
+    /// Returns [`ExecutorBuildError`] when a worker thread cannot be spawned.
     pub(crate) fn new_with_builder(
         builder: FixedThreadPoolBuilder,
-    ) -> Result<Self, ThreadPoolBuildError> {
+    ) -> Result<Self, ExecutorBuildError> {
         let FixedThreadPoolBuilder {
             pool_size,
             queue_capacity,
@@ -55,17 +69,11 @@ impl FixedThreadPool {
             stack_size,
         } = builder;
         let mut worker_runtimes = Vec::with_capacity(pool_size);
-        let mut worker_queues = Vec::with_capacity(pool_size);
         for index in 0..pool_size {
             let worker_runtime = FixedWorkerRuntime::new(index);
-            worker_queues.push(Arc::clone(&worker_runtime.queue));
             worker_runtimes.push(worker_runtime);
         }
-        let inner = Arc::new(FixedThreadPoolInner::new(
-            pool_size,
-            queue_capacity,
-            worker_queues,
-        ));
+        let inner = Arc::new(FixedThreadPoolInner::new(pool_size, queue_capacity));
         for (index, worker_runtime) in worker_runtimes.into_iter().enumerate() {
             inner.reserve_worker_slot();
             let worker_inner = Arc::clone(&inner);
@@ -79,7 +87,7 @@ impl FixedThreadPool {
             {
                 inner.rollback_worker_slot();
                 inner.stop_after_failed_build();
-                return Err(ThreadPoolBuildError::SpawnWorker { index, source });
+                return Err(ExecutorBuildError::SpawnWorker { index, source });
             }
         }
         Ok(Self { inner })
@@ -97,9 +105,9 @@ impl FixedThreadPool {
     ///
     /// # Errors
     ///
-    /// Returns [`ThreadPoolBuildError`] if the worker count is zero or a worker
+    /// Returns [`ExecutorBuildError`] if the worker count is zero or a worker
     /// cannot be spawned.
-    pub fn new(pool_size: usize) -> Result<Self, ThreadPoolBuildError> {
+    pub fn new(pool_size: usize) -> Result<Self, ExecutorBuildError> {
         Self::builder().pool_size(pool_size).build()
     }
 
@@ -204,11 +212,6 @@ impl ExecutorService for FixedThreadPool {
         R: Send + 'static,
         E: Send + 'static;
 
-    type Termination<'a>
-        = Pin<Box<dyn Future<Output = ()> + Send + 'a>>
-    where
-        Self: 'a;
-
     /// Accepts a runnable and queues it for fixed pool workers.
     fn submit<T, E>(&self, task: T) -> Result<(), RejectedExecution>
     where
@@ -300,14 +303,8 @@ impl ExecutorService for FixedThreadPool {
         self.inner.is_terminated()
     }
 
-    /// Waits until this fixed pool has terminated.
-    ///
-    /// # Returns
-    ///
-    /// A future that blocks the polling thread until termination.
-    fn await_termination(&self) -> Self::Termination<'_> {
-        Box::pin(async move {
-            self.inner.wait_for_termination();
-        })
+    /// Blocks until this fixed pool has terminated.
+    fn wait_termination(&self) {
+        self.inner.wait_for_termination();
     }
 }

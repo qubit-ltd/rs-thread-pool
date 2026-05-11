@@ -9,11 +9,15 @@
  ******************************************************************************/
 //! Tests for [`DelayedTaskScheduler`](qubit_thread_pool::DelayedTaskScheduler).
 
-use std::{sync::mpsc, time::Duration};
+use std::{
+    sync::mpsc,
+    time::Duration,
+};
 
-use qubit_thread_pool::{DelayedTaskScheduler, ThreadPoolBuildError};
-
-use super::mod_tests::create_runtime;
+use qubit_thread_pool::{
+    DelayedTaskScheduler,
+    ExecutorBuildError,
+};
 
 #[test]
 fn test_delayed_task_scheduler_runs_earliest_deadline_first() {
@@ -42,7 +46,7 @@ fn test_delayed_task_scheduler_runs_earliest_deadline_first() {
         "short"
     );
     scheduler.shutdown();
-    create_runtime().block_on(scheduler.await_termination());
+    scheduler.wait_termination();
 }
 
 #[test]
@@ -54,7 +58,7 @@ fn test_delayed_task_scheduler_reports_spawn_failure() {
 
     assert!(matches!(
         result,
-        Err(ThreadPoolBuildError::SpawnWorker { .. })
+        Err(ExecutorBuildError::SpawnWorker { .. })
     ));
 }
 
@@ -77,7 +81,7 @@ fn test_delayed_task_scheduler_cancel_skips_pending_task() {
         "cancelled task should not run"
     );
     scheduler.shutdown();
-    create_runtime().block_on(scheduler.await_termination());
+    scheduler.wait_termination();
     assert!(scheduler.is_terminated());
 }
 
@@ -94,5 +98,5 @@ fn test_delayed_task_scheduler_stop_cancels_pending_task() {
     assert_eq!(report.queued, 1);
     assert_eq!(report.cancelled, 1);
     assert!(handle.is_cancelled());
-    create_runtime().block_on(scheduler.await_termination());
+    scheduler.wait_termination();
 }

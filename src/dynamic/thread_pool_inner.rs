@@ -9,21 +9,36 @@
  ******************************************************************************/
 use std::{
     sync::{
-        Arc, Mutex,
-        atomic::{AtomicUsize, Ordering},
+        Arc,
+        Mutex,
+        atomic::{
+            AtomicUsize,
+            Ordering,
+        },
     },
     thread,
     time::Duration,
 };
 
-use qubit_executor::service::{ExecutorServiceLifecycle, RejectedExecution, StopReport};
-use qubit_lock::{Monitor, MonitorGuard};
+use qubit_executor::service::{
+    ExecutorServiceLifecycle,
+    RejectedExecution,
+    StopReport,
+};
+use qubit_lock::{
+    Monitor,
+    MonitorGuard,
+};
 
 use super::thread_pool_config::ThreadPoolConfig;
 use super::thread_pool_state::ThreadPoolState;
 use super::thread_pool_worker::ThreadPoolWorker;
 use super::thread_pool_worker_queue::ThreadPoolWorkerQueue;
-use crate::{PoolJob, ThreadPoolBuildError, ThreadPoolStats};
+use crate::{
+    ExecutorBuildError,
+    PoolJob,
+    ThreadPoolStats,
+};
 
 /// Shared state for a thread pool.
 pub(crate) struct ThreadPoolInner {
@@ -604,12 +619,12 @@ impl ThreadPoolInner {
     ///
     /// # Errors
     ///
-    /// Returns [`ThreadPoolBuildError::CorePoolSizeExceedsMaximum`] when the
+    /// Returns [`ExecutorBuildError::CorePoolSizeExceedsMaximum`] when the
     /// new core size is greater than the current maximum size.
     pub(crate) fn set_core_pool_size(
         self: &Arc<Self>,
         core_pool_size: usize,
-    ) -> Result<(), ThreadPoolBuildError> {
+    ) -> Result<(), ExecutorBuildError> {
         let err = self.write_state(|state| {
             if core_pool_size > state.maximum_pool_size {
                 Some(state.maximum_pool_size)
@@ -619,7 +634,7 @@ impl ThreadPoolInner {
             }
         });
         if let Some(maximum_pool_size) = err {
-            return Err(ThreadPoolBuildError::CorePoolSizeExceedsMaximum {
+            return Err(ExecutorBuildError::CorePoolSizeExceedsMaximum {
                 core_pool_size,
                 maximum_pool_size,
             });
@@ -640,15 +655,15 @@ impl ThreadPoolInner {
     ///
     /// # Errors
     ///
-    /// Returns [`ThreadPoolBuildError::ZeroMaximumPoolSize`] for zero, or
-    /// [`ThreadPoolBuildError::CorePoolSizeExceedsMaximum`] when the current
+    /// Returns [`ExecutorBuildError::ZeroMaximumPoolSize`] for zero, or
+    /// [`ExecutorBuildError::CorePoolSizeExceedsMaximum`] when the current
     /// core size is greater than the new maximum size.
     pub(crate) fn set_maximum_pool_size(
         self: &Arc<Self>,
         maximum_pool_size: usize,
-    ) -> Result<(), ThreadPoolBuildError> {
+    ) -> Result<(), ExecutorBuildError> {
         if maximum_pool_size == 0 {
-            return Err(ThreadPoolBuildError::ZeroMaximumPoolSize);
+            return Err(ExecutorBuildError::ZeroMaximumPoolSize);
         }
         let exceeds = self.write_state(|state| {
             if state.core_pool_size > maximum_pool_size {
@@ -659,7 +674,7 @@ impl ThreadPoolInner {
             }
         });
         if let Some(core_pool_size) = exceeds {
-            return Err(ThreadPoolBuildError::CorePoolSizeExceedsMaximum {
+            return Err(ExecutorBuildError::CorePoolSizeExceedsMaximum {
                 core_pool_size,
                 maximum_pool_size,
             });
@@ -680,11 +695,11 @@ impl ThreadPoolInner {
     ///
     /// # Errors
     ///
-    /// Returns [`ThreadPoolBuildError::ZeroKeepAlive`] when the duration is
+    /// Returns [`ExecutorBuildError::ZeroKeepAlive`] when the duration is
     /// zero.
-    pub(crate) fn set_keep_alive(&self, keep_alive: Duration) -> Result<(), ThreadPoolBuildError> {
+    pub(crate) fn set_keep_alive(&self, keep_alive: Duration) -> Result<(), ExecutorBuildError> {
         if keep_alive.is_zero() {
-            return Err(ThreadPoolBuildError::ZeroKeepAlive);
+            return Err(ExecutorBuildError::ZeroKeepAlive);
         }
         self.write_state(|state| state.keep_alive = keep_alive);
         self.state_monitor.notify_all();

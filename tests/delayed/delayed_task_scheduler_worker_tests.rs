@@ -1,20 +1,28 @@
 use std::{
     sync::{
         Arc,
-        atomic::{AtomicU8, Ordering},
+        atomic::{
+            AtomicU8,
+            Ordering,
+        },
         mpsc,
     },
-    time::{Duration, Instant},
+    time::{
+        Duration,
+        Instant,
+    },
 };
 
 use qubit_thread_pool::delayed::{
     delayed_task_scheduler_inner::DelayedTaskSchedulerInner,
     delayed_task_scheduler_worker::DelayedTaskSchedulerWorker,
-    delayed_task_state::DelayedTaskState, scheduled_task::ScheduledTask,
+    delayed_task_state::DelayedTaskState,
+    scheduled_task::ScheduledTask,
 };
-use qubit_thread_pool::{DelayedTaskScheduler, ExecutorServiceLifecycle};
-
-use super::mod_tests::create_runtime;
+use qubit_thread_pool::{
+    DelayedTaskScheduler,
+    ExecutorServiceLifecycle,
+};
 
 #[test]
 fn test_delayed_task_scheduler_worker_runs_due_task() {
@@ -35,7 +43,7 @@ fn test_delayed_task_scheduler_worker_runs_due_task() {
         11,
     );
     scheduler.shutdown();
-    create_runtime().block_on(scheduler.await_termination());
+    scheduler.wait_termination();
 }
 
 #[test]

@@ -7,17 +7,34 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
+use std::{
+    sync::Arc,
+    time::Duration,
+};
 
-use qubit_function::{Callable, Runnable};
+use qubit_function::{
+    Callable,
+    Runnable,
+};
 
-use qubit_executor::{TaskCompletionPair, TaskHandle, TrackedTask};
+use qubit_executor::task::TaskCompletionPair;
+use qubit_executor::{
+    TaskHandle,
+    TrackedTask,
+};
 
 use super::thread_pool_builder::ThreadPoolBuilder;
 use super::thread_pool_inner::ThreadPoolInner;
-use crate::{PoolJob, ThreadPoolBuildError, ThreadPoolStats};
+use crate::{
+    ExecutorBuildError,
+    PoolJob,
+    ThreadPoolStats,
+};
 use qubit_executor::service::{
-    ExecutorService, ExecutorServiceLifecycle, RejectedExecution, StopReport,
+    ExecutorService,
+    ExecutorServiceLifecycle,
+    RejectedExecution,
+    StopReport,
 };
 
 /// OS thread pool implementing [`ExecutorService`].
@@ -55,10 +72,10 @@ impl ThreadPool {
     ///
     /// # Errors
     ///
-    /// Returns [`ThreadPoolBuildError`] if the resulting maximum pool size is
+    /// Returns [`ExecutorBuildError`] if the resulting maximum pool size is
     /// zero or a worker thread cannot be spawned.
     #[inline]
-    pub fn new(pool_size: usize) -> Result<Self, ThreadPoolBuildError> {
+    pub fn new(pool_size: usize) -> Result<Self, ExecutorBuildError> {
         Self::builder().pool_size(pool_size).build()
     }
 
@@ -195,9 +212,9 @@ impl ThreadPool {
     ///
     /// # Errors
     ///
-    /// Returns [`ThreadPoolBuildError::CorePoolSizeExceedsMaximum`] when the
+    /// Returns [`ExecutorBuildError::CorePoolSizeExceedsMaximum`] when the
     /// new core size would exceed the current maximum size.
-    pub fn set_core_pool_size(&self, core_pool_size: usize) -> Result<(), ThreadPoolBuildError> {
+    pub fn set_core_pool_size(&self, core_pool_size: usize) -> Result<(), ExecutorBuildError> {
         self.inner.set_core_pool_size(core_pool_size)
     }
 
@@ -216,13 +233,13 @@ impl ThreadPool {
     ///
     /// # Errors
     ///
-    /// Returns [`ThreadPoolBuildError::ZeroMaximumPoolSize`] when the maximum
-    /// size is zero, or [`ThreadPoolBuildError::CorePoolSizeExceedsMaximum`]
+    /// Returns [`ExecutorBuildError::ZeroMaximumPoolSize`] when the maximum
+    /// size is zero, or [`ExecutorBuildError::CorePoolSizeExceedsMaximum`]
     /// when it would be smaller than the current core size.
     pub fn set_maximum_pool_size(
         &self,
         maximum_pool_size: usize,
-    ) -> Result<(), ThreadPoolBuildError> {
+    ) -> Result<(), ExecutorBuildError> {
         self.inner.set_maximum_pool_size(maximum_pool_size)
     }
 
@@ -238,9 +255,9 @@ impl ThreadPool {
     ///
     /// # Errors
     ///
-    /// Returns [`ThreadPoolBuildError::ZeroKeepAlive`] when `keep_alive` is
+    /// Returns [`ExecutorBuildError::ZeroKeepAlive`] when `keep_alive` is
     /// zero.
-    pub fn set_keep_alive(&self, keep_alive: Duration) -> Result<(), ThreadPoolBuildError> {
+    pub fn set_keep_alive(&self, keep_alive: Duration) -> Result<(), ExecutorBuildError> {
         self.inner.set_keep_alive(keep_alive)
     }
 
@@ -297,11 +314,6 @@ impl ExecutorService for ThreadPool {
     where
         R: Send + 'static,
         E: Send + 'static;
-
-    type Termination<'a>
-        = Pin<Box<dyn Future<Output = ()> + Send + 'a>>
-    where
-        Self: 'a;
 
     /// Accepts a runnable and queues it for pool workers.
     fn submit<T, E>(&self, task: T) -> Result<(), RejectedExecution>
@@ -396,18 +408,8 @@ impl ExecutorService for ThreadPool {
         self.inner.is_terminated()
     }
 
-    /// Waits until the pool has terminated.
-    ///
-    /// This future blocks the polling thread while waiting on a condition
-    /// variable.
-    ///
-    /// # Returns
-    ///
-    /// A future that resolves when shutdown has been requested, the queue is
-    /// empty, no task is running, and all worker loops have exited.
-    fn await_termination(&self) -> Self::Termination<'_> {
-        Box::pin(async move {
-            self.inner.wait_for_termination();
-        })
+    /// Blocks until the pool has terminated.
+    fn wait_termination(&self) {
+        self.inner.wait_for_termination();
     }
 }

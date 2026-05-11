@@ -1,8 +1,9 @@
 use std::io;
 
-use qubit_thread_pool::{ExecutorService, FixedThreadPool};
-
-use super::mod_tests::create_runtime;
+use qubit_thread_pool::{
+    ExecutorService,
+    FixedThreadPool,
+};
 
 #[test]
 fn test_fixed_thread_pool_state_is_reflected_in_stats() {
@@ -18,5 +19,5 @@ fn test_fixed_thread_pool_state_is_reflected_in_stats() {
     assert_eq!(stats.running_tasks, 0);
 
     pool.shutdown();
-    create_runtime().block_on(pool.await_termination());
+    pool.wait_termination();
 }

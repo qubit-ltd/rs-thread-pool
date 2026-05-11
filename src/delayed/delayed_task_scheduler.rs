@@ -8,24 +8,32 @@
  *
  ******************************************************************************/
 use std::{
-    future::Future,
-    pin::Pin,
     sync::{
         Arc,
-        atomic::{AtomicU8, Ordering},
+        atomic::{
+            AtomicU8,
+            Ordering,
+        },
     },
     thread,
-    time::{Duration, Instant},
+    time::{
+        Duration,
+        Instant,
+    },
 };
 
-use qubit_executor::service::{ExecutorServiceLifecycle, RejectedExecution, StopReport};
+use qubit_executor::service::{
+    ExecutorServiceLifecycle,
+    RejectedExecution,
+    StopReport,
+};
 
 use super::delayed_task_handle::DelayedTaskHandle;
 use super::delayed_task_scheduler_inner::DelayedTaskSchedulerInner;
 use super::delayed_task_scheduler_worker::DelayedTaskSchedulerWorker;
 use super::delayed_task_state::TASK_PENDING;
 use super::scheduled_task::ScheduledTask;
-use crate::ThreadPoolBuildError;
+use crate::ExecutorBuildError;
 
 /// Single-threaded scheduler for cancellable delayed tasks.
 ///
@@ -49,9 +57,9 @@ impl DelayedTaskScheduler {
     ///
     /// # Errors
     ///
-    /// Returns [`ThreadPoolBuildError::SpawnWorker`] if the scheduler thread
+    /// Returns [`ExecutorBuildError::SpawnWorker`] if the scheduler thread
     /// cannot be created.
-    pub fn new(thread_name: &str) -> Result<Self, ThreadPoolBuildError> {
+    pub fn new(thread_name: &str) -> Result<Self, ExecutorBuildError> {
         Self::with_stack_size(thread_name, None)
     }
 
@@ -68,12 +76,12 @@ impl DelayedTaskScheduler {
     ///
     /// # Errors
     ///
-    /// Returns [`ThreadPoolBuildError::SpawnWorker`] if the scheduler thread
+    /// Returns [`ExecutorBuildError::SpawnWorker`] if the scheduler thread
     /// cannot be created.
     pub fn with_stack_size(
         thread_name: &str,
         stack_size: Option<usize>,
-    ) -> Result<Self, ThreadPoolBuildError> {
+    ) -> Result<Self, ExecutorBuildError> {
         let inner = Arc::new(DelayedTaskSchedulerInner::new());
         let worker_inner = Arc::clone(&inner);
         let mut builder = thread::Builder::new().name(thread_name.to_string());
@@ -82,7 +90,7 @@ impl DelayedTaskScheduler {
         }
         let worker = builder.spawn(move || DelayedTaskSchedulerWorker::run(worker_inner));
         if let Err(source) = worker {
-            return Err(ThreadPoolBuildError::SpawnWorker { index: 0, source });
+            return Err(ExecutorBuildError::SpawnWorker { index: 0, source });
         }
         Ok(Self { inner })
     }
@@ -221,15 +229,9 @@ impl DelayedTaskScheduler {
         self.inner.queued_count()
     }
 
-    /// Waits until the scheduler thread has terminated.
-    ///
-    /// # Returns
-    ///
-    /// A future that blocks the polling thread until termination.
-    pub fn await_termination(&self) -> Pin<Box<dyn Future<Output = ()> + Send + '_>> {
-        Box::pin(async move {
-            self.inner.wait_for_termination();
-        })
+    /// Blocks until the scheduler thread has terminated.
+    pub fn wait_termination(&self) {
+        self.inner.wait_for_termination();
     }
 }
 

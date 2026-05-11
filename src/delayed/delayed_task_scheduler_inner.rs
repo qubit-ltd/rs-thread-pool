@@ -8,14 +8,25 @@
  *
  ******************************************************************************/
 use std::sync::{
-    Condvar, Mutex,
-    atomic::{AtomicU8, AtomicUsize, Ordering},
+    Condvar,
+    Mutex,
+    atomic::{
+        AtomicU8,
+        AtomicUsize,
+        Ordering,
+    },
 };
 
-use qubit_executor::service::{ExecutorServiceLifecycle, StopReport};
+use qubit_executor::service::{
+    ExecutorServiceLifecycle,
+    StopReport,
+};
 
 use super::delayed_task_scheduler_state::DelayedTaskSchedulerState;
-use super::delayed_task_state::{cancel_task_state, start_task_state};
+use super::delayed_task_state::{
+    cancel_task_state,
+    start_task_state,
+};
 
 /// Shared delayed scheduler state.
 pub struct DelayedTaskSchedulerInner {

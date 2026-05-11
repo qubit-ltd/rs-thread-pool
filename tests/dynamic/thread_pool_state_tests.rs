@@ -1,8 +1,14 @@
-use std::{io, sync::mpsc};
+use std::{
+    io,
+    sync::mpsc,
+};
 
 use qubit_thread_pool::ExecutorService;
 
-use super::mod_tests::{create_runtime, create_single_worker_pool, wait_started};
+use super::mod_tests::{
+    create_single_worker_pool,
+    wait_started,
+};
 
 #[test]
 fn test_thread_pool_state_reports_queue_saturation_and_shutdown_cancellation() {
@@ -27,5 +33,5 @@ fn test_thread_pool_state_reports_queue_saturation_and_shutdown_cancellation() {
     assert!(queued.is_done());
     release_tx.send(()).unwrap();
     running.get().unwrap();
-    create_runtime().block_on(pool.await_termination());
+    pool.wait_termination();
 }

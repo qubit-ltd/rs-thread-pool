@@ -1,13 +1,9 @@
 use std::time::Duration;
 
-use qubit_thread_pool::{ExecutorService, ThreadPool};
-
-pub(crate) fn create_runtime() -> tokio::runtime::Runtime {
-    tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .expect("tokio runtime should build for dynamic thread pool tests")
-}
+use qubit_thread_pool::{
+    ExecutorService,
+    ThreadPool,
+};
 
 pub(crate) fn create_single_worker_pool() -> ThreadPool {
     ThreadPool::new(1).expect("thread pool should be created")
@@ -39,5 +35,5 @@ fn test_dynamic_module_exports_thread_pool_entrypoint() {
 
     assert_eq!(pool.core_pool_size(), 1);
     pool.shutdown();
-    create_runtime().block_on(pool.await_termination());
+    pool.wait_termination();
 }

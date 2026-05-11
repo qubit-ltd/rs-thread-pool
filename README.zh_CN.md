@@ -27,7 +27,7 @@ Qubit Thread Pool 为同步工作提供基于 OS 线程的 `ExecutorService` 实
 - 支持配置 worker 线程名前缀和栈大小。
 - 提供 `PoolJob`，用于需要提交类型擦除 job 的高级集成场景。
 - 提供 `ThreadPoolStats`，用于观察线程池配置和运行时计数。
-- 共享 `ExecutorService` 生命周期方法，包括 `shutdown`、`stop` 和 `await_termination`。
+- 共享 `ExecutorService` 生命周期方法，包括 `shutdown`、`stop` 和 `wait_termination`。
 - 提供 Criterion benchmark 与测试数据，用于对比 Qubit 线程池、`threadpool` 和 Rayon。
 
 ## 线程池模型
@@ -36,7 +36,7 @@ Qubit Thread Pool 为同步工作提供基于 OS 线程的 `ExecutorService` 实
 
 `FixedThreadPool` 启动并维持固定数量的 worker。它适合容量规划简单、worker 数量需要稳定，或调度可预测性比动态扩缩更重要的场景。
 
-`FixedThreadPool::default()` 与 `FixedThreadPoolBuilder::default().build()` 等价，但构建失败会转为 panic；若需要处理错误，请使用 builder 的 `build()` 并处理 `ThreadPoolBuildError`。
+`FixedThreadPool::default()` 与 `FixedThreadPoolBuilder::default().build()` 等价，但构建失败会转为 panic；若需要处理错误，请使用 builder 的 `build()` 并处理 `ExecutorBuildError`。
 
 ## 排队与拒绝
 
@@ -48,7 +48,7 @@ Qubit Thread Pool 为同步工作提供基于 OS 线程的 `ExecutorService` 实
 
 `shutdown` 会停止接受新任务，并允许已接受的任务完成。`stop` 会停止接受新任务，并取消仍在队列中或尚未开始的工作。已经运行在 OS 线程上的任务不会被强制杀死，而是由任务自身代码决定何时结束。
 
-`await_termination` 返回一个 future，在已请求 shutdown 且所有已接受工作完成或取消后完成。
+`wait_termination` 会阻塞当前线程，直到已请求 shutdown 且所有已接受工作完成或取消。
 
 `DelayedTaskScheduler` 使用相同的生命周期语义：`shutdown` 拒绝新的延迟回调，并让已接受回调在 deadline 到达后执行；`stop` 会取消尚未开始的回调。
 

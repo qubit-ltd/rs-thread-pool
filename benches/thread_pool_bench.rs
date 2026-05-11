@@ -15,55 +15,67 @@ use std::convert::Infallible;
 use std::hint::black_box;
 use std::sync::mpsc;
 
-use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
+use criterion::{
+    BenchmarkId,
+    Criterion,
+    Throughput,
+    criterion_group,
+    criterion_main,
+};
 use qubit_thread_pool::FixedThreadPool;
-use qubit_thread_pool::{ExecutorService, ThreadPool};
-use rayon::{ThreadPoolBuilder, prelude::*};
+use qubit_thread_pool::{
+    ExecutorService,
+    ThreadPool,
+};
+use rayon::{
+    ThreadPoolBuilder,
+    prelude::*,
+};
 use threadpool::ThreadPool as ExternalThreadPool;
 
 /// Workload kind used by cross-implementation submission benchmarks.
 #[derive(Clone, Copy)]
 enum Workload {
     /// Small CPU-bound task.
-    CpuLight,
+    Light,
     /// Medium CPU-bound task.
-    CpuMedium,
+    Medium,
     /// Larger CPU-bound task.
-    CpuHeavy,
+    Heavy,
 }
 
 impl Workload {
     /// Returns the benchmark name for this workload.
     fn name(self) -> &'static str {
         match self {
-            Self::CpuLight => "cpu_light",
-            Self::CpuMedium => "cpu_medium",
-            Self::CpuHeavy => "cpu_heavy",
+            Self::Light => "cpu_light",
+            Self::Medium => "cpu_medium",
+            Self::Heavy => "cpu_heavy",
         }
     }
 
     /// Returns the center iteration count for this workload.
     fn base_iters(self) -> usize {
         match self {
-            Self::CpuLight => 128,
-            Self::CpuMedium => 2_048,
-            Self::CpuHeavy => 16_384,
+            Self::Light => 128,
+            Self::Medium => 2_048,
+            Self::Heavy => 16_384,
         }
     }
 
     /// Returns the deterministic seed for this workload's task distribution.
     fn seed(self) -> u64 {
         match self {
-            Self::CpuLight => 0x9e37_79b9_7f4a_7c15,
-            Self::CpuMedium => 0xbf58_476d_1ce4_e5b9,
-            Self::CpuHeavy => 0x94d0_49bb_1331_11eb,
+            Self::Light => 0x9e37_79b9_7f4a_7c15,
+            Self::Medium => 0xbf58_476d_1ce4_e5b9,
+            Self::Heavy => 0x94d0_49bb_1331_11eb,
         }
     }
 }
 
 /// Returns the workload set used by the submission mode benchmark.
 fn benchmark_workloads() -> [Workload; 3] {
-    [Workload::CpuLight, Workload::CpuMedium, Workload::CpuHeavy]
+    [Workload::Light, Workload::Medium, Workload::Heavy]
 }
 
 /// Runs one batch of no-op tasks and waits until the pool terminates.
@@ -132,11 +144,7 @@ fn wait_for_termination<P>(pool: &P)
 where
     P: ExecutorService,
 {
-    tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .expect("tokio runtime should be created")
-        .block_on(pool.await_termination());
+    pool.wait_termination();
 }
 
 /// Runs one batch of CPU tasks with configurable per-task work and waits until

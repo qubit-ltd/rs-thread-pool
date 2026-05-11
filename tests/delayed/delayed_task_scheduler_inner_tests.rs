@@ -1,19 +1,27 @@
 use std::{
     sync::{
         Arc,
-        atomic::{AtomicU8, Ordering},
+        atomic::{
+            AtomicU8,
+            Ordering,
+        },
     },
-    time::{Duration, Instant},
+    time::{
+        Duration,
+        Instant,
+    },
 };
 
-use qubit_executor::service::RejectedExecution;
+use qubit_executor::service::{
+    ExecutorServiceLifecycle,
+    RejectedExecution,
+};
 use qubit_thread_pool::DelayedTaskScheduler;
 use qubit_thread_pool::delayed::{
-    delayed_task_scheduler_inner::DelayedTaskSchedulerInner, delayed_task_state::DelayedTaskState,
+    delayed_task_scheduler_inner::DelayedTaskSchedulerInner,
+    delayed_task_state::DelayedTaskState,
     scheduled_task::ScheduledTask,
 };
-
-use super::mod_tests::create_runtime;
 
 #[test]
 fn test_delayed_task_scheduler_inner_rejects_after_shutdown() {
@@ -25,7 +33,7 @@ fn test_delayed_task_scheduler_inner_rejects_after_shutdown() {
         scheduler.schedule(Duration::ZERO, || {}),
         Err(RejectedExecution::Shutdown),
     ));
-    create_runtime().block_on(scheduler.await_termination());
+    scheduler.wait_termination();
 }
 
 #[test]
@@ -69,4 +77,24 @@ fn test_delayed_task_scheduler_inner_stop_cancels_heap_tasks() {
     assert!(DelayedTaskState::is_cancelled(&task_state));
     assert!(inner.is_not_running());
     assert_eq!(inner.running_count(), 0);
+}
+
+#[test]
+fn test_delayed_task_scheduler_inner_lifecycle_reports_state_and_termination() {
+    let inner = DelayedTaskSchedulerInner::new();
+
+    assert_eq!(inner.lifecycle(), ExecutorServiceLifecycle::Running);
+
+    {
+        let mut state = inner.state.lock().expect("scheduler state should lock");
+        state.lifecycle = ExecutorServiceLifecycle::ShuttingDown;
+    }
+    assert_eq!(inner.lifecycle(), ExecutorServiceLifecycle::ShuttingDown);
+
+    {
+        let mut state = inner.state.lock().expect("scheduler state should lock");
+        state.terminated = true;
+    }
+    assert_eq!(inner.lifecycle(), ExecutorServiceLifecycle::Terminated);
+    assert!(inner.is_terminated());
 }

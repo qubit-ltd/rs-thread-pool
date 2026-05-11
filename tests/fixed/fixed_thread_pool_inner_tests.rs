@@ -1,36 +1,27 @@
 use std::{
     io,
-    sync::{Arc, atomic::Ordering},
-};
-
-use qubit_thread_pool::{
-    ExecutorService, ExecutorServiceLifecycle, FixedThreadPool, PoolJob,
-    fixed::{
-        fixed_thread_pool_inner::FixedThreadPoolInner, fixed_worker_runtime::FixedWorkerRuntime,
+    sync::{
+        Arc,
+        atomic::Ordering,
     },
 };
 
-use super::mod_tests::{create_runtime, wait_until};
+use qubit_thread_pool::{
+    ExecutorService,
+    ExecutorServiceLifecycle,
+    FixedThreadPool,
+    PoolJob,
+    fixed::fixed_thread_pool_inner::FixedThreadPoolInner,
+};
+
+use super::mod_tests::wait_until;
 
 fn noop_job() -> PoolJob {
     PoolJob::new(Box::new(|| {}), Box::new(|| {}))
 }
 
-fn create_inner(
-    pool_size: usize,
-    queue_capacity: Option<usize>,
-) -> (Arc<FixedThreadPoolInner>, Vec<FixedWorkerRuntime>) {
-    let runtimes = (0..pool_size)
-        .map(FixedWorkerRuntime::new)
-        .collect::<Vec<_>>();
-    let queues = runtimes
-        .iter()
-        .map(|runtime| Arc::clone(&runtime.queue))
-        .collect::<Vec<_>>();
-    (
-        Arc::new(FixedThreadPoolInner::new(pool_size, queue_capacity, queues)),
-        runtimes,
-    )
+fn create_inner(pool_size: usize, queue_capacity: Option<usize>) -> Arc<FixedThreadPoolInner> {
+    Arc::new(FixedThreadPoolInner::new(pool_size, queue_capacity))
 }
 
 #[test]
@@ -46,27 +37,39 @@ fn test_fixed_thread_pool_inner_tracks_task_counts() {
     assert_eq!(stats.completed_tasks, 1);
 
     pool.shutdown();
-    create_runtime().block_on(pool.await_termination());
+    pool.wait_termination();
 }
 
 #[test]
-fn test_fixed_thread_pool_inner_cancels_claimed_and_worker_jobs_when_stopping() {
-    let (inner, runtimes) = create_inner(1, None);
-    let runtime = &runtimes[0];
-    runtime.local.push(noop_job());
-    runtime.queue.push_back(noop_job());
-    inner.queued_task_count.store(3, Ordering::Release);
+fn test_fixed_thread_pool_inner_cancels_claimed_job_when_stopping() {
+    let inner = create_inner(1, None);
+    inner.queued_task_count.store(1, Ordering::Release);
     inner.stop_now.store(true, Ordering::Release);
 
-    assert!(inner.accept_claimed_job(noop_job(), runtime).is_none());
+    assert!(inner.accept_claimed_job(noop_job()).is_none());
 
     assert_eq!(inner.queued_count(), 0);
-    assert_eq!(inner.cancelled_task_count.load(Ordering::Acquire), 3);
+    assert_eq!(inner.cancelled_task_count.load(Ordering::Acquire), 1);
+}
+
+#[test]
+fn test_fixed_thread_pool_inner_stop_cancels_global_queue_jobs() {
+    let inner = create_inner(1, None);
+    inner.global_queue.push(noop_job());
+    inner.global_queue.push(noop_job());
+    inner.queued_task_count.store(2, Ordering::Release);
+
+    let report = inner.stop();
+
+    assert_eq!(report.queued, 2);
+    assert_eq!(report.cancelled, 2);
+    assert_eq!(inner.queued_count(), 0);
+    assert_eq!(inner.cancelled_task_count.load(Ordering::Acquire), 2);
 }
 
 #[test]
 fn test_fixed_thread_pool_inner_stop_waits_for_inflight_submitters() {
-    let (inner, _runtimes) = create_inner(1, None);
+    let inner = create_inner(1, None);
     inner.inflight_submissions.store(1, Ordering::Release);
     let shutdown_inner = Arc::clone(&inner);
 
@@ -82,4 +85,29 @@ fn test_fixed_thread_pool_inner_stop_waits_for_inflight_submitters() {
 
     assert_eq!(report.queued, 0);
     assert!(inner.is_not_running());
+}
+
+#[test]
+fn test_fixed_thread_pool_inner_notifies_idle_waiters_when_idle() {
+    let inner = create_inner(1, None);
+    inner.idle_waiter_count.store(1, Ordering::Release);
+
+    inner.notify_idle_waiters_if_idle();
+
+    assert!(inner.is_idle());
+}
+
+#[test]
+fn test_fixed_thread_pool_inner_lifecycle_and_stats_report_termination() {
+    let inner = create_inner(1, None);
+
+    assert_eq!(inner.lifecycle(), ExecutorServiceLifecycle::Running);
+    inner
+        .state
+        .write(|state| state.lifecycle = ExecutorServiceLifecycle::ShuttingDown);
+
+    assert_eq!(inner.lifecycle(), ExecutorServiceLifecycle::Terminated);
+    let stats = inner.stats();
+    assert_eq!(stats.lifecycle, ExecutorServiceLifecycle::Terminated);
+    assert!(stats.terminated);
 }

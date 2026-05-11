@@ -11,10 +11,17 @@
 
 use std::sync::{
     Arc,
-    atomic::{AtomicBool, Ordering},
+    atomic::{
+        AtomicBool,
+        Ordering,
+    },
 };
 
-use qubit_thread_pool::{ExecutorService, PoolJob, ThreadPool};
+use qubit_thread_pool::{
+    ExecutorService,
+    PoolJob,
+    ThreadPool,
+};
 
 #[test]
 fn test_thread_pool_submit_job_runs_type_erased_job() {
@@ -39,15 +46,8 @@ fn test_thread_pool_submit_job_runs_type_erased_job() {
     .expect("type-erased pool job should be accepted");
 
     pool.shutdown();
-    create_runtime().block_on(pool.await_termination());
+    pool.wait_termination();
 
     assert!(ran.load(Ordering::Acquire));
     assert!(!cancelled.load(Ordering::Acquire));
-}
-
-fn create_runtime() -> tokio::runtime::Runtime {
-    tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .expect("tokio runtime should build for pool job tests")
 }

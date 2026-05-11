@@ -15,9 +15,7 @@ mod fixed_thread_pool_builder;
 pub mod fixed_thread_pool_inner;
 pub mod fixed_thread_pool_state;
 pub mod fixed_worker;
-pub mod fixed_worker_queue;
 pub mod fixed_worker_runtime;
-pub mod queue_steal_source;
 
 pub use fixed_thread_pool::FixedThreadPool;
 pub use fixed_thread_pool_builder::FixedThreadPoolBuilder;

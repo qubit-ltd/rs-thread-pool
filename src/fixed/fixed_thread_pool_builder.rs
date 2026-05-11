@@ -12,7 +12,7 @@
 use std::thread;
 
 use super::fixed_thread_pool::FixedThreadPool;
-use crate::ThreadPoolBuildError;
+use crate::ExecutorBuildError;
 
 /// Default thread name prefix used by [`FixedThreadPoolBuilder`].
 const DEFAULT_FIXED_THREAD_NAME_PREFIX: &str = "qubit-fixed-thread-pool";
@@ -117,9 +117,9 @@ impl FixedThreadPoolBuilder {
     ///
     /// # Errors
     ///
-    /// Returns [`ThreadPoolBuildError`] when configuration is invalid or a
+    /// Returns [`ExecutorBuildError`] when configuration is invalid or a
     /// worker thread cannot be spawned.
-    pub fn build(self) -> Result<FixedThreadPool, ThreadPoolBuildError> {
+    pub fn build(self) -> Result<FixedThreadPool, ExecutorBuildError> {
         self.validate()?;
         FixedThreadPool::new_with_builder(self)
     }
@@ -132,17 +132,17 @@ impl FixedThreadPoolBuilder {
     ///
     /// # Errors
     ///
-    /// Returns [`ThreadPoolBuildError`] for zero pool size, zero queue capacity,
+    /// Returns [`ExecutorBuildError`] for zero pool size, zero queue capacity,
     /// or zero stack size.
-    fn validate(&self) -> Result<(), ThreadPoolBuildError> {
+    fn validate(&self) -> Result<(), ExecutorBuildError> {
         if self.pool_size == 0 {
-            return Err(ThreadPoolBuildError::ZeroMaximumPoolSize);
+            return Err(ExecutorBuildError::ZeroMaximumPoolSize);
         }
         if self.queue_capacity == Some(0) {
-            return Err(ThreadPoolBuildError::ZeroQueueCapacity);
+            return Err(ExecutorBuildError::ZeroQueueCapacity);
         }
         if self.stack_size == Some(0) {
-            return Err(ThreadPoolBuildError::ZeroStackSize);
+            return Err(ExecutorBuildError::ZeroStackSize);
         }
         Ok(())
     }

@@ -8,28 +8,32 @@
  *
  ******************************************************************************/
 use std::{
-    sync::{
-        Arc,
-        atomic::{AtomicBool, AtomicUsize, Ordering},
+    sync::atomic::{
+        AtomicBool,
+        AtomicUsize,
+        Ordering,
     },
     time::Duration,
 };
 
-use crossbeam_deque::Injector;
-use qubit_executor::service::{ExecutorServiceLifecycle, RejectedExecution, StopReport};
+use crossbeam_deque::{
+    Injector,
+    Steal,
+};
+use qubit_executor::service::{
+    ExecutorServiceLifecycle,
+    RejectedExecution,
+    StopReport,
+};
 use qubit_lock::Monitor;
 
 use super::fixed_submit_guard::FixedSubmitGuard;
 use super::fixed_thread_pool_state::FixedThreadPoolState;
-use super::fixed_worker_queue::FixedWorkerQueue;
-use super::fixed_worker_runtime::FixedWorkerRuntime;
-use super::queue_steal_source::{steal_batch_and_pop, steal_one};
-use crate::{PoolJob, ThreadPoolStats};
+use crate::{
+    PoolJob,
+    ThreadPoolStats,
+};
 
-/// Maximum number of worker-local queues probed by one submit call.
-const LOCAL_ENQUEUE_MAX_PROBES: usize = 4;
-/// Maximum worker count that uses worker-local batch queues.
-const LOCAL_QUEUE_WORKER_LIMIT: usize = 0;
 /// Maximum time an idle join wait may sleep before rechecking atomic counters.
 const IDLE_WAIT_RECHECK_INTERVAL: Duration = Duration::from_millis(1);
 /// Shared state for a fixed-size thread pool.
@@ -52,10 +56,6 @@ pub struct FixedThreadPoolInner {
     pub idle_waiter_count: AtomicUsize,
     /// Lock-free queue for externally submitted jobs.
     pub global_queue: Injector<PoolJob>,
-    /// Worker-local queues used for submit routing and work stealing.
-    pub worker_queues: Vec<Arc<FixedWorkerQueue>>,
-    /// Round-robin cursor used for submit-path local queue selection.
-    pub next_enqueue_worker: AtomicUsize,
     /// Optional maximum number of queued jobs.
     pub queue_capacity: Option<usize>,
     /// Number of queued jobs not yet started or cancelled.
@@ -81,11 +81,7 @@ impl FixedThreadPoolInner {
     /// # Returns
     ///
     /// A shared state object ready for worker startup.
-    pub fn new(
-        pool_size: usize,
-        queue_capacity: Option<usize>,
-        worker_queues: Vec<Arc<FixedWorkerQueue>>,
-    ) -> Self {
+    pub fn new(pool_size: usize, queue_capacity: Option<usize>) -> Self {
         Self {
             pool_size,
             state: Monitor::new(FixedThreadPoolState::new()),
@@ -96,8 +92,6 @@ impl FixedThreadPoolInner {
             pending_worker_wakes: AtomicUsize::new(0),
             idle_waiter_count: AtomicUsize::new(0),
             global_queue: Injector::new(),
-            worker_queues,
-            next_enqueue_worker: AtomicUsize::new(0),
             queue_capacity,
             queued_task_count: AtomicUsize::new(0),
             running_task_count: AtomicUsize::new(0),
@@ -218,14 +212,7 @@ impl FixedThreadPoolInner {
     ///
     /// * `job` - Job whose queued slot has already been reserved.
     fn enqueue_job(&self, job: PoolJob) {
-        if self.use_worker_local_queues() {
-            match self.try_enqueue_to_worker(job) {
-                Ok(()) => {}
-                Err(job) => self.global_queue.push(job),
-            }
-        } else {
-            self.global_queue.push(job);
-        }
+        self.global_queue.push(job);
         self.wake_one_idle_worker();
     }
 
@@ -309,140 +296,35 @@ impl FixedThreadPoolInner {
         self.state.notify_all();
     }
 
-    /// Attempts to route one job directly to an active worker queue.
-    ///
-    /// # Parameters
-    ///
-    /// * `job` - Job to route.
-    ///
-    /// # Returns
-    ///
-    /// `Ok(())` when the job was published to a worker inbox; otherwise the
-    /// original job is returned for global fallback.
-    fn try_enqueue_to_worker(&self, job: PoolJob) -> Result<(), PoolJob> {
-        let queue_count = self.worker_queues.len();
-        debug_assert!(queue_count > 0, "fixed pool must have worker queues");
-        let probe_count = queue_count.min(LOCAL_ENQUEUE_MAX_PROBES);
-        for _ in 0..probe_count {
-            let index = self.next_enqueue_worker.fetch_add(1, Ordering::Relaxed) % queue_count;
-            let queue = &self.worker_queues[index];
-            if queue.is_active() {
-                queue.push_back(job);
-                return Ok(());
-            }
-        }
-        Err(job)
-    }
-
     /// Attempts to claim one queued job for a worker.
     ///
-    /// The worker first checks its local queue, then its cross-thread inbox,
-    /// then the global fallback queue, and finally steals from other workers.
-    /// This matches the dynamic pool's hot path and avoids forcing all fixed
-    /// workers through one global injector under skewed workloads.
-    ///
-    /// # Parameters
-    ///
-    /// * `worker_runtime` - Queue runtime owned by the current worker.
-    ///
     /// # Returns
     ///
     /// `Some(job)` when a job was claimed, otherwise `None`.
-    pub fn try_take_job(&self, worker_runtime: &FixedWorkerRuntime) -> Option<PoolJob> {
+    pub fn try_take_job(&self) -> Option<PoolJob> {
         if self.stop_now.load(Ordering::Acquire) {
-            self.cancel_worker_jobs(worker_runtime);
             return None;
         }
-        if !self.use_worker_local_queues() {
-            return self.steal_single_global_job(worker_runtime);
-        }
-        if let Some(job) = worker_runtime.local.pop() {
-            return self.accept_claimed_job(job, worker_runtime);
-        }
-        if let Some(job) = worker_runtime.queue.pop_inbox_into(&worker_runtime.local) {
-            return self.accept_claimed_job(job, worker_runtime);
-        }
-        if let Some(job) = self.steal_global_job(worker_runtime) {
-            return Some(job);
-        }
-        self.steal_worker_job(worker_runtime)
+        Self::steal_one(&self.global_queue).and_then(|job| self.accept_claimed_job(job))
     }
 
-    /// Attempts to batch-steal one job from the global injector.
+    /// Steals one job from a crossbeam injector with retry on contention.
     ///
     /// # Parameters
     ///
-    /// * `worker_runtime` - Queue runtime receiving any stolen batch remainder.
+    /// * `queue` - Injector to steal from.
     ///
     /// # Returns
     ///
-    /// `Some(job)` when a job was claimed, otherwise `None`.
-    fn steal_global_job(&self, worker_runtime: &FixedWorkerRuntime) -> Option<PoolJob> {
-        if let Some(job) = steal_batch_and_pop(&self.global_queue, &worker_runtime.local) {
-            if !worker_runtime.local.is_empty() {
-                self.state.notify_one();
-            }
-            return self.accept_claimed_job(job, worker_runtime);
-        }
-        self.steal_single_global_job(worker_runtime)
-    }
-
-    /// Attempts to steal exactly one job from the global injector.
-    ///
-    /// # Parameters
-    ///
-    /// * `worker_runtime` - Queue runtime owned by the current worker.
-    ///
-    /// # Returns
-    ///
-    /// `Some(job)` when a job was claimed, otherwise `None`.
-    fn steal_single_global_job(&self, worker_runtime: &FixedWorkerRuntime) -> Option<PoolJob> {
-        steal_one(&self.global_queue).and_then(|job| self.accept_claimed_job(job, worker_runtime))
-    }
-
-    /// Attempts to steal one job from another worker's local queue.
-    ///
-    /// # Parameters
-    ///
-    /// * `worker_runtime` - Queue runtime owned by the current worker.
-    ///
-    /// # Returns
-    ///
-    /// `Some(job)` when a job was claimed, otherwise `None`.
-    fn steal_worker_job(&self, worker_runtime: &FixedWorkerRuntime) -> Option<PoolJob> {
-        let queue_count = self.worker_queues.len();
-        if queue_count <= 1 {
-            return None;
-        }
-        let worker_index = worker_runtime.worker_index();
-        let start = worker_runtime.next_steal_start(queue_count);
-        for offset in 0..queue_count {
-            let victim = &self.worker_queues[(start + offset) % queue_count];
-            if victim.worker_index() == worker_index {
-                continue;
-            }
-            if !victim.is_active() {
-                continue;
-            }
-            if let Some(job) = victim.steal_into(&worker_runtime.local) {
-                if !worker_runtime.local.is_empty() {
-                    self.state.notify_one();
-                }
-                return self.accept_claimed_job(job, worker_runtime);
+    /// `Some(job)` when the injector contains work, otherwise `None`.
+    fn steal_one(queue: &Injector<PoolJob>) -> Option<PoolJob> {
+        loop {
+            match queue.steal() {
+                Steal::Success(job) => return Some(job),
+                Steal::Empty => return None,
+                Steal::Retry => continue,
             }
         }
-        None
-    }
-
-    /// Returns whether this pool should use worker-local queues.
-    ///
-    /// # Returns
-    ///
-    /// `true` for small fixed pools where local batching reduces global queue
-    /// contention; `false` for larger pools where inbox routing and victim
-    /// scans cost more than they save.
-    fn use_worker_local_queues(&self) -> bool {
-        self.pool_size <= LOCAL_QUEUE_WORKER_LIMIT
     }
 
     /// Accepts a claimed queued job or cancels it after immediate shutdown.
@@ -450,37 +332,16 @@ impl FixedThreadPoolInner {
     /// # Parameters
     ///
     /// * `job` - Job claimed from a queue.
-    /// * `worker_runtime` - Queue runtime drained if stopping.
-    ///
     /// # Returns
     ///
     /// `Some(job)` when the job may run, otherwise `None`.
-    pub fn accept_claimed_job(
-        &self,
-        job: PoolJob,
-        worker_runtime: &FixedWorkerRuntime,
-    ) -> Option<PoolJob> {
+    pub fn accept_claimed_job(&self, job: PoolJob) -> Option<PoolJob> {
         if self.stop_now.load(Ordering::Acquire) {
             self.cancel_claimed_job(job);
-            self.cancel_worker_jobs(worker_runtime);
             return None;
         }
         self.mark_queued_job_running();
         Some(job)
-    }
-
-    /// Cancels all jobs remaining in one worker runtime.
-    ///
-    /// # Parameters
-    ///
-    /// * `worker_runtime` - Worker-owned runtime to drain.
-    fn cancel_worker_jobs(&self, worker_runtime: &FixedWorkerRuntime) {
-        while let Some(job) = worker_runtime.local.pop() {
-            self.cancel_claimed_job(job);
-        }
-        for job in worker_runtime.queue.drain() {
-            self.cancel_claimed_job(job);
-        }
     }
 
     /// Marks one claimed queued job as running.
@@ -600,21 +461,15 @@ impl FixedThreadPoolInner {
         StopReport::new(cancelled, running, cancelled)
     }
 
-    /// Drains all jobs currently visible in global and worker-local queues.
+    /// Drains all jobs currently visible in the global queue.
     ///
     /// # Returns
     ///
     /// Drained queued jobs.
     fn drain_visible_queued_jobs(&self) -> Vec<PoolJob> {
         let mut jobs = Vec::new();
-        loop {
-            let previous_count = jobs.len();
-            self.drain_global_queue(&mut jobs);
-            self.drain_worker_queues(&mut jobs);
-            if jobs.len() == previous_count {
-                return jobs;
-            }
-        }
+        self.drain_global_queue(&mut jobs);
+        jobs
     }
 
     /// Drains visible jobs from the global injector.
@@ -623,19 +478,8 @@ impl FixedThreadPoolInner {
     ///
     /// * `jobs` - Destination for drained jobs.
     fn drain_global_queue(&self, jobs: &mut Vec<PoolJob>) {
-        while let Some(job) = steal_one(&self.global_queue) {
+        while let Some(job) = Self::steal_one(&self.global_queue) {
             jobs.push(job);
-        }
-    }
-
-    /// Drains visible jobs from all worker-local queues.
-    ///
-    /// # Parameters
-    ///
-    /// * `jobs` - Destination for drained jobs.
-    fn drain_worker_queues(&self, jobs: &mut Vec<PoolJob>) {
-        for queue in &self.worker_queues {
-            jobs.extend(queue.drain());
         }
     }
 

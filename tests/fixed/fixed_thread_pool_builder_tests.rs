@@ -11,29 +11,33 @@
 
 use std::io;
 
-use qubit_thread_pool::{ExecutorService, FixedThreadPool, ThreadPoolBuildError};
+use qubit_thread_pool::{
+    ExecutorBuildError,
+    ExecutorService,
+    FixedThreadPool,
+};
 
-use super::mod_tests::{create_runtime, wait_until};
+use super::mod_tests::wait_until;
 
 #[test]
 fn test_fixed_thread_pool_builder_rejects_invalid_configuration() {
     assert!(matches!(
         FixedThreadPool::builder().pool_size(0).build(),
-        Err(ThreadPoolBuildError::ZeroMaximumPoolSize),
+        Err(ExecutorBuildError::ZeroMaximumPoolSize),
     ));
     assert!(matches!(
         FixedThreadPool::builder()
             .pool_size(1)
             .queue_capacity(0)
             .build(),
-        Err(ThreadPoolBuildError::ZeroQueueCapacity),
+        Err(ExecutorBuildError::ZeroQueueCapacity),
     ));
     assert!(matches!(
         FixedThreadPool::builder()
             .pool_size(1)
             .stack_size(0)
             .build(),
-        Err(ThreadPoolBuildError::ZeroStackSize),
+        Err(ExecutorBuildError::ZeroStackSize),
     ));
 }
 
@@ -46,7 +50,7 @@ fn test_fixed_thread_pool_builder_reports_worker_spawn_failure() {
 
     assert!(matches!(
         result,
-        Err(ThreadPoolBuildError::SpawnWorker { .. })
+        Err(ExecutorBuildError::SpawnWorker { .. })
     ));
 }
 
@@ -84,5 +88,5 @@ fn test_fixed_thread_pool_builder_sets_thread_options() {
     assert_eq!(stats.core_pool_size, 1);
     assert_eq!(stats.maximum_pool_size, 1);
     pool.shutdown();
-    create_runtime().block_on(pool.await_termination());
+    pool.wait_termination();
 }

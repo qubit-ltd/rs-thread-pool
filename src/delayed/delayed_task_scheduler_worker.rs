@@ -8,7 +8,10 @@
  *
  ******************************************************************************/
 use std::{
-    sync::{Arc, atomic::Ordering},
+    sync::{
+        Arc,
+        atomic::Ordering,
+    },
     time::Instant,
 };
 

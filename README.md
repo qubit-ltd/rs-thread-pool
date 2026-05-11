@@ -32,7 +32,7 @@ implementations. It does not require Tokio or Rayon for normal use.
 - Configurable worker thread name prefixes and stack sizes.
 - `PoolJob` for advanced integrations that need to submit type-erased jobs.
 - `ThreadPoolStats` for observing pool configuration and runtime counters.
-- Shared `ExecutorService` lifecycle methods including `shutdown`, `stop`, and `await_termination`.
+- Shared `ExecutorService` lifecycle methods including `shutdown`, `stop`, and `wait_termination`.
 - Criterion benchmarks and test data for comparing Qubit pools with `threadpool` and Rayon.
 
 ## Pool Models
@@ -47,7 +47,7 @@ threads without keeping them alive forever.
 when capacity planning is simple, when worker count should be stable, or when
 predictable scheduling is more important than dynamic growth.
 
-`FixedThreadPool::default()` is equivalent to `FixedThreadPoolBuilder::default().build()` except that build errors become a panic; prefer the builder's `build()` when you must handle `ThreadPoolBuildError`.
+`FixedThreadPool::default()` is equivalent to `FixedThreadPoolBuilder::default().build()` except that build errors become a panic; prefer the builder's `build()` when you must handle `ExecutorBuildError`.
 
 ## Queueing and Rejection
 
@@ -67,8 +67,8 @@ status and pre-start cancellation.
 not yet started. Already running OS-thread tasks are not forcefully killed; they
 finish according to their own code.
 
-`await_termination` returns a future that resolves after shutdown has been
-requested and all accepted work has completed or been cancelled.
+`wait_termination` blocks the current thread after shutdown has been requested
+until all accepted work has completed or been cancelled.
 
 `DelayedTaskScheduler` follows the same lifecycle shape for delayed callbacks:
 `shutdown` rejects new callbacks and lets accepted callbacks run at their

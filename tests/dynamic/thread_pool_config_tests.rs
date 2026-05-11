@@ -1,8 +1,9 @@
 use std::time::Duration;
 
-use qubit_thread_pool::{ExecutorService, ThreadPool};
-
-use super::mod_tests::create_runtime;
+use qubit_thread_pool::{
+    ExecutorService,
+    ThreadPool,
+};
 
 #[test]
 fn test_thread_pool_config_is_reflected_by_builder_and_stats() {
@@ -21,5 +22,5 @@ fn test_thread_pool_config_is_reflected_by_builder_and_stats() {
     assert_eq!(3, stats.maximum_pool_size);
     assert_eq!(0, pool.queued_count());
     pool.shutdown();
-    create_runtime().block_on(pool.await_termination());
+    pool.wait_termination();
 }

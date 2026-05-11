@@ -13,7 +13,10 @@ use std::{
     io,
     sync::{
         Arc,
-        atomic::{AtomicBool, Ordering},
+        atomic::{
+            AtomicBool,
+            Ordering,
+        },
         mpsc,
     },
     thread,
@@ -21,10 +24,17 @@ use std::{
 };
 
 use qubit_thread_pool::{
-    CancelResult, ExecutorService, FixedThreadPool, RejectedExecution, TaskExecutionError,
+    CancelResult,
+    ExecutorService,
+    FixedThreadPool,
+    RejectedExecution,
+    TaskExecutionError,
 };
 
-use super::mod_tests::{create_runtime, wait_started, wait_until};
+use super::mod_tests::{
+    wait_started,
+    wait_until,
+};
 
 fn ok_unit_task() -> Result<(), io::Error> {
     Ok(())
@@ -56,7 +66,7 @@ fn test_fixed_thread_pool_submit_acceptance_is_not_task_success() {
         .expect_err("accepted runnable should report task failure through handle");
     assert!(matches!(err, TaskExecutionError::Failed(_)));
     pool.shutdown();
-    create_runtime().block_on(pool.await_termination());
+    pool.wait_termination();
 }
 
 #[test]
@@ -129,7 +139,7 @@ fn test_fixed_thread_pool_submit_callable_returns_value() {
         42,
     );
     pool.shutdown();
-    create_runtime().block_on(pool.await_termination());
+    pool.wait_termination();
 }
 
 #[tokio::test]
@@ -142,7 +152,7 @@ async fn test_fixed_thread_pool_handle_can_be_awaited() {
 
     assert_eq!(handle.await.expect("handle should await result"), 42);
     pool.shutdown();
-    pool.await_termination().await;
+    pool.wait_termination();
 }
 
 #[test]
@@ -153,7 +163,7 @@ fn test_fixed_thread_pool_shutdown_rejects_new_tasks() {
     let result = pool.submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>);
 
     assert!(matches!(result, Err(RejectedExecution::Shutdown)));
-    create_runtime().block_on(pool.await_termination());
+    pool.wait_termination();
     assert!(pool.is_not_running());
     assert!(pool.is_terminated());
 }
@@ -193,7 +203,7 @@ fn test_fixed_thread_pool_bounded_queue_rejects_when_saturated() {
     first.get().expect("running task should complete normally");
     assert_eq!(queued.get().expect("queued task should run"), 42);
     pool.shutdown();
-    create_runtime().block_on(pool.await_termination());
+    pool.wait_termination();
 }
 
 #[test]
@@ -229,7 +239,7 @@ fn test_fixed_thread_pool_shutdown_drains_queued_tasks() {
 
     assert!(matches!(rejected, Err(RejectedExecution::Shutdown)));
     assert_eq!(second.get().expect("queued task should still run"), 42);
-    create_runtime().block_on(pool.await_termination());
+    pool.wait_termination();
     assert!(pool.is_terminated());
 }
 
@@ -265,7 +275,7 @@ fn test_fixed_thread_pool_stop_cancels_queued_tasks() {
         .send(())
         .expect("blocking task should receive release signal");
     first.get().expect("running task should complete normally");
-    create_runtime().block_on(pool.await_termination());
+    pool.wait_termination();
     assert!(pool.is_terminated());
 }
 
@@ -299,11 +309,11 @@ fn test_fixed_thread_pool_cancel_before_start_reports_cancelled() {
         .send(())
         .expect("blocking task should receive release signal");
     first.get().expect("running task should complete normally");
-    create_runtime().block_on(pool.await_termination());
+    pool.wait_termination();
 }
 
 #[test]
-fn test_fixed_thread_pool_await_termination_waits_for_running_task() {
+fn test_fixed_thread_pool_wait_termination_waits_for_running_task() {
     let pool = create_single_worker_pool();
     let completed = Arc::new(AtomicBool::new(false));
     let completed_for_task = Arc::clone(&completed);
@@ -316,14 +326,14 @@ fn test_fixed_thread_pool_await_termination_waits_for_running_task() {
     .expect("fixed thread pool should accept task");
 
     pool.shutdown();
-    create_runtime().block_on(pool.await_termination());
+    pool.wait_termination();
 
     assert!(pool.is_terminated());
     assert!(completed.load(Ordering::Acquire));
 }
 
 #[test]
-fn test_fixed_thread_pool_multiple_workers_drain_local_queues() {
+fn test_fixed_thread_pool_multiple_workers_drain_global_queue() {
     let pool = FixedThreadPool::new(2).expect("fixed thread pool should be created");
     let counter = Arc::new(std::sync::atomic::AtomicUsize::new(0));
     let mut handles = Vec::new();
@@ -344,7 +354,7 @@ fn test_fixed_thread_pool_multiple_workers_drain_local_queues() {
     }
     wait_until(|| counter.load(Ordering::Acquire) == 16);
     pool.shutdown();
-    create_runtime().block_on(pool.await_termination());
+    pool.wait_termination();
 }
 
 #[test]
@@ -391,7 +401,7 @@ fn test_fixed_thread_pool_large_pool_uses_global_queue_stop() {
     for handle in running {
         handle.get().expect("running task should complete");
     }
-    create_runtime().block_on(pool.await_termination());
+    pool.wait_termination();
 }
 
 #[test]
@@ -413,7 +423,7 @@ fn test_fixed_thread_pool_large_pool_runs_global_queue_tasks() {
     values.sort_unstable();
     assert_eq!(values, (0..10usize).collect::<Vec<_>>());
     pool.shutdown();
-    create_runtime().block_on(pool.await_termination());
+    pool.wait_termination();
 }
 
 #[test]
@@ -429,7 +439,7 @@ fn test_fixed_thread_pool_default_uses_builder_defaults() {
     assert_eq!(stats.maximum_pool_size, expected_pool_size);
 
     pool.shutdown();
-    create_runtime().block_on(pool.await_termination());
+    pool.wait_termination();
     assert!(pool.is_terminated());
 }
 
@@ -462,11 +472,11 @@ fn test_fixed_thread_pool_default_executes_tasks() {
     );
 
     pool.shutdown();
-    create_runtime().block_on(pool.await_termination());
+    pool.wait_termination();
 }
 
 #[test]
-fn test_fixed_thread_pool_stop_cancels_worker_local_batch() {
+fn test_fixed_thread_pool_stop_cancels_queued_batch() {
     let pool = create_single_worker_pool();
     const TASK_COUNT: usize = 256;
     let release = Arc::new(AtomicBool::new(false));
@@ -498,7 +508,7 @@ fn test_fixed_thread_pool_stop_cancels_worker_local_batch() {
     assert_eq!(report.running, 1);
     assert!(report.queued < TASK_COUNT);
     release.store(true, Ordering::Release);
-    create_runtime().block_on(pool.await_termination());
+    pool.wait_termination();
 
     let mut cancelled = 0usize;
     let mut completed = 0usize;

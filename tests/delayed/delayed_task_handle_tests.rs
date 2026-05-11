@@ -9,11 +9,12 @@
  ******************************************************************************/
 //! Tests for [`DelayedTaskHandle`](qubit_thread_pool::DelayedTaskHandle).
 
-use std::{sync::mpsc, time::Duration};
+use std::{
+    sync::mpsc,
+    time::Duration,
+};
 
 use qubit_thread_pool::DelayedTaskScheduler;
-
-use super::mod_tests::create_runtime;
 
 #[test]
 fn test_delayed_task_handle_reports_cancelled_state() {
@@ -35,5 +36,5 @@ fn test_delayed_task_handle_reports_cancelled_state() {
         "cancelled task should not run"
     );
     scheduler.shutdown();
-    create_runtime().block_on(scheduler.await_termination());
+    scheduler.wait_termination();
 }

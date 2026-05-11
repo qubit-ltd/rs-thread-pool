@@ -9,14 +9,16 @@
  ******************************************************************************/
 use std::{
     hint::spin_loop,
-    sync::{Arc, atomic::Ordering},
+    sync::{
+        Arc,
+        atomic::Ordering,
+    },
 };
 
 use qubit_executor::service::ExecutorServiceLifecycle;
 
 use super::fixed_thread_pool_inner::FixedThreadPoolInner;
 use super::fixed_thread_pool_state::FixedThreadPoolState;
-use super::fixed_worker_queue::FixedWorkerQueue;
 use super::fixed_worker_runtime::FixedWorkerRuntime;
 
 /// Number of short queue probes before a fixed worker parks.
@@ -33,9 +35,8 @@ impl FixedWorker {
     /// * `inner` - Shared fixed-pool state.
     /// * `worker_runtime` - Queue runtime owned by this worker.
     pub fn run(inner: Arc<FixedThreadPoolInner>, worker_runtime: FixedWorkerRuntime) {
-        worker_runtime.queue.activate();
         loop {
-            if let Some(job) = inner.try_take_job(&worker_runtime) {
+            if let Some(job) = inner.try_take_job() {
                 job.run();
                 inner.finish_running_job();
                 continue;
@@ -44,7 +45,7 @@ impl FixedWorker {
                 break;
             }
         }
-        worker_exited(&inner, &worker_runtime.queue);
+        worker_exited(&inner, worker_runtime.worker_index());
     }
 }
 
@@ -163,9 +164,8 @@ fn unmark_fixed_worker_idle(inner: &FixedThreadPoolInner, state: &mut FixedThrea
 /// # Parameters
 ///
 /// * `inner` - Shared fixed-pool state.
-/// * `worker_queue` - Queue owned by the exiting worker.
-fn worker_exited(inner: &FixedThreadPoolInner, worker_queue: &FixedWorkerQueue) {
-    worker_queue.deactivate();
+/// * `_worker_index` - Index of the exiting worker.
+fn worker_exited(inner: &FixedThreadPoolInner, _worker_index: usize) {
     inner.state.write(|state| {
         state.live_workers = state
             .live_workers

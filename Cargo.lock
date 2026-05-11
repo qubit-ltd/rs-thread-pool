@@ -443,7 +443,6 @@ dependencies = [
  "parking_lot",
  "qubit-atomic",
  "qubit-function",
- "qubit-lock",
  "thiserror",
 ]
 

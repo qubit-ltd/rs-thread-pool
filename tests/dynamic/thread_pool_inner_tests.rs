@@ -1,8 +1,14 @@
-use std::{io, sync::mpsc};
+use std::{
+    io,
+    sync::mpsc,
+};
 
 use qubit_thread_pool::ExecutorService;
 
-use super::mod_tests::{create_runtime, create_single_worker_pool, wait_started};
+use super::mod_tests::{
+    create_single_worker_pool,
+    wait_started,
+};
 
 #[test]
 fn test_thread_pool_inner_tracks_running_queued_and_completed_counts() {
@@ -27,6 +33,6 @@ fn test_thread_pool_inner_tracks_running_queued_and_completed_counts() {
     first.get().unwrap();
     assert_eq!(11, queued.get().unwrap());
     pool.shutdown();
-    create_runtime().block_on(pool.await_termination());
+    pool.wait_termination();
     assert!(pool.stats().completed_tasks >= 2);
 }

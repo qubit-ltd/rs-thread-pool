@@ -7,10 +7,19 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-use std::panic::{AssertUnwindSafe, catch_unwind};
+use std::panic::{
+    AssertUnwindSafe,
+    catch_unwind,
+};
 
-use qubit_executor::{TaskCompletion, TaskRunner};
-use qubit_function::{Callable, Runnable};
+use qubit_executor::task::{
+    TaskCompletion,
+    TaskRunner,
+};
+use qubit_function::{
+    Callable,
+    Runnable,
+};
 
 /// Type-erased pool job with a cancellation path for queued work.
 ///

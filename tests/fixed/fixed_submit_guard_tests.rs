@@ -1,21 +1,20 @@
 use std::{
     io,
-    sync::{Arc, atomic::Ordering},
+    sync::atomic::Ordering,
 };
 
 use qubit_thread_pool::{
-    ExecutorService, FixedThreadPool, RejectedExecution,
+    ExecutorService,
+    FixedThreadPool,
+    RejectedExecution,
     fixed::{
-        fixed_submit_guard::FixedSubmitGuard, fixed_thread_pool_inner::FixedThreadPoolInner,
-        fixed_worker_runtime::FixedWorkerRuntime,
+        fixed_submit_guard::FixedSubmitGuard,
+        fixed_thread_pool_inner::FixedThreadPoolInner,
     },
 };
 
-use super::mod_tests::create_runtime;
-
 fn create_inner() -> FixedThreadPoolInner {
-    let runtime = FixedWorkerRuntime::new(0);
-    FixedThreadPoolInner::new(1, None, vec![Arc::clone(&runtime.queue)])
+    FixedThreadPoolInner::new(1, None)
 }
 
 #[test]
@@ -24,7 +23,7 @@ fn test_fixed_submit_guard_rejects_after_shutdown_closes_admission() {
 
     pool.shutdown();
     let rejected = pool.submit(|| Ok::<_, io::Error>(()));
-    create_runtime().block_on(pool.await_termination());
+    pool.wait_termination();
 
     assert!(matches!(rejected, Err(RejectedExecution::Shutdown)));
 }
@@ -38,4 +37,27 @@ fn test_fixed_submit_guard_notifies_when_last_submitter_leaves_closed_admission(
     drop(FixedSubmitGuard { inner: &inner });
 
     assert_eq!(inner.inflight_count(), 0);
+}
+
+#[test]
+fn test_fixed_submit_guard_notifies_idle_waiters_when_pool_becomes_idle() {
+    let inner = create_inner();
+    inner.inflight_submissions.store(1, Ordering::Release);
+    inner.idle_waiter_count.store(1, Ordering::Release);
+
+    drop(FixedSubmitGuard { inner: &inner });
+
+    assert_eq!(inner.inflight_count(), 0);
+    assert!(inner.is_idle());
+}
+
+#[test]
+fn test_fixed_submit_guard_only_leaves_one_inflight_submitter() {
+    let inner = create_inner();
+    inner.inflight_submissions.store(2, Ordering::Release);
+    inner.accepting.store(false, Ordering::Release);
+
+    drop(FixedSubmitGuard { inner: &inner });
+
+    assert_eq!(inner.inflight_count(), 1);
 }

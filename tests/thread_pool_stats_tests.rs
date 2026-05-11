@@ -9,7 +9,29 @@
  ******************************************************************************/
 //! Tests for [`qubit_thread_pool::ThreadPoolStats`].
 
-use qubit_thread_pool::{ExecutorService, ExecutorServiceLifecycle, ThreadPool};
+use qubit_thread_pool::{
+    ExecutorService,
+    ExecutorServiceLifecycle,
+    ThreadPool,
+    ThreadPoolStats,
+};
+
+#[test]
+fn test_thread_pool_stats_default_uses_empty_running_snapshot() {
+    let stats = ThreadPoolStats::default();
+
+    assert_eq!(stats.lifecycle, ExecutorServiceLifecycle::Running);
+    assert_eq!(stats.core_pool_size, 0);
+    assert_eq!(stats.maximum_pool_size, 0);
+    assert_eq!(stats.live_workers, 0);
+    assert_eq!(stats.idle_workers, 0);
+    assert_eq!(stats.queued_tasks, 0);
+    assert_eq!(stats.running_tasks, 0);
+    assert_eq!(stats.submitted_tasks, 0);
+    assert_eq!(stats.completed_tasks, 0);
+    assert_eq!(stats.cancelled_tasks, 0);
+    assert!(!stats.terminated);
+}
 
 #[test]
 fn test_thread_pool_stats_reflect_configuration() {
@@ -28,15 +50,8 @@ fn test_thread_pool_stats_reflect_configuration() {
     assert!(!s.terminated);
 
     pool.shutdown();
-    create_runtime().block_on(pool.await_termination());
+    pool.wait_termination();
     let s = pool.stats();
     assert_eq!(s.lifecycle, ExecutorServiceLifecycle::Terminated);
     assert!(s.terminated);
-}
-
-fn create_runtime() -> tokio::runtime::Runtime {
-    tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .expect("tokio runtime should build for stats tests")
 }

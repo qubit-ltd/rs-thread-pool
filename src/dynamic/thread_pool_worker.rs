@@ -105,11 +105,7 @@ fn wait_for_job(inner: &ThreadPoolInner, worker_queue: &ThreadPoolWorkerQueue) -
                 unregister_exiting_worker(inner, &mut state, worker_index);
                 return None;
             }
-            ExecutorServiceLifecycle::Stopping => {
-                unregister_exiting_worker(inner, &mut state, worker_index);
-                return None;
-            }
-            ExecutorServiceLifecycle::Terminated => {
+            ExecutorServiceLifecycle::Stopping | ExecutorServiceLifecycle::Terminated => {
                 unregister_exiting_worker(inner, &mut state, worker_index);
                 return None;
             }
@@ -148,10 +144,9 @@ fn unregister_exiting_worker(
 ) {
     // Migrate leftover local jobs back to the global queue before removing the
     // worker registration so queued work is not lost while this worker retires.
-    let requeued_jobs = inner.remove_worker_queue_locked(worker_index);
-    for job in requeued_jobs {
-        state.queue.push_back(job);
-    }
+    state
+        .queue
+        .extend(inner.remove_worker_queue_locked(worker_index));
     state.live_workers = state
         .live_workers
         .checked_sub(1)

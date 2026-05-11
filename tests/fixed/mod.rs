@@ -13,8 +13,6 @@ mod fixed_thread_pool_inner_tests;
 mod fixed_thread_pool_lifecycle_tests;
 mod fixed_thread_pool_state_tests;
 mod fixed_thread_pool_tests;
-mod fixed_worker_queue_tests;
 mod fixed_worker_runtime_tests;
 mod fixed_worker_tests;
 mod mod_tests;
-mod queue_steal_source_tests;

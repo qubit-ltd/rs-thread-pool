@@ -1,13 +1,9 @@
 use std::time::Duration;
 
-use qubit_thread_pool::{ExecutorService, FixedThreadPool};
-
-pub(crate) fn create_runtime() -> tokio::runtime::Runtime {
-    tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .expect("tokio runtime should build for fixed thread pool tests")
-}
+use qubit_thread_pool::{
+    ExecutorService,
+    FixedThreadPool,
+};
 
 pub(crate) fn wait_started(receiver: std::sync::mpsc::Receiver<()>) {
     receiver
@@ -35,5 +31,5 @@ fn test_fixed_module_exports_thread_pool_entrypoint() {
 
     assert_eq!(pool.pool_size(), 1);
     pool.shutdown();
-    create_runtime().block_on(pool.await_termination());
+    pool.wait_termination();
 }

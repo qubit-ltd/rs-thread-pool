@@ -11,16 +11,30 @@
 
 use std::{
     io,
-    sync::{Arc, mpsc},
+    sync::{
+        Arc,
+        atomic::{
+            AtomicBool,
+            Ordering,
+        },
+        mpsc,
+    },
     time::Duration,
 };
 
 use qubit_thread_pool::{
-    CancelResult, ExecutorService, RejectedExecution, TaskExecutionError, ThreadPool,
-    ThreadPoolBuildError,
+    CancelResult,
+    ExecutorBuildError,
+    ExecutorService,
+    RejectedExecution,
+    TaskExecutionError,
+    ThreadPool,
 };
 
-use super::mod_tests::{create_runtime, create_single_worker_pool, wait_started};
+use super::mod_tests::{
+    create_single_worker_pool,
+    wait_started,
+};
 
 fn ok_unit_task() -> Result<(), io::Error> {
     Ok(())
@@ -48,7 +62,7 @@ fn test_thread_pool_submit_acceptance_is_not_task_success() {
         .expect_err("accepted runnable should report task failure through handle");
     assert!(matches!(err, TaskExecutionError::Failed(_)));
     pool.shutdown();
-    create_runtime().block_on(pool.await_termination());
+    pool.wait_termination();
 }
 
 #[test]
@@ -64,7 +78,83 @@ fn test_thread_pool_submit_callable_returns_value() {
         42,
     );
     pool.shutdown();
-    create_runtime().block_on(pool.await_termination());
+    pool.wait_termination();
+}
+
+#[test]
+fn test_thread_pool_submit_and_join_wait_for_detached_task() {
+    let pool = ThreadPool::new(1).expect("thread pool should be created");
+    let completed = Arc::new(AtomicBool::new(false));
+    let completed_for_task = Arc::clone(&completed);
+
+    pool.submit(move || {
+        completed_for_task.store(true, Ordering::Release);
+        Ok::<(), io::Error>(())
+    })
+    .expect("thread pool should accept detached task");
+    pool.join();
+
+    assert!(completed.load(Ordering::Acquire));
+    pool.shutdown();
+    pool.wait_termination();
+}
+
+#[test]
+fn test_thread_pool_submit_wakes_prestarted_idle_worker() {
+    let pool = ThreadPool::builder()
+        .core_pool_size(1)
+        .maximum_pool_size(1)
+        .build()
+        .expect("thread pool should be created");
+
+    assert!(
+        pool.prestart_core_thread()
+            .expect("core worker should prestart")
+    );
+    super::mod_tests::wait_until(|| pool.stats().idle_workers == 1);
+    let handle = pool
+        .submit_callable(ok_usize_task as fn() -> Result<usize, io::Error>)
+        .expect("thread pool should accept callable");
+
+    assert_eq!(handle.get().expect("callable should complete"), 42);
+    pool.shutdown();
+    pool.wait_termination();
+}
+
+#[test]
+fn test_thread_pool_bounded_submit_uses_worker_queue_when_worker_busy() {
+    let pool = ThreadPool::builder()
+        .core_pool_size(1)
+        .maximum_pool_size(1)
+        .queue_capacity(4)
+        .build()
+        .expect("thread pool should be created");
+    let (started_tx, started_rx) = mpsc::channel();
+    let (release_tx, release_rx) = mpsc::channel();
+    let running = pool
+        .submit_tracked(move || {
+            started_tx
+                .send(())
+                .expect("test should receive task start signal");
+            release_rx
+                .recv()
+                .map_err(|err| io::Error::other(err.to_string()))?;
+            Ok::<(), io::Error>(())
+        })
+        .expect("running task should be accepted");
+    wait_started(started_rx);
+    let queued = pool
+        .submit_callable(ok_usize_task as fn() -> Result<usize, io::Error>)
+        .expect("queued task should be accepted");
+
+    assert_eq!(pool.queued_count(), 1);
+    release_tx
+        .send(())
+        .expect("blocking task should receive release signal");
+    running.get().expect("running task should complete");
+    assert_eq!(queued.get().expect("queued task should complete"), 42);
+    pool.shutdown();
+    pool.wait_termination();
 }
 
 #[tokio::test]
@@ -77,7 +167,7 @@ async fn test_thread_pool_handle_can_be_awaited() {
 
     assert_eq!(handle.await.expect("handle should await result"), 42);
     pool.shutdown();
-    pool.await_termination().await;
+    pool.wait_termination();
 }
 
 #[test]
@@ -88,7 +178,7 @@ fn test_thread_pool_shutdown_rejects_new_tasks() {
     let result = pool.submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>);
 
     assert!(matches!(result, Err(RejectedExecution::Shutdown)));
-    create_runtime().block_on(pool.await_termination());
+    pool.wait_termination();
     assert!(pool.is_not_running());
     assert!(pool.is_terminated());
 }
@@ -126,7 +216,7 @@ fn test_thread_pool_shutdown_drains_queued_tasks() {
 
     assert!(matches!(rejected, Err(RejectedExecution::Shutdown)));
     assert_eq!(second.get().expect("queued task should still run"), 42);
-    create_runtime().block_on(pool.await_termination());
+    pool.wait_termination();
     assert!(pool.is_terminated());
 }
 
@@ -162,7 +252,7 @@ fn test_thread_pool_stop_cancels_queued_tasks() {
         .send(())
         .expect("blocking task should receive release signal");
     first.get().expect("running task should complete normally");
-    create_runtime().block_on(pool.await_termination());
+    pool.wait_termination();
     assert!(pool.is_terminated());
 }
 
@@ -177,7 +267,7 @@ fn test_thread_pool_stop_is_idempotent_from_stopping() {
     assert_eq!(first.running, 0);
     assert_eq!(second.queued, 0);
     assert_eq!(second.running, 0);
-    create_runtime().block_on(pool.await_termination());
+    pool.wait_termination();
     assert!(pool.is_terminated());
 }
 
@@ -211,7 +301,7 @@ fn test_thread_pool_cancel_before_start_reports_cancelled() {
         .send(())
         .expect("blocking task should receive release signal");
     first.get().expect("running task should complete normally");
-    create_runtime().block_on(pool.await_termination());
+    pool.wait_termination();
 }
 
 #[test]
@@ -236,23 +326,23 @@ fn test_thread_pool_accessors_and_dynamic_settings() {
     assert_eq!(pool.maximum_pool_size(), 3);
     assert!(matches!(
         pool.set_core_pool_size(4),
-        Err(ThreadPoolBuildError::CorePoolSizeExceedsMaximum { .. }),
+        Err(ExecutorBuildError::CorePoolSizeExceedsMaximum { .. }),
     ));
     assert!(matches!(
         pool.set_maximum_pool_size(0),
-        Err(ThreadPoolBuildError::ZeroMaximumPoolSize),
+        Err(ExecutorBuildError::ZeroMaximumPoolSize),
     ));
     assert!(pool.set_core_pool_size(2).is_ok());
     assert!(matches!(
         pool.set_maximum_pool_size(1),
-        Err(ThreadPoolBuildError::CorePoolSizeExceedsMaximum { .. }),
+        Err(ExecutorBuildError::CorePoolSizeExceedsMaximum { .. }),
     ));
     assert!(matches!(
         pool.set_keep_alive(Duration::ZERO),
-        Err(ThreadPoolBuildError::ZeroKeepAlive),
+        Err(ExecutorBuildError::ZeroKeepAlive),
     ));
     pool.shutdown();
-    create_runtime().block_on(pool.await_termination());
+    pool.wait_termination();
 }
 
 #[test]
@@ -270,7 +360,7 @@ fn test_thread_pool_reports_worker_spawn_failure() {
         Err(RejectedExecution::WorkerSpawnFailed { .. }),
     ));
     pool.shutdown();
-    create_runtime().block_on(pool.await_termination());
+    pool.wait_termination();
 }
 
 #[test]
@@ -291,7 +381,7 @@ fn test_thread_pool_cancels_queued_job_when_initial_worker_spawn_fails() {
     ));
     assert_eq!(pool.queued_count(), 0);
     pool.shutdown();
-    create_runtime().block_on(pool.await_termination());
+    pool.wait_termination();
 }
 
 #[test]
@@ -321,6 +411,6 @@ fn test_thread_pool_stop_after_shutdown_is_idempotent() {
     assert_eq!(report.queued, 0);
     assert_eq!(report.running, 0);
     assert_eq!(report.cancelled, 0);
-    create_runtime().block_on(pool.await_termination());
+    pool.wait_termination();
     assert!(pool.is_terminated());
 }
