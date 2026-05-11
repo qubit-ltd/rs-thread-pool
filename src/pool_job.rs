@@ -11,6 +11,10 @@ use std::panic::{
     AssertUnwindSafe,
     catch_unwind,
 };
+use std::sync::{
+    Arc,
+    Mutex,
+};
 
 use qubit_executor::task::spi::{
     TaskRunner,
@@ -73,13 +77,27 @@ impl PoolJob {
         R: Send + 'static,
         E: Send + 'static,
     {
-        let cancel_completion = completion.clone();
+        let completion = Arc::new(Mutex::new(Some(completion)));
+        let run_completion = Arc::clone(&completion);
+        let cancel_completion = Arc::clone(&completion);
         Self::new(
             Box::new(move || {
-                TaskRunner::new(task).run(completion);
+                let completion = run_completion
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .take();
+                let _ignored = completion.map(|completion| {
+                    TaskRunner::new(task).run(completion);
+                });
             }),
             Box::new(move || {
-                cancel_completion.cancel();
+                let completion = cancel_completion
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .take();
+                let _ignored = completion.map(|completion| {
+                    completion.cancel();
+                });
             }),
         )
     }
