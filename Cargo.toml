@@ -33,7 +33,7 @@ thiserror = "2.0"
 
 qubit-executor = "0.3"
 qubit-function = "0.13"
-qubit-lock = "0.4"
+qubit-lock = "0.5"
 
 [dev-dependencies]
 criterion = "0.8"
