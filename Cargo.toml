@@ -14,16 +14,13 @@ keywords = ["thread-pool", "executor", "concurrency", "work-stealing"]
 categories = ["concurrency"]
 exclude = [
     "align-ci.sh",
-    "coverage.sh",
     "ci-check.sh",
+    "coverage.sh",
     "style-check.sh",
     "update-submodule.sh",
     ".github/*",
     ".llvm-cov.toml",
-    ".rs-ci/*",
-    ".qubit-style-allowlist",
-    "COVERAGE.md",
-    "COVERAGE.zh_CN.md",
+    ".cargo-audit.toml.example",
 ]
 
 [lib]
@@ -34,7 +31,7 @@ doctest = true
 crossbeam-deque = "0.8"
 thiserror = "2.0"
 
-qubit-executor = "0.3.1"
+qubit-executor = "0.3"
 qubit-function = "0.13"
 qubit-lock = "0.4"
 
