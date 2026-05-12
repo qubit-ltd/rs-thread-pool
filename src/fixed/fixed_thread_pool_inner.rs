@@ -7,6 +7,7 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
+// qubit-style: allow inline-tests
 use std::sync::atomic::{
     AtomicBool,
     AtomicUsize,
@@ -498,13 +499,9 @@ impl FixedThreadPoolInner {
     /// drained by this stop request; the running count is only the best-effort
     /// snapshot described above.
     pub fn stop(&self) -> StopReport {
+        let cancelled_before_stop = self.cancelled_task_count.load(Ordering::Acquire);
         self.accepting.store(false, Ordering::Release);
         self.stop_now.store(true, Ordering::Release);
-        // This snapshot is intentionally report-only. Do not use it for stop
-        // decisions: workers may concurrently move jobs between queued, running,
-        // and completed states, while actual cancellation/termination relies on
-        // stop_now plus the queue and running counters themselves.
-        let running = self.running_count();
         let mut state = self.state.lock();
         state.lifecycle = ExecutorServiceLifecycle::Stopping;
         if self.inflight_count() > 0 {
@@ -515,14 +512,22 @@ impl FixedThreadPoolInner {
             let previous = self.submit_waiter_count.fetch_sub(1, Ordering::AcqRel);
             debug_assert!(previous > 0, "fixed pool submit waiter counter underflow");
         }
+        // These snapshots are report-only. Workers may concurrently move jobs
+        // between queued, running, and cancelled states, while actual
+        // cancellation/termination relies on stop_now plus the live counters.
+        let running = self.running_count();
+        let worker_cancelled = self
+            .cancelled_task_count
+            .load(Ordering::Acquire)
+            .saturating_sub(cancelled_before_stop);
+        let queued = self.queued_count() + worker_cancelled;
         drop(state);
         let jobs = self.drain_visible_queued_jobs();
-        let cancelled = jobs.len();
         for job in jobs {
             self.cancel_claimed_job(job);
         }
         self.state.notify_all();
-        StopReport::new(cancelled, running, cancelled)
+        StopReport::new(queued, running, queued)
     }
 
     /// Drains all jobs currently visible in the global queue.
@@ -639,5 +644,118 @@ impl FixedThreadPoolInner {
             cancelled_tasks,
             terminated: self.is_terminated_locked(state),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{
+        sync::{
+            Arc,
+            atomic::Ordering,
+            mpsc,
+        },
+        thread,
+        time::{
+            Duration,
+            Instant,
+        },
+    };
+
+    use super::FixedThreadPoolInner;
+    use crate::{
+        PoolJob,
+        ThreadPoolHooks,
+    };
+
+    fn wait_until<F>(mut condition: F)
+    where
+        F: FnMut() -> bool,
+    {
+        let deadline = Instant::now() + Duration::from_secs(1);
+        while Instant::now() < deadline {
+            if condition() {
+                return;
+            }
+            thread::sleep(Duration::from_millis(5));
+        }
+        assert!(condition(), "condition should become true within timeout");
+    }
+
+    /// Verifies the stop-report race where cancellation happens on the worker
+    /// side after `stop_now` is published.
+    ///
+    /// The important interleaving is:
+    ///
+    /// 1. A job is accepted and visible as queued.
+    /// 2. `stop()` publishes `stop_now`.
+    /// 3. A worker that had already passed the outer `try_take_job()` stop
+    ///    check claims the queued job, sees `stop_now` in
+    ///    `accept_claimed_job()`, and cancels it.
+    /// 4. `stop()` must still report that job as queued/cancelled even though
+    ///    the global queue is now empty.
+    ///
+    /// The artificial in-flight submission below is only a synchronization
+    /// gate: it keeps `stop()` waiting after step 2 so the test can
+    /// deterministically exercise step 3 without relying on timing.
+    #[test]
+    fn test_stop_reports_worker_side_cancel_after_stop_now() {
+        let inner = Arc::new(FixedThreadPoolInner::with_hooks(
+            1,
+            None,
+            ThreadPoolHooks::new(),
+        ));
+        let (cancelled_tx, cancelled_rx) = mpsc::channel();
+
+        inner
+            .submit(PoolJob::new(
+                Box::new(thread::yield_now),
+                Box::new(move || {
+                    cancelled_tx
+                        .send(())
+                        .expect("test should receive cancellation signal");
+                }),
+            ))
+            .expect("job should be accepted before stop");
+        assert_eq!(inner.queued_count(), 1);
+
+        // Hold `stop()` between publishing `stop_now` and taking its report
+        // snapshots. This simulates a submitter that had already crossed
+        // admission before immediate shutdown began.
+        inner.inflight_submissions.fetch_add(1, Ordering::Release);
+        let stop_inner = Arc::clone(&inner);
+        let stop_thread = thread::spawn(move || stop_inner.stop());
+        wait_until(|| {
+            inner.stop_now.load(Ordering::Acquire)
+                && inner.submit_waiter_count.load(Ordering::Acquire) > 0
+        });
+
+        // This is the worker-side cancellation window being protected. The
+        // public worker helper checks `stop_now` before stealing, so this test
+        // directly models the lower-level interleaving where a worker passed
+        // that check before `stop_now`, then claims the job afterwards.
+        let job = FixedThreadPoolInner::steal_one(&inner.global_queue)
+            .expect("queued job should remain visible while stop is gated");
+        assert!(
+            inner.accept_claimed_job(job).is_none(),
+            "job claimed after stop_now should be cancelled by worker path",
+        );
+        cancelled_rx
+            .recv_timeout(Duration::from_secs(1))
+            .expect("worker-side cancellation should publish cancellation signal");
+
+        // Let `stop()` continue. The report must include the cancellation that
+        // happened above, even though the global queue is already empty.
+        let previous = inner.inflight_submissions.fetch_sub(1, Ordering::Release);
+        assert_eq!(previous, 1);
+        inner.notify_waiters_after_atomic_change();
+        let report = stop_thread
+            .join()
+            .expect("stop caller should not panic while building report");
+
+        assert_eq!(report.queued, 1);
+        assert_eq!(report.running, 0);
+        assert_eq!(report.cancelled, 1);
+        assert_eq!(inner.cancelled_task_count.load(Ordering::Acquire), 1);
     }
 }

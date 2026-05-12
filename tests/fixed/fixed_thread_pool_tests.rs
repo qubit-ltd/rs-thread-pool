@@ -563,7 +563,8 @@ fn test_fixed_thread_pool_stop_cancels_queued_batch() {
     let report = pool.stop();
 
     assert_eq!(report.running, 1);
-    assert!(report.queued < TASK_COUNT);
+    assert_eq!(report.queued, TASK_COUNT - 1);
+    assert_eq!(report.cancelled, TASK_COUNT - 1);
     release.store(true, Ordering::Release);
     pool.wait_termination();
 
