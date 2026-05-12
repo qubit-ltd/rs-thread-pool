@@ -31,7 +31,7 @@ pub use fixed::{
     FixedThreadPool,
     FixedThreadPoolBuilder,
 };
-pub(crate) use pool_job::PoolJob;
+pub use pool_job::PoolJob;
 pub use qubit_executor::service::{
     ExecutorService,
     ExecutorServiceBuilderError,

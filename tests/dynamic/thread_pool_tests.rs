@@ -27,6 +27,7 @@ use qubit_thread_pool::{
     CancelResult,
     ExecutorService,
     ExecutorServiceBuilderError,
+    PoolJob,
     SubmissionError,
     TaskExecutionError,
     ThreadPool,
@@ -134,6 +135,81 @@ fn test_thread_pool_submit_and_join_wait_for_detached_task() {
 
     assert!(completed.load(Ordering::Acquire));
     pool.shutdown();
+    pool.wait_termination();
+}
+
+#[test]
+fn test_thread_pool_submit_custom_job_runs_job() {
+    let pool = ThreadPool::new(1).expect("thread pool should be created");
+    let (done_tx, done_rx) = mpsc::channel();
+
+    pool.submit_job(PoolJob::new(
+        Box::new(move || {
+            done_tx
+                .send("run")
+                .expect("test should receive custom job completion");
+        }),
+        Box::new(|| panic!("custom job should not be cancelled")),
+    ))
+    .expect("thread pool should accept custom job");
+
+    assert_eq!(
+        done_rx
+            .recv_timeout(Duration::from_secs(1))
+            .expect("custom job should run"),
+        "run",
+    );
+    pool.shutdown();
+    pool.wait_termination();
+}
+
+#[test]
+fn test_thread_pool_submit_custom_job_accepts_and_cancels_queued_job() {
+    let pool = create_single_worker_pool();
+    let (started_tx, started_rx) = mpsc::channel();
+    let (release_tx, release_rx) = mpsc::channel();
+    let running = pool
+        .submit_tracked(move || {
+            started_tx
+                .send(())
+                .expect("test should receive task start signal");
+            release_rx
+                .recv()
+                .map_err(|err| io::Error::other(err.to_string()))?;
+            Ok::<(), io::Error>(())
+        })
+        .expect("running task should be accepted");
+    wait_started(started_rx);
+    let (accepted_tx, accepted_rx) = mpsc::channel();
+    let (cancelled_tx, cancelled_rx) = mpsc::channel();
+
+    pool.submit_job(PoolJob::with_accept(
+        Box::new(move || {
+            accepted_tx
+                .send(())
+                .expect("test should receive custom job acceptance");
+        }),
+        Box::new(|| panic!("queued custom job should not run")),
+        Box::new(move || {
+            cancelled_tx
+                .send(())
+                .expect("test should receive custom job cancellation");
+        }),
+    ))
+    .expect("thread pool should accept queued custom job");
+
+    accepted_rx
+        .recv_timeout(Duration::from_secs(1))
+        .expect("custom job should be accepted");
+    let report = pool.stop();
+    assert_eq!(report.queued, 1);
+    cancelled_rx
+        .recv_timeout(Duration::from_secs(1))
+        .expect("queued custom job should be cancelled");
+    release_tx
+        .send(())
+        .expect("blocking task should receive release signal");
+    running.get().expect("running task should complete");
     pool.wait_termination();
 }
 

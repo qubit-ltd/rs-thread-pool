@@ -7,9 +7,12 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-use std::panic::{
-    AssertUnwindSafe,
-    catch_unwind,
+use std::{
+    panic::{
+        AssertUnwindSafe,
+        catch_unwind,
+    },
+    sync::Mutex,
 };
 
 use qubit_executor::task::spi::{
@@ -65,8 +68,42 @@ where
     }
 }
 
+/// Custom job callbacks supplied by higher-level services.
+struct CustomPoolTask {
+    /// Callback invoked once the pool accepts the job.
+    accept: Mutex<Option<Box<dyn FnOnce() + Send + 'static>>>,
+    /// Callback executed once a worker starts this job.
+    run: Box<dyn FnOnce() + Send + 'static>,
+    /// Callback executed if the job is cancelled before it starts.
+    cancel: Box<dyn FnOnce() + Send + 'static>,
+}
+
+impl PoolTask for CustomPoolTask {
+    /// Runs the acceptance callback once.
+    fn accept(&self) {
+        if let Some(accept) = self
+            .accept
+            .lock()
+            .expect("custom pool job accept lock should not be poisoned")
+            .take()
+        {
+            accept();
+        }
+    }
+
+    /// Runs this custom job.
+    fn run(self: Box<Self>) {
+        (self.run)();
+    }
+
+    /// Cancels this custom job before it starts.
+    fn cancel(self: Box<Self>) {
+        (self.cancel)();
+    }
+}
+
 /// Type-erased pool job with separate detached and cancellable forms.
-pub(crate) struct PoolJob {
+pub struct PoolJob {
     /// Internal job representation hidden behind method-only access.
     inner: PoolJobInner,
 }
@@ -83,6 +120,58 @@ enum PoolJobInner {
 }
 
 impl PoolJob {
+    /// Creates a custom cancellable job with no acceptance callback.
+    ///
+    /// Higher-level services that maintain their own task state usually want
+    /// [`Self::with_accept`] instead, so they can publish acceptance only after
+    /// the backing pool has accepted the job.
+    ///
+    /// # Parameters
+    ///
+    /// * `run` - Callback executed when a worker starts this job.
+    /// * `cancel` - Callback executed if the accepted job is cancelled before
+    ///   it starts.
+    ///
+    /// # Returns
+    ///
+    /// A custom type-erased job accepted by thread pools.
+    pub fn new(
+        run: Box<dyn FnOnce() + Send + 'static>,
+        cancel: Box<dyn FnOnce() + Send + 'static>,
+    ) -> Self {
+        Self::with_accept(Box::new(|| {}), run, cancel)
+    }
+
+    /// Creates a custom cancellable job with an acceptance callback.
+    ///
+    /// The pool invokes `accept` exactly once after the submission crosses the
+    /// acceptance boundary. If submission is rejected before acceptance, neither
+    /// `accept`, `run`, nor `cancel` is invoked.
+    ///
+    /// # Parameters
+    ///
+    /// * `accept` - Callback invoked once the pool accepts the job.
+    /// * `run` - Callback executed when a worker starts this job.
+    /// * `cancel` - Callback executed if the accepted job is cancelled before
+    ///   it starts.
+    ///
+    /// # Returns
+    ///
+    /// A custom type-erased job accepted by thread pools.
+    pub fn with_accept(
+        accept: Box<dyn FnOnce() + Send + 'static>,
+        run: Box<dyn FnOnce() + Send + 'static>,
+        cancel: Box<dyn FnOnce() + Send + 'static>,
+    ) -> Self {
+        Self {
+            inner: PoolJobInner::Completable(Box::new(CustomPoolTask {
+                accept: Mutex::new(Some(accept)),
+                run,
+                cancel,
+            })),
+        }
+    }
+
     /// Creates a pool job from a typed callable task and completion endpoint.
     ///
     /// # Parameters

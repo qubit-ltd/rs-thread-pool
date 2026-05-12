@@ -153,6 +153,32 @@ impl ThreadPool {
         self.inner.stats()
     }
 
+    /// Submits a custom pool job.
+    ///
+    /// This low-level extension point is intended for higher-level services
+    /// that need to pair pool execution with their own task registry or
+    /// cancellation bookkeeping. Prefer the [`ExecutorService`] submission
+    /// methods for ordinary runnable and callable work.
+    ///
+    /// # Parameters
+    ///
+    /// * `job` - Custom job to execute or cancel later.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when the pool accepts the job.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SubmissionError::Shutdown`] after shutdown, returns
+    /// [`SubmissionError::Saturated`] when the bounded pool cannot accept
+    /// more work, or returns [`SubmissionError::WorkerSpawnFailed`] when a
+    /// required worker cannot be created.
+    #[inline]
+    pub fn submit_job(&self, job: PoolJob) -> Result<(), SubmissionError> {
+        self.inner.submit(job)
+    }
+
     /// Blocks until all accepted work has completed.
     ///
     /// This is a join-style wait for quiescence: it does not request shutdown
