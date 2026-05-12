@@ -38,14 +38,14 @@ struct FixedSubmitGuard<'a> {
 }
 
 impl Drop for FixedSubmitGuard<'_> {
-    /// Leaves submit accounting and wakes shutdown waiters if needed.
+    /// Leaves submit accounting and wakes waiters if needed.
     fn drop(&mut self) {
         let previous = self
             .inner
             .inflight_submissions
             .fetch_sub(1, Ordering::Release);
         debug_assert!(previous > 0, "fixed pool submit counter underflow");
-        if previous == 1 && self.inner.has_submit_waiters() {
+        if previous == 1 && (self.inner.has_submit_waiters() || self.inner.has_idle_waiters()) {
             self.inner.notify_waiters_after_atomic_change();
         }
     }
@@ -69,6 +69,8 @@ pub struct FixedThreadPoolInner {
     pub pending_worker_wakes: AtomicUsize,
     /// Number of callers waiting for in-flight submitters to leave admission.
     pub submit_waiter_count: AtomicUsize,
+    /// Number of callers waiting for accepted work to become idle.
+    pub idle_waiter_count: AtomicUsize,
     /// Lock-free queue for externally submitted jobs.
     pub(crate) global_queue: Injector<PoolJob>,
     /// Optional maximum number of queued jobs.
@@ -115,6 +117,7 @@ impl FixedThreadPoolInner {
             idle_worker_count: AtomicUsize::new(0),
             pending_worker_wakes: AtomicUsize::new(0),
             submit_waiter_count: AtomicUsize::new(0),
+            idle_waiter_count: AtomicUsize::new(0),
             global_queue: Injector::new(),
             queue_capacity,
             queue_slot_count: AtomicUsize::new(0),
@@ -304,6 +307,16 @@ impl FixedThreadPoolInner {
         self.submit_waiter_count.load(Ordering::Acquire) > 0
     }
 
+    /// Returns whether any caller is waiting for accepted work to drain.
+    ///
+    /// # Returns
+    ///
+    /// `true` when an idle waiter may need notification after an in-flight
+    /// submitter leaves admission.
+    pub fn has_idle_waiters(&self) -> bool {
+        self.idle_waiter_count.load(Ordering::Acquire) > 0
+    }
+
     /// Notifies monitor waiters after an atomic-only condition change.
     ///
     /// Fixed-pool queue and running counters are atomics, not fields protected
@@ -428,6 +441,21 @@ impl FixedThreadPoolInner {
     pub fn wait_for_termination(&self) {
         self.state
             .wait_until(|state| self.is_terminated_locked(state), |_| ());
+    }
+
+    /// Blocks until all accepted work has completed or been cancelled.
+    ///
+    /// This method waits for in-flight submissions, queued tasks, and running
+    /// tasks to drain. It does not request shutdown and does not wait for fixed
+    /// worker threads to exit.
+    pub fn wait_until_idle(&self) {
+        self.idle_waiter_count.fetch_add(1, Ordering::AcqRel);
+        let mut state = self.state.lock();
+        while !self.is_idle_locked() {
+            state = state.wait();
+        }
+        let previous = self.idle_waiter_count.fetch_sub(1, Ordering::AcqRel);
+        debug_assert!(previous > 0, "fixed pool idle waiter counter underflow");
     }
 
     /// Requests graceful shutdown.
@@ -567,6 +595,18 @@ impl FixedThreadPoolInner {
         state.lifecycle != ExecutorServiceLifecycle::Running
             && state.live_workers == 0
             && self.queue_slot_count.load(Ordering::Acquire) == 0
+            && self.running_count() == 0
+            && self.inflight_count() == 0
+    }
+
+    /// Checks whether all accepted work has drained.
+    ///
+    /// # Returns
+    ///
+    /// `true` when no submitter is still admitting work, no queued slot remains,
+    /// and no worker-held task is running.
+    fn is_idle_locked(&self) -> bool {
+        self.queue_slot_count.load(Ordering::Acquire) == 0
             && self.running_count() == 0
             && self.inflight_count() == 0
     }

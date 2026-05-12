@@ -124,6 +124,81 @@ fn test_fixed_thread_pool_submit_callable_returns_value() {
     pool.wait_termination();
 }
 
+#[test]
+fn test_fixed_thread_pool_join_waits_for_detached_task_without_shutdown() {
+    let pool = FixedThreadPool::new(1).expect("fixed thread pool should be created");
+    let completed = Arc::new(AtomicBool::new(false));
+    let completed_for_task = Arc::clone(&completed);
+
+    pool.submit(move || {
+        completed_for_task.store(true, Ordering::Release);
+        Ok::<(), io::Error>(())
+    })
+    .expect("fixed thread pool should accept detached task");
+    pool.join();
+
+    assert!(completed.load(Ordering::Acquire));
+    assert!(!pool.is_not_running());
+    assert_eq!(
+        pool.submit_callable(ok_usize_task as fn() -> Result<usize, io::Error>)
+            .expect("fixed thread pool should keep accepting work after join")
+            .get()
+            .expect("callable should complete after join"),
+        42,
+    );
+    pool.shutdown();
+    pool.wait_termination();
+}
+
+#[test]
+fn test_fixed_thread_pool_join_waits_for_running_and_queued_tasks() {
+    let pool = Arc::new(create_single_worker_pool());
+    let (started_tx, started_rx) = mpsc::channel();
+    let (release_tx, release_rx) = mpsc::channel();
+
+    let first = pool
+        .submit_tracked(move || {
+            started_tx
+                .send(())
+                .expect("test should receive task start signal");
+            release_rx
+                .recv()
+                .map_err(|err| io::Error::other(err.to_string()))?;
+            Ok::<(), io::Error>(())
+        })
+        .expect("first task should be accepted");
+    wait_started(started_rx);
+    let second = pool
+        .submit_callable(ok_usize_task as fn() -> Result<usize, io::Error>)
+        .expect("queued task should be accepted");
+    let (join_done_tx, join_done_rx) = mpsc::channel();
+    let join_pool = Arc::clone(&pool);
+    let join_waiter = thread::spawn(move || {
+        join_pool.join();
+        join_done_tx
+            .send(())
+            .expect("test should receive join completion");
+    });
+
+    assert!(
+        join_done_rx
+            .recv_timeout(Duration::from_millis(30))
+            .is_err()
+    );
+    release_tx
+        .send(())
+        .expect("blocking task should receive release signal");
+    first.get().expect("running task should complete normally");
+    assert_eq!(second.get().expect("queued task should run"), 42);
+    join_done_rx
+        .recv_timeout(Duration::from_secs(1))
+        .expect("join should complete after accepted work drains");
+    join_waiter.join().expect("join waiter should not panic");
+    assert!(!pool.is_not_running());
+    pool.shutdown();
+    pool.wait_termination();
+}
+
 #[tokio::test]
 async fn test_fixed_thread_pool_handle_can_be_awaited() {
     let pool = FixedThreadPool::new(2).expect("fixed thread pool should be created");
