@@ -206,6 +206,8 @@ fn run_dynamic_submit_batch(pool_size: usize, task_count: usize, workload: Workl
         .take(task_count)
         .fold(0usize, usize::wrapping_add);
     black_box(sum);
+    pool.shutdown();
+    wait_for_termination(&pool);
 }
 
 /// Runs one batch on the dynamic Qubit pool through `submit_tracked`.
@@ -230,6 +232,8 @@ fn run_dynamic_submit_tracked_batch(pool_size: usize, task_count: usize, workloa
         .fold(0usize, usize::wrapping_add);
     black_box(sum);
     black_box(handles.len());
+    pool.shutdown();
+    wait_for_termination(&pool);
 }
 
 /// Runs one batch on the fixed Qubit pool through `submit`.
@@ -250,6 +254,8 @@ fn run_fixed_submit_batch(pool_size: usize, task_count: usize, workload: Workloa
         .take(task_count)
         .fold(0usize, usize::wrapping_add);
     black_box(sum);
+    pool.shutdown();
+    wait_for_termination(&pool);
 }
 
 /// Runs one batch on the fixed Qubit pool through `submit_tracked`.
@@ -274,6 +280,8 @@ fn run_fixed_submit_tracked_batch(pool_size: usize, task_count: usize, workload:
         .fold(0usize, usize::wrapping_add);
     black_box(sum);
     black_box(handles.len());
+    pool.shutdown();
+    wait_for_termination(&pool);
 }
 
 /// Runs one batch with the external `threadpool` crate through `execute`.

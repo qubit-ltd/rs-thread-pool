@@ -252,7 +252,7 @@ fn test_fixed_thread_pool_stop_cancels_queued_tasks() {
     assert_eq!(report.queued, 1);
     assert_eq!(report.running, 1);
     assert_eq!(report.cancelled, 1);
-    assert!(matches!(queued.get(), Err(TaskExecutionError::Dropped),));
+    assert!(matches!(queued.get(), Err(TaskExecutionError::Cancelled),));
     release_tx
         .send(())
         .expect("blocking task should receive release signal");
@@ -378,7 +378,7 @@ fn test_fixed_thread_pool_large_pool_uses_global_queue_stop() {
 
     assert_eq!(report.queued, 1);
     assert_eq!(report.cancelled, 1);
-    assert!(matches!(queued.get(), Err(TaskExecutionError::Dropped)));
+    assert!(matches!(queued.get(), Err(TaskExecutionError::Cancelled)));
     release.store(true, Ordering::Release);
     for handle in running {
         handle.get().expect("running task should complete");
@@ -495,7 +495,7 @@ fn test_fixed_thread_pool_stop_cancels_queued_batch() {
     let mut cancelled = 0usize;
     let mut completed = 0usize;
     for handle in handles {
-        if matches!(handle.get(), Err(TaskExecutionError::Dropped)) {
+        if matches!(handle.get(), Err(TaskExecutionError::Cancelled)) {
             cancelled += 1;
         } else {
             completed += 1;

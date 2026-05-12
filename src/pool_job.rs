@@ -11,10 +11,6 @@ use std::panic::{
     AssertUnwindSafe,
     catch_unwind,
 };
-use std::sync::{
-    Arc,
-    Mutex,
-};
 
 use qubit_executor::task::spi::{
     TaskRunner,
@@ -25,40 +21,68 @@ use qubit_function::{
     Runnable,
 };
 
+/// Type-erased callable owned by a pool queue.
+trait PoolTask: Send + 'static {
+    /// Marks this task as accepted by an executor service.
+    fn accept(&self);
+
+    /// Runs this task and publishes its result if it was not cancelled first.
+    fn run(self: Box<Self>);
+
+    /// Cancels this task before it starts.
+    fn cancel(self: Box<Self>);
+}
+
+/// Callable task paired with its runner-side completion endpoint.
+struct CompletablePoolTask<C, R, E> {
+    /// Callable task to execute once a worker starts this job.
+    task: C,
+    /// Completion endpoint used to publish the task result.
+    completion: TaskSlot<R, E>,
+}
+
+impl<C, R, E> PoolTask for CompletablePoolTask<C, R, E>
+where
+    C: Callable<R, E> + Send + 'static,
+    R: Send + 'static,
+    E: Send + 'static,
+{
+    /// Marks this task as accepted by an executor service.
+    fn accept(&self) {
+        self.completion.accept();
+    }
+
+    /// Runs this task and publishes its result if it was not cancelled first.
+    fn run(self: Box<Self>) {
+        let Self { task, completion } = *self;
+        TaskRunner::new(task).run(completion);
+    }
+
+    /// Publishes cancellation for an unstarted accepted task.
+    fn cancel(self: Box<Self>) {
+        let Self { completion, .. } = *self;
+        let _cancelled = completion.cancel_unstarted();
+    }
+}
+
 /// Type-erased pool job with separate detached and cancellable forms.
-pub(crate) enum PoolJob {
+pub(crate) struct PoolJob {
+    /// Internal job representation hidden behind method-only access.
+    inner: PoolJobInner,
+}
+
+/// Private type-erased pool job representation.
+enum PoolJobInner {
     /// Fire-and-forget job submitted without a completion endpoint.
     Detached {
         /// Callback executed once a worker starts the job.
         run: Box<dyn FnOnce() + Send + 'static>,
     },
     /// Job whose queued cancellation must complete a result endpoint.
-    Completable {
-        /// Callback executed once a worker starts the job.
-        run: Box<dyn FnOnce() + Send + 'static>,
-        /// Callback executed if the job is cancelled before a worker starts it.
-        cancel: Box<dyn FnOnce() + Send + 'static>,
-    },
+    Completable(Box<dyn PoolTask>),
 }
 
 impl PoolJob {
-    /// Creates a pool job from run and cancel callbacks.
-    ///
-    /// # Parameters
-    ///
-    /// * `run` - Callback executed once a worker starts this job.
-    /// * `cancel` - Callback executed if this job is cancelled while queued.
-    ///
-    /// # Returns
-    ///
-    /// A type-erased job used by thread-pool internals.
-    pub(crate) fn new(
-        run: Box<dyn FnOnce() + Send + 'static>,
-        cancel: Box<dyn FnOnce() + Send + 'static>,
-    ) -> Self {
-        Self::Completable { run, cancel }
-    }
-
     /// Creates a pool job from a typed callable task and completion endpoint.
     ///
     /// # Parameters
@@ -70,34 +94,16 @@ impl PoolJob {
     /// # Returns
     ///
     /// A type-erased job that runs the task on worker start and cancels the
-    /// completion endpoint if the job is abandoned while queued.
+    /// completion endpoint if the job is cancelled while queued.
     pub(crate) fn from_task<C, R, E>(task: C, completion: TaskSlot<R, E>) -> Self
     where
         C: Callable<R, E> + Send + 'static,
         R: Send + 'static,
         E: Send + 'static,
     {
-        completion.accept();
-        let completion = Arc::new(Mutex::new(Some(completion)));
-        let run_completion = Arc::clone(&completion);
-        let cancel_completion = Arc::clone(&completion);
-        Self::new(
-            Box::new(move || {
-                let completion = run_completion
-                    .lock()
-                    .unwrap_or_else(std::sync::PoisonError::into_inner)
-                    .take();
-                let _ignored = completion.map(|completion| {
-                    TaskRunner::new(task).run(completion);
-                });
-            }),
-            Box::new(move || {
-                let _completion = cancel_completion
-                    .lock()
-                    .unwrap_or_else(std::sync::PoisonError::into_inner)
-                    .take();
-            }),
-        )
+        Self {
+            inner: PoolJobInner::Completable(Box::new(CompletablePoolTask { task, completion })),
+        }
     }
 
     /// Creates a pool job from a runnable task without retaining a result handle.
@@ -116,11 +122,23 @@ impl PoolJob {
         T: Runnable<E> + Send + 'static,
         E: Send + 'static,
     {
-        Self::Detached {
-            run: Box::new(move || {
-                let mut task = task;
-                let _ignored = catch_unwind(AssertUnwindSafe(|| task.run()));
-            }),
+        Self {
+            inner: PoolJobInner::Detached {
+                run: Box::new(move || {
+                    let mut task = task;
+                    let _ignored = catch_unwind(AssertUnwindSafe(|| task.run()));
+                }),
+            },
+        }
+    }
+
+    /// Marks this job as accepted by an executor service.
+    ///
+    /// Detached jobs do not have a completion endpoint, so this is a no-op for
+    /// fire-and-forget submissions.
+    pub(crate) fn accept(&self) {
+        if let PoolJobInner::Completable(task) = &self.inner {
+            task.accept();
         }
     }
 
@@ -128,9 +146,9 @@ impl PoolJob {
     ///
     /// Consumes the job and invokes the run callback at most once.
     pub(crate) fn run(self) {
-        match self {
-            Self::Detached { run } => run(),
-            Self::Completable { run, .. } => run(),
+        match self.inner {
+            PoolJobInner::Detached { run } => run(),
+            PoolJobInner::Completable(task) => task.run(),
         }
     }
 
@@ -138,8 +156,8 @@ impl PoolJob {
     ///
     /// Consumes the job and invokes the cancellation callback at most once.
     pub(crate) fn cancel(self) {
-        if let Self::Completable { cancel, .. } = self {
-            cancel();
+        if let PoolJobInner::Completable(task) = self.inner {
+            task.cancel();
         }
     }
 }

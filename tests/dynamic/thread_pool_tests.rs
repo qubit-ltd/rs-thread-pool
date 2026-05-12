@@ -285,7 +285,7 @@ fn test_thread_pool_stop_cancels_queued_tasks() {
     assert_eq!(report.queued, 1);
     assert_eq!(report.running, 1);
     assert_eq!(report.cancelled, 1);
-    assert!(matches!(queued.get(), Err(TaskExecutionError::Dropped),));
+    assert!(matches!(queued.get(), Err(TaskExecutionError::Cancelled),));
     release_tx
         .send(())
         .expect("blocking task should receive release signal");

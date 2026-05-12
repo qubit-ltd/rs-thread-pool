@@ -73,7 +73,9 @@ pub struct FixedThreadPoolInner {
     pub(crate) global_queue: Injector<PoolJob>,
     /// Optional maximum number of queued jobs.
     pub queue_capacity: Option<usize>,
-    /// Number of queued jobs not yet started or cancelled.
+    /// Number of reserved queue slots not yet started or cancelled.
+    pub queue_slot_count: AtomicUsize,
+    /// Number of jobs published to the queue and not yet started or cancelled.
     pub queued_task_count: AtomicUsize,
     /// Number of jobs currently running.
     pub running_task_count: AtomicUsize,
@@ -115,6 +117,7 @@ impl FixedThreadPoolInner {
             submit_waiter_count: AtomicUsize::new(0),
             global_queue: Injector::new(),
             queue_capacity,
+            queue_slot_count: AtomicUsize::new(0),
             queued_task_count: AtomicUsize::new(0),
             running_task_count: AtomicUsize::new(0),
             submitted_task_count: AtomicUsize::new(0),
@@ -205,13 +208,13 @@ impl FixedThreadPoolInner {
     fn reserve_queue_slot(&self) -> bool {
         if let Some(capacity) = self.queue_capacity {
             return self
-                .queued_task_count
+                .queue_slot_count
                 .fetch_update(Ordering::AcqRel, Ordering::Acquire, |current| {
                     (current < capacity).then_some(current + 1)
                 })
                 .is_ok();
         }
-        self.queued_task_count.fetch_add(1, Ordering::Release);
+        self.queue_slot_count.fetch_add(1, Ordering::Release);
         true
     }
 
@@ -234,6 +237,7 @@ impl FixedThreadPoolInner {
         if !self.reserve_queue_slot() {
             return Err(SubmissionError::Saturated);
         }
+        job.accept();
         self.submitted_task_count.fetch_add(1, Ordering::Release);
         self.enqueue_job(job);
         Ok(())
@@ -245,6 +249,7 @@ impl FixedThreadPoolInner {
     ///
     /// * `job` - Job whose queued slot has already been reserved.
     fn enqueue_job(&self, job: PoolJob) {
+        self.queued_task_count.fetch_add(1, Ordering::Release);
         self.global_queue.push(job);
         self.wake_one_idle_worker();
     }
@@ -362,6 +367,8 @@ impl FixedThreadPoolInner {
     fn mark_queued_job_running(&self) {
         let previous = self.queued_task_count.fetch_sub(1, Ordering::Release);
         debug_assert!(previous > 0, "fixed pool queued counter underflow");
+        let previous = self.queue_slot_count.fetch_sub(1, Ordering::Release);
+        debug_assert!(previous > 0, "fixed pool queue slot counter underflow");
         self.running_task_count.fetch_add(1, Ordering::Release);
     }
 
@@ -373,6 +380,8 @@ impl FixedThreadPoolInner {
     pub(crate) fn cancel_claimed_job(&self, job: PoolJob) {
         let previous = self.queued_task_count.fetch_sub(1, Ordering::Release);
         debug_assert!(previous > 0, "fixed pool queued counter underflow");
+        let previous = self.queue_slot_count.fetch_sub(1, Ordering::Release);
+        debug_assert!(previous > 0, "fixed pool queue slot counter underflow");
         self.cancelled_task_count.fetch_add(1, Ordering::Release);
         job.cancel();
         self.notify_waiters_after_atomic_change();
@@ -440,12 +449,33 @@ impl FixedThreadPoolInner {
 
     /// Requests immediate shutdown and cancels visible queued jobs.
     ///
+    /// The returned [`StopReport`] uses `running` as an informational snapshot of
+    /// [`Self::running_count`] taken while stop is being requested. That value is
+    /// not used to decide which jobs are cancelled, whether workers should exit,
+    /// or whether termination has been reached. Those decisions are driven by the
+    /// `stop_now` flag, queue draining, worker-side cancellation, and the live
+    /// queue/running counters observed by termination checks.
+    ///
+    /// Because fixed-pool workers claim jobs and update the running counter
+    /// concurrently with callers of this method, the reported `running` value can
+    /// be stale by the time the report is returned. A worker may finish just
+    /// after the snapshot, or a narrow claim/accounting race may make a job appear
+    /// as queued, running, or cancelled in a different snapshot. Callers must
+    /// treat `StopReport::running` as monitoring data rather than as an exact
+    /// synchronization guarantee.
+    ///
     /// # Returns
     ///
-    /// Count-based shutdown report.
+    /// Count-based shutdown report. The queued and cancelled counts describe jobs
+    /// drained by this stop request; the running count is only the best-effort
+    /// snapshot described above.
     pub fn stop(&self) -> StopReport {
         self.accepting.store(false, Ordering::Release);
         self.stop_now.store(true, Ordering::Release);
+        // This snapshot is intentionally report-only. Do not use it for stop
+        // decisions: workers may concurrently move jobs between queued, running,
+        // and completed states, while actual cancellation/termination relies on
+        // stop_now plus the queue and running counters themselves.
         let running = self.running_count();
         let mut state = self.state.lock();
         state.lifecycle = ExecutorServiceLifecycle::Stopping;
@@ -536,7 +566,7 @@ impl FixedThreadPoolInner {
     fn is_terminated_locked(&self, state: &FixedThreadPoolState) -> bool {
         state.lifecycle != ExecutorServiceLifecycle::Running
             && state.live_workers == 0
-            && self.queued_count() == 0
+            && self.queue_slot_count.load(Ordering::Acquire) == 0
             && self.running_count() == 0
             && self.inflight_count() == 0
     }

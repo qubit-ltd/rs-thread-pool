@@ -175,6 +175,7 @@ impl ThreadPoolInner {
             return Err(SubmissionError::Shutdown);
         }
         if state.live_workers < state.core_pool_size {
+            job.accept();
             state.submitted_tasks += 1;
             let worker = self.reserve_worker_locked(&mut state, Some(job));
             drop(state);
@@ -185,6 +186,7 @@ impl ThreadPoolInner {
             return Ok(());
         }
         if !state.is_saturated() {
+            job.accept();
             state.submitted_tasks += 1;
             state.queued_tasks += 1;
             // Only wake a waiter when at least one worker is currently idle.
@@ -222,6 +224,7 @@ impl ThreadPoolInner {
             return Ok(());
         }
         if state.live_workers < state.maximum_pool_size {
+            job.accept();
             state.submitted_tasks += 1;
             let worker = self.reserve_worker_locked(&mut state, Some(job));
             drop(state);
