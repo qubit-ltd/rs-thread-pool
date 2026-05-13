@@ -7,18 +7,34 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-use std::{sync::Arc, time::Duration};
+use std::{
+    sync::Arc,
+    time::Duration,
+};
 
-use qubit_function::{Callable, Runnable};
+use qubit_function::{
+    Callable,
+    Runnable,
+};
 
 use qubit_executor::task::spi::TaskEndpointPair;
-use qubit_executor::{TaskHandle, TrackedTask};
+use qubit_executor::{
+    TaskHandle,
+    TrackedTask,
+};
 
 use super::thread_pool_builder::ThreadPoolBuilder;
 use super::thread_pool_inner::ThreadPoolInner;
-use crate::{ExecutorServiceBuilderError, PoolJob, ThreadPoolStats};
+use crate::{
+    ExecutorServiceBuilderError,
+    PoolJob,
+    ThreadPoolStats,
+};
 use qubit_executor::service::{
-    ExecutorService, ExecutorServiceLifecycle, StopReport, SubmissionError,
+    ExecutorService,
+    ExecutorServiceLifecycle,
+    StopReport,
+    SubmissionError,
 };
 
 /// OS thread pool implementing [`ExecutorService`].

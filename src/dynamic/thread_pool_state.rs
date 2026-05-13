@@ -7,12 +7,18 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-use std::{collections::VecDeque, time::Duration};
+use std::{
+    collections::VecDeque,
+    time::Duration,
+};
 
 use qubit_executor::service::ExecutorServiceLifecycle;
 
 use super::thread_pool_config::ThreadPoolConfig;
-use crate::{PoolJob, ThreadPoolStats};
+use crate::{
+    PoolJob,
+    ThreadPoolStats,
+};
 
 /// Mutable pool state protected by [`super::thread_pool_inner::ThreadPoolInner::state`].
 pub(crate) struct ThreadPoolState {

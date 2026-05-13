@@ -9,23 +9,39 @@
  ******************************************************************************/
 use std::{
     sync::{
-        Arc, Mutex,
-        atomic::{AtomicUsize, Ordering},
+        Arc,
+        Mutex,
+        atomic::{
+            AtomicUsize,
+            Ordering,
+        },
         mpsc,
     },
     thread,
     time::Duration,
 };
 
-use qubit_executor::service::{ExecutorServiceLifecycle, StopReport, SubmissionError};
-use qubit_lock::{Monitor, MonitorGuard};
+use qubit_executor::service::{
+    ExecutorServiceLifecycle,
+    StopReport,
+    SubmissionError,
+};
+use qubit_lock::{
+    Monitor,
+    MonitorGuard,
+};
 
 use super::thread_pool_config::ThreadPoolConfig;
 use super::thread_pool_state::ThreadPoolState;
 use super::thread_pool_worker::ThreadPoolWorker;
 use super::thread_pool_worker_queue::ThreadPoolWorkerQueue;
 use super::thread_pool_worker_runtime::ThreadPoolWorkerRuntime;
-use crate::{ExecutorServiceBuilderError, PoolJob, ThreadPoolHooks, ThreadPoolStats};
+use crate::{
+    ExecutorServiceBuilderError,
+    PoolJob,
+    ThreadPoolHooks,
+    ThreadPoolStats,
+};
 
 /// Shared state for a thread pool.
 pub(crate) struct ThreadPoolInner {

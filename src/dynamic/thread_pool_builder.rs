@@ -7,12 +7,19 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-use std::{sync::Arc, thread, time::Duration};
+use std::{
+    sync::Arc,
+    thread,
+    time::Duration,
+};
 
 use super::thread_pool::ThreadPool;
 use super::thread_pool_config::ThreadPoolConfig;
 use super::thread_pool_inner::ThreadPoolInner;
-use crate::{ExecutorServiceBuilderError, ThreadPoolHooks};
+use crate::{
+    ExecutorServiceBuilderError,
+    ThreadPoolHooks,
+};
 
 /// Default thread name prefix used by [`ThreadPoolBuilder`].
 const DEFAULT_THREAD_NAME_PREFIX: &str = "qubit-thread-pool";
@@ -304,12 +311,10 @@ impl ThreadPoolBuilder {
             },
             self.hooks,
         ));
-        if prestart_core_threads {
-            if let Err(error) = inner.prestart_all_core_threads() {
-                inner.stop();
-                inner.wait_for_termination();
-                return Err(ExecutorServiceBuilderError::from_submission_error(error));
-            }
+        if prestart_core_threads && let Err(error) = inner.prestart_all_core_threads() {
+            inner.stop();
+            inner.wait_for_termination();
+            return Err(ExecutorServiceBuilderError::from_submission_error(error));
         }
         Ok(ThreadPool::from_inner(inner))
     }

@@ -13,24 +13,38 @@ use std::{
     io,
     panic::PanicHookInfo,
     sync::{
-        Arc, Mutex,
-        atomic::{AtomicBool, Ordering},
+        Arc,
+        Mutex,
+        atomic::{
+            AtomicBool,
+            Ordering,
+        },
         mpsc,
     },
     time::Duration,
 };
 
 use qubit_thread_pool::{
-    CancelResult, ExecutorService, ExecutorServiceBuilderError, PoolJob, SubmissionError,
-    TaskExecutionError, ThreadPool,
+    CancelResult,
+    ExecutorService,
+    ExecutorServiceBuilderError,
+    PoolJob,
+    SubmissionError,
+    TaskExecutionError,
+    ThreadPool,
 };
 
-use super::mod_tests::{create_single_worker_pool, wait_started};
+use super::mod_tests::{
+    create_single_worker_pool,
+    wait_started,
+};
 
 static PANIC_HOOK_LOCK: Mutex<()> = Mutex::new(());
 
+type PanicHook = Box<dyn Fn(&PanicHookInfo<'_>) + Send + Sync + 'static>;
+
 struct PanicHookGuard {
-    previous_hook: Option<Box<dyn Fn(&PanicHookInfo<'_>) + Send + Sync + 'static>>,
+    previous_hook: Option<PanicHook>,
 }
 
 impl PanicHookGuard {

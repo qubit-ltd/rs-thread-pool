@@ -8,7 +8,10 @@
  *
  ******************************************************************************/
 use std::{
-    panic::{AssertUnwindSafe, catch_unwind},
+    panic::{
+        AssertUnwindSafe,
+        catch_unwind,
+    },
     sync::Arc,
 };
 
@@ -18,7 +21,10 @@ use qubit_lock::WaitTimeoutStatus;
 use super::thread_pool_inner::ThreadPoolInner;
 use super::thread_pool_state::ThreadPoolState;
 use super::thread_pool_worker_runtime::ThreadPoolWorkerRuntime;
-use crate::{PoolJob, ThreadPoolHooks};
+use crate::{
+    PoolJob,
+    ThreadPoolHooks,
+};
 
 /// Worker loop entry point for dynamic thread pools.
 pub(crate) struct ThreadPoolWorker;

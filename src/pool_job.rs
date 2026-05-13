@@ -8,12 +8,21 @@
  *
  ******************************************************************************/
 use std::{
-    panic::{AssertUnwindSafe, catch_unwind},
+    panic::{
+        AssertUnwindSafe,
+        catch_unwind,
+    },
     sync::Mutex,
 };
 
-use qubit_executor::task::spi::{TaskRunner, TaskSlot};
-use qubit_function::{Callable, Runnable};
+use qubit_executor::task::spi::{
+    TaskRunner,
+    TaskSlot,
+};
+use qubit_function::{
+    Callable,
+    Runnable,
+};
 
 /// Type-erased callable owned by a pool queue.
 trait PoolTask: Send + 'static {
