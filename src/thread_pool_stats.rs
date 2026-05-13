@@ -41,7 +41,8 @@ pub struct ThreadPoolStats {
     /// Number of tasks accepted since pool creation.
     pub submitted_tasks: usize,
 
-    /// Number of worker-held jobs finished since pool creation.
+    /// Number of accepted jobs completed or otherwise made inactive without
+    /// queued cancellation.
     pub completed_tasks: usize,
 
     /// Number of queued jobs cancelled by immediate shutdown.

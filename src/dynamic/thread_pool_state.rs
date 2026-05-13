@@ -7,28 +7,22 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-use std::{
-    collections::VecDeque,
-    time::Duration,
-};
+use std::{collections::VecDeque, time::Duration};
 
 use qubit_executor::service::ExecutorServiceLifecycle;
 
 use super::thread_pool_config::ThreadPoolConfig;
-use crate::{
-    PoolJob,
-    ThreadPoolStats,
-};
+use crate::{PoolJob, ThreadPoolStats};
 
 /// Mutable pool state protected by [`super::thread_pool_inner::ThreadPoolInner::state`].
 pub(crate) struct ThreadPoolState {
     /// Current lifecycle state controlling submissions and worker exits.
     pub(super) lifecycle: ExecutorServiceLifecycle,
-    /// Global fallback FIFO queue for accepted jobs waiting for a worker.
+    /// Primary FIFO queue for accepted jobs waiting for a worker.
     ///
-    /// Most jobs may be dispatched into per-worker local queues first. This
-    /// global queue is kept as an injection fallback and as a migration target
-    /// when workers retire.
+    /// Worker-local queues may also contain jobs during migration or future
+    /// local-dispatch paths. Retiring workers migrate any leftover local jobs
+    /// back into this queue.
     pub(super) queue: VecDeque<PoolJob>,
     /// Number of accepted jobs that are queued but not started yet.
     ///
@@ -38,15 +32,18 @@ pub(crate) struct ThreadPoolState {
     pub(super) queue_capacity: Option<usize>,
     /// Number of jobs currently held by workers.
     pub(super) running_tasks: usize,
+    /// Number of drained queued jobs whose cancellation callback is running.
+    pub(super) cancelling_tasks: usize,
     /// Number of worker loops that have not exited.
     pub(super) live_workers: usize,
     /// Number of live workers currently waiting for work.
     pub(super) idle_workers: usize,
     /// Total number of jobs accepted since pool creation.
     pub(super) submitted_tasks: usize,
-    /// Total number of worker-held jobs completed since pool creation.
+    /// Total number of accepted jobs completed or otherwise made inactive
+    /// without queued cancellation.
     pub(super) completed_tasks: usize,
-    /// Total number of queued jobs cancelled by abrupt shutdown.
+    /// Total number of queued jobs selected for abrupt-shutdown cancellation.
     pub(super) cancelled_tasks: usize,
     /// Current configured core pool size.
     pub(super) core_pool_size: usize,
@@ -94,6 +91,7 @@ impl ThreadPoolState {
             queued_tasks: 0,
             queue_capacity: config.queue_capacity,
             running_tasks: 0,
+            cancelling_tasks: 0,
             live_workers: 0,
             idle_workers: 0,
             submitted_tasks: 0,
@@ -127,6 +125,7 @@ impl ThreadPoolState {
         self.lifecycle != ExecutorServiceLifecycle::Running
             && self.queued_tasks == 0
             && self.running_tasks == 0
+            && self.cancelling_tasks == 0
             && self.live_workers == 0
     }
 
@@ -137,7 +136,7 @@ impl ThreadPoolState {
     /// `true` when all currently accepted tasks have completed or been
     /// cancelled, regardless of whether worker threads remain alive.
     pub(super) fn is_idle(&self) -> bool {
-        self.queued_tasks == 0 && self.running_tasks == 0
+        self.queued_tasks == 0 && self.running_tasks == 0 && self.cancelling_tasks == 0
     }
 
     /// Returns whether an idle worker should use a timed wait.

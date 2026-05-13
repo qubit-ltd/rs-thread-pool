@@ -7,44 +7,29 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-use std::{
-    sync::Arc,
-    time::Duration,
-};
+use std::{sync::Arc, time::Duration};
 
-use qubit_function::{
-    Callable,
-    Runnable,
-};
+use qubit_function::{Callable, Runnable};
 
 use qubit_executor::task::spi::TaskEndpointPair;
-use qubit_executor::{
-    TaskHandle,
-    TrackedTask,
-};
+use qubit_executor::{TaskHandle, TrackedTask};
 
 use super::thread_pool_builder::ThreadPoolBuilder;
 use super::thread_pool_inner::ThreadPoolInner;
-use crate::{
-    ExecutorServiceBuilderError,
-    PoolJob,
-    ThreadPoolStats,
-};
+use crate::{ExecutorServiceBuilderError, PoolJob, ThreadPoolStats};
 use qubit_executor::service::{
-    ExecutorService,
-    ExecutorServiceLifecycle,
-    StopReport,
-    SubmissionError,
+    ExecutorService, ExecutorServiceLifecycle, StopReport, SubmissionError,
 };
 
 /// OS thread pool implementing [`ExecutorService`].
 ///
-/// `ThreadPool` accepts fallible tasks, stores them in an internal FIFO queue,
-/// and executes them on worker threads. Workers are created lazily up to the
-/// configured core size, queued after that, and may grow up to the maximum size
-/// when a bounded queue is full. Callable submissions return [`TaskHandle`],
-/// while tracked submissions return [`TrackedTask`].
-/// retrieval.
+/// `ThreadPool` accepts fallible tasks, stores accepted waiting tasks in
+/// internal queues, and executes them on worker threads. The global waiting
+/// queue is FIFO, but task start and completion order are not a strict FIFO API
+/// guarantee. Workers are created lazily up to the configured core size, tasks
+/// are queued after that, and the pool may grow up to the maximum size when a
+/// bounded queue is full. Callable submissions return [`TaskHandle`], while
+/// tracked submissions return [`TrackedTask`].
 ///
 /// `shutdown` is graceful: already accepted queued tasks are allowed to run.
 /// `stop` is abrupt: queued tasks that have not started are completed
@@ -158,7 +143,11 @@ impl ThreadPool {
     /// This low-level extension point is intended for higher-level services
     /// that need to pair pool execution with their own task registry or
     /// cancellation bookkeeping. Prefer the [`ExecutorService`] submission
-    /// methods for ordinary runnable and callable work.
+    /// methods for ordinary runnable and callable work. Custom job callbacks
+    /// run synchronously on the thread that reaches the corresponding lifecycle
+    /// event and should stay short and non-blocking. Callback panics are
+    /// contained; if an acceptance callback panics, the job is not queued,
+    /// run, or cancelled.
     ///
     /// # Parameters
     ///
@@ -223,10 +212,11 @@ impl ThreadPool {
 
     /// Updates the core pool size.
     ///
-    /// Increasing the core size does not eagerly create new workers unless
-    /// queued work is waiting. Call [`Self::prestart_all_core_threads`] when
-    /// eager creation is desired. Decreasing the core size lets excess idle
-    /// workers retire according to the keep-alive policy.
+    /// Increasing the core size changes future admission and prestart limits,
+    /// but it does not eagerly create workers or reschedule already queued work.
+    /// Call [`Self::prestart_all_core_threads`] when eager creation is desired.
+    /// Decreasing the core size lets excess idle workers retire according to
+    /// the keep-alive policy.
     ///
     /// # Parameters
     ///

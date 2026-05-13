@@ -7,7 +7,10 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-use std::sync::Arc;
+use std::{
+    panic::{AssertUnwindSafe, catch_unwind},
+    sync::Arc,
+};
 
 use qubit_executor::service::ExecutorServiceLifecycle;
 use qubit_lock::WaitTimeoutStatus;
@@ -15,10 +18,7 @@ use qubit_lock::WaitTimeoutStatus;
 use super::thread_pool_inner::ThreadPoolInner;
 use super::thread_pool_state::ThreadPoolState;
 use super::thread_pool_worker_runtime::ThreadPoolWorkerRuntime;
-use crate::{
-    PoolJob,
-    ThreadPoolHooks,
-};
+use crate::{PoolJob, ThreadPoolHooks};
 
 /// Worker loop entry point for dynamic thread pools.
 pub(crate) struct ThreadPoolWorker;
@@ -30,10 +30,17 @@ impl ThreadPoolWorker {
     ///
     /// * `inner` - Shared pool state used for queue access and counters.
     /// * `worker_runtime` - Local runtime owned by this worker.
-    pub(crate) fn run(inner: Arc<ThreadPoolInner>, worker_runtime: ThreadPoolWorkerRuntime) {
+    pub(crate) fn run(
+        inner: Arc<ThreadPoolInner>,
+        worker_runtime: ThreadPoolWorkerRuntime,
+        initial_job: Option<PoolJob>,
+    ) {
         let worker_index = worker_runtime.worker_index();
         inner.hooks().run_before_worker_start(worker_index);
         let has_task_hooks = inner.hooks().has_task_hooks();
+        if let Some(job) = initial_job {
+            run_initial_job(&inner, job, has_task_hooks, worker_index);
+        }
         loop {
             let job = wait_for_job(&inner, &worker_runtime);
             match job {
@@ -54,13 +61,41 @@ impl ThreadPoolWorker {
     }
 }
 
+/// Runs the first job assigned directly to a newly spawned worker.
+///
+/// The pool has already counted this job as running before releasing the worker
+/// start gate. This function accepts the job, executes it when acceptance does
+/// not panic, and then releases the running-task accounting slot.
+///
+/// # Parameters
+///
+/// * `inner` - Shared pool state whose running counter will be released.
+/// * `job` - Initial job assigned to this worker.
+/// * `has_task_hooks` - Whether per-task hooks are configured.
+/// * `worker_index` - Stable index of the worker running the job.
+fn run_initial_job(
+    inner: &ThreadPoolInner,
+    job: PoolJob,
+    has_task_hooks: bool,
+    worker_index: usize,
+) {
+    if job.accept() {
+        if has_task_hooks {
+            run_with_task_hooks(job, inner.hooks(), worker_index);
+        } else {
+            run_without_hooks(job);
+        }
+    }
+    finish_running_job(inner);
+}
+
 /// Runs one claimed job without invoking task hooks.
 ///
 /// # Parameters
 ///
 /// * `job` - Claimed job to execute.
 fn run_without_hooks(job: PoolJob) {
-    job.run();
+    let _ignored = catch_unwind(AssertUnwindSafe(|| job.run()));
 }
 
 /// Runs one claimed job with configured task hooks.
@@ -72,7 +107,7 @@ fn run_without_hooks(job: PoolJob) {
 /// * `worker_index` - Stable index of the worker running the job.
 fn run_with_task_hooks(job: PoolJob, hooks: &ThreadPoolHooks, worker_index: usize) {
     hooks.run_before_task(worker_index);
-    job.run();
+    let _ignored = catch_unwind(AssertUnwindSafe(|| job.run()));
     hooks.run_after_task(worker_index);
 }
 

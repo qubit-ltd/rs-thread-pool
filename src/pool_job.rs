@@ -8,26 +8,22 @@
  *
  ******************************************************************************/
 use std::{
-    panic::{
-        AssertUnwindSafe,
-        catch_unwind,
-    },
+    panic::{AssertUnwindSafe, catch_unwind},
     sync::Mutex,
 };
 
-use qubit_executor::task::spi::{
-    TaskRunner,
-    TaskSlot,
-};
-use qubit_function::{
-    Callable,
-    Runnable,
-};
+use qubit_executor::task::spi::{TaskRunner, TaskSlot};
+use qubit_function::{Callable, Runnable};
 
 /// Type-erased callable owned by a pool queue.
 trait PoolTask: Send + 'static {
     /// Marks this task as accepted by an executor service.
-    fn accept(&self);
+    ///
+    /// # Returns
+    ///
+    /// `true` when the acceptance callback completed, or `false` when a custom
+    /// callback panicked and was contained.
+    fn accept(&self) -> bool;
 
     /// Runs this task and publishes its result if it was not cancelled first.
     fn run(self: Box<Self>);
@@ -51,8 +47,9 @@ where
     E: Send + 'static,
 {
     /// Marks this task as accepted by an executor service.
-    fn accept(&self) {
+    fn accept(&self) -> bool {
         self.completion.accept();
+        true
     }
 
     /// Runs this task and publishes its result if it was not cancelled first.
@@ -69,6 +66,11 @@ where
 }
 
 /// Custom job callbacks supplied by higher-level services.
+///
+/// The callbacks are executed synchronously by the pool path that reaches the
+/// corresponding lifecycle event, so they must stay short and non-blocking.
+/// Panics from custom callbacks are contained before they can escape into pool
+/// worker or shutdown accounting.
 struct CustomPoolTask {
     /// Callback invoked once the pool accepts the job.
     accept: Mutex<Option<Box<dyn FnOnce() + Send + 'static>>>,
@@ -80,25 +82,28 @@ struct CustomPoolTask {
 
 impl PoolTask for CustomPoolTask {
     /// Runs the acceptance callback once.
-    fn accept(&self) {
+    fn accept(&self) -> bool {
         if let Some(accept) = self
             .accept
             .lock()
-            .expect("custom pool job accept lock should not be poisoned")
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
             .take()
         {
-            accept();
+            return catch_unwind(AssertUnwindSafe(accept)).is_ok();
         }
+        true
     }
 
     /// Runs this custom job.
     fn run(self: Box<Self>) {
-        (self.run)();
+        let Self { run, .. } = *self;
+        let _ignored = catch_unwind(AssertUnwindSafe(run));
     }
 
     /// Cancels this custom job before it starts.
     fn cancel(self: Box<Self>) {
-        (self.cancel)();
+        let Self { cancel, .. } = *self;
+        let _ignored = catch_unwind(AssertUnwindSafe(cancel));
     }
 }
 
@@ -125,6 +130,8 @@ impl PoolJob {
     /// Higher-level services that maintain their own task state usually want
     /// [`Self::with_accept`] instead, so they can publish acceptance only after
     /// the backing pool has accepted the job.
+    /// Custom callbacks run synchronously and should not block. Panics raised
+    /// by `run` or `cancel` are caught and ignored by the pool job wrapper.
     ///
     /// # Parameters
     ///
@@ -146,7 +153,10 @@ impl PoolJob {
     ///
     /// The pool invokes `accept` exactly once after the submission crosses the
     /// acceptance boundary. If submission is rejected before acceptance, neither
-    /// `accept`, `run`, nor `cancel` is invoked.
+    /// `accept`, `run`, nor `cancel` is invoked. Custom callbacks run
+    /// synchronously and should not block. Panics raised by these callbacks are
+    /// caught and ignored by the pool job wrapper; an `accept` panic is reported
+    /// to the pool as a failed acceptance callback.
     ///
     /// # Parameters
     ///
@@ -225,10 +235,16 @@ impl PoolJob {
     ///
     /// Detached jobs do not have a completion endpoint, so this is a no-op for
     /// fire-and-forget submissions.
-    pub(crate) fn accept(&self) {
+    ///
+    /// # Returns
+    ///
+    /// `true` when the job can continue to execution or queueing, or `false`
+    /// when a custom acceptance callback panicked and was contained.
+    pub(crate) fn accept(&self) -> bool {
         if let PoolJobInner::Completable(task) = &self.inner {
-            task.accept();
+            return task.accept();
         }
+        true
     }
 
     /// Runs this job if it has not been cancelled first.

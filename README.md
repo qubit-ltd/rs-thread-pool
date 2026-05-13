@@ -49,11 +49,19 @@ predictable scheduling is more important than dynamic growth.
 
 `FixedThreadPool::default()` is equivalent to `FixedThreadPoolBuilder::default().build()` except that build errors become a panic; prefer the builder's `build()` when you must handle `ExecutorServiceBuilderError`.
 
-Internally, the dynamic pool keeps a global FIFO queue for externally submitted
-work and uses worker-owned deques with registered stealers for direct handoff
-to newly created workers. The fixed pool uses a lock-free global injector with
-targeted idle-worker wakeups, which keeps the fire-and-forget submit path small
-and predictable.
+Internally, the dynamic pool keeps accepted waiting work in a monitor-protected
+global FIFO queue and registers worker-owned stealers for worker lifecycle
+bookkeeping and local-queue draining. FIFO describes the global waiting queue;
+it is not a strict task start or completion ordering guarantee. The fixed pool
+uses a lock-free global injector with targeted idle-worker wakeups, which keeps
+the fire-and-forget submit path small and predictable.
+
+Runtime size setters on `ThreadPool` are intended for explicit control-plane
+adjustments, such as operator-driven throttling or short-lived incident
+mitigation. Normal application code should prefer choosing pool sizes at
+construction time. Changing the core size at runtime updates future admission
+and prestart behavior, but it does not eagerly create workers for already
+queued work.
 
 ## Queueing and Rejection
 

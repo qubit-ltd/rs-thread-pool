@@ -70,13 +70,4 @@ impl ThreadPoolWorkerRuntime {
     pub fn pop_front(&self) -> Option<PoolJob> {
         self.local.pop()
     }
-
-    /// Pushes one job into the worker-owned local deque.
-    ///
-    /// # Parameters
-    ///
-    /// * `job` - Job reserved for this worker.
-    pub fn push_back(&self, job: PoolJob) {
-        self.local.push(job);
-    }
 }
