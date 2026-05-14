@@ -54,7 +54,7 @@ impl ThreadPoolWorker {
                     } else {
                         run_without_hooks(job);
                     }
-                    finish_running_job(&inner);
+                    inner.finish_running_job();
                 }
                 None => {
                     inner.hooks().run_after_worker_stop(worker_index);
@@ -90,7 +90,7 @@ fn run_initial_job(
             run_without_hooks(job);
         }
     }
-    finish_running_job(inner);
+    inner.finish_running_job();
 }
 
 /// Runs one claimed job without invoking task hooks.
@@ -126,36 +126,42 @@ fn run_with_task_hooks(job: PoolJob, hooks: &ThreadPoolHooks, worker_index: usiz
 ///
 /// `Some(job)` when work is available, or `None` when the worker should exit.
 fn wait_for_job(inner: &ThreadPoolInner, worker_index: usize) -> Option<PoolJob> {
-    let mut state = inner.lock_state();
     loop {
+        if let Some(job) = inner.try_take_queued_job() {
+            return Some(job);
+        }
+        let mut state = inner.lock_state();
         match state.lifecycle {
             ExecutorServiceLifecycle::Running => {
-                if let Some(job) = inner.try_take_queued_job_locked(&mut state) {
-                    return Some(job);
-                }
-                if state.live_workers > state.maximum_pool_size && state.live_workers > 0 {
+                if inner.queued_count() == 0
+                    && state.live_workers > state.maximum_pool_size
+                    && state.live_workers > 0
+                {
                     unregister_exiting_worker(inner, &mut state, worker_index);
                     return None;
                 }
                 if state.worker_wait_is_timed() {
                     let keep_alive = state.keep_alive;
                     state.idle_workers += 1;
-                    let (next_state, status) = state.wait_timeout(keep_alive);
-                    state = next_state;
+                    let mut timed_out = false;
+                    if inner.queued_count() == 0 {
+                        let (next_state, status) = state.wait_timeout(keep_alive);
+                        state = next_state;
+                        timed_out = status == WaitTimeoutStatus::TimedOut;
+                    }
                     state.idle_workers = state
                         .idle_workers
                         .checked_sub(1)
                         .expect("thread pool idle worker counter underflow");
-                    if status == WaitTimeoutStatus::TimedOut
-                        && state.queued_tasks == 0
-                        && state.idle_worker_can_retire()
-                    {
+                    if timed_out && inner.queued_count() == 0 && state.idle_worker_can_retire() {
                         unregister_exiting_worker(inner, &mut state, worker_index);
                         return None;
                     }
                 } else {
                     state.idle_workers += 1;
-                    state = state.wait();
+                    if inner.queued_count() == 0 {
+                        state = state.wait();
+                    }
                     state.idle_workers = state
                         .idle_workers
                         .checked_sub(1)
@@ -163,11 +169,10 @@ fn wait_for_job(inner: &ThreadPoolInner, worker_index: usize) -> Option<PoolJob>
                 }
             }
             ExecutorServiceLifecycle::ShuttingDown => {
-                if let Some(job) = inner.try_take_queued_job_locked(&mut state) {
-                    return Some(job);
+                if inner.queued_count() == 0 {
+                    unregister_exiting_worker(inner, &mut state, worker_index);
+                    return None;
                 }
-                unregister_exiting_worker(inner, &mut state, worker_index);
-                return None;
             }
             ExecutorServiceLifecycle::Stopping | ExecutorServiceLifecycle::Terminated => {
                 unregister_exiting_worker(inner, &mut state, worker_index);
@@ -175,22 +180,6 @@ fn wait_for_job(inner: &ThreadPoolInner, worker_index: usize) -> Option<PoolJob>
             }
         }
     }
-}
-
-/// Marks a worker-held job as finished.
-///
-/// # Parameters
-///
-/// * `inner` - Shared pool state whose running and completed counters are
-///   updated.
-fn finish_running_job(inner: &ThreadPoolInner) {
-    let mut state = inner.lock_state();
-    state.running_tasks = state
-        .running_tasks
-        .checked_sub(1)
-        .expect("thread pool running task counter underflow");
-    state.completed_tasks += 1;
-    inner.notify_if_idle_or_terminated(&state);
 }
 
 /// Marks a worker as exited.

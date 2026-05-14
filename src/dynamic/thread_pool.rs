@@ -97,7 +97,7 @@ impl ThreadPool {
     /// The number of accepted tasks that have not started yet.
     #[inline]
     pub fn queued_count(&self) -> usize {
-        self.inner.read_state(|state| state.queued_tasks)
+        self.inner.queued_count()
     }
 
     /// Returns the number of tasks currently held by workers.
@@ -108,7 +108,7 @@ impl ThreadPool {
     /// yet finished processing.
     #[inline]
     pub fn running_count(&self) -> usize {
-        self.inner.read_state(|state| state.running_tasks)
+        self.inner.running_count()
     }
 
     /// Returns how many worker threads are still running in this pool.

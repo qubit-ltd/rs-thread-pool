@@ -10,12 +10,21 @@
 use std::{
     sync::{
         Arc,
+        atomic::{
+            AtomicBool,
+            AtomicUsize,
+            Ordering,
+        },
         mpsc,
     },
     thread,
     time::Duration,
 };
 
+use crossbeam_deque::{
+    Injector,
+    Steal,
+};
 use qubit_executor::service::{
     ExecutorServiceLifecycle,
     StopReport,
@@ -38,8 +47,28 @@ use crate::{
 
 /// Shared state for a thread pool.
 pub(crate) struct ThreadPoolInner {
-    /// Mutable pool state protected by a monitor.
+    /// Lifecycle and worker state protected by a monitor.
     state_monitor: Monitor<ThreadPoolState>,
+    /// Whether immediate shutdown has requested workers to stop taking jobs.
+    stop_now: AtomicBool,
+    /// Global FIFO-ish submission queue for worker consumption.
+    global_queue: Injector<PoolJob>,
+    /// Optional maximum number of queued jobs.
+    queue_capacity: Option<usize>,
+    /// Accepted work not yet started or fully cancelled.
+    queue_slot_count: AtomicUsize,
+    /// Published queued jobs not yet started or claimed for cancellation.
+    queued_task_count: AtomicUsize,
+    /// Jobs currently held by workers.
+    running_task_count: AtomicUsize,
+    /// Queued-job cancellation callbacks currently running.
+    cancelling_task_count: AtomicUsize,
+    /// Total number of jobs accepted since pool creation.
+    submitted_task_count: AtomicUsize,
+    /// Total number of worker-held jobs that have completed.
+    completed_task_count: AtomicUsize,
+    /// Total number of queued jobs whose cancellation callback completed.
+    cancelled_task_count: AtomicUsize,
     /// Prefix used for naming newly spawned workers.
     thread_name_prefix: String,
     /// Optional stack size in bytes for newly spawned workers.
@@ -62,8 +91,19 @@ impl ThreadPoolInner {
         let mut config = config;
         let thread_name_prefix = std::mem::take(&mut config.thread_name_prefix);
         let stack_size = config.stack_size;
+        let queue_capacity = config.queue_capacity;
         Self {
             state_monitor: Monitor::new(ThreadPoolState::new(config)),
+            stop_now: AtomicBool::new(false),
+            global_queue: Injector::new(),
+            queue_capacity,
+            queue_slot_count: AtomicUsize::new(0),
+            queued_task_count: AtomicUsize::new(0),
+            running_task_count: AtomicUsize::new(0),
+            cancelling_task_count: AtomicUsize::new(0),
+            submitted_task_count: AtomicUsize::new(0),
+            completed_task_count: AtomicUsize::new(0),
+            cancelled_task_count: AtomicUsize::new(0),
             thread_name_prefix,
             stack_size,
             hooks,
@@ -78,6 +118,26 @@ impl ThreadPoolInner {
     #[inline]
     pub(crate) fn hooks(&self) -> &ThreadPoolHooks {
         &self.hooks
+    }
+
+    /// Returns the accepted queued work count.
+    ///
+    /// # Returns
+    ///
+    /// Number of accepted jobs waiting to start.
+    #[inline]
+    pub(crate) fn queued_count(&self) -> usize {
+        self.queued_task_count.load(Ordering::Acquire)
+    }
+
+    /// Returns the running work count.
+    ///
+    /// # Returns
+    ///
+    /// Number of jobs currently held by workers.
+    #[inline]
+    pub(crate) fn running_count(&self) -> usize {
+        self.running_task_count.load(Ordering::Acquire)
     }
 
     /// Acquires the pool state monitor while tolerating poisoned locks.
@@ -124,6 +184,30 @@ impl ThreadPoolInner {
         self.state_monitor.write(f)
     }
 
+    /// Attempts to reserve one queued-work slot.
+    ///
+    /// # Returns
+    ///
+    /// `true` when a slot was reserved.
+    fn reserve_queue_slot(&self) -> bool {
+        if let Some(capacity) = self.queue_capacity {
+            return self
+                .queue_slot_count
+                .fetch_update(Ordering::AcqRel, Ordering::Acquire, |current| {
+                    (current < capacity).then_some(current + 1)
+                })
+                .is_ok();
+        }
+        self.queue_slot_count.fetch_add(1, Ordering::Release);
+        true
+    }
+
+    /// Releases one reserved queued-work slot that never became runnable.
+    fn release_queue_slot(&self) {
+        let previous = self.queue_slot_count.fetch_sub(1, Ordering::Release);
+        debug_assert!(previous > 0, "thread pool queue slot counter underflow");
+    }
+
     /// Submits a job into the queue.
     ///
     /// # Overall logic
@@ -167,24 +251,25 @@ impl ThreadPoolInner {
             self.spawn_reserved_worker_with_initial_job_locked(&mut state, worker, job)?;
             return Ok(());
         }
-        if !state.is_saturated() {
-            if state.live_workers == 0 {
-                let worker = self.reserve_worker_locked(&mut state);
-                self.spawn_reserved_worker_with_initial_job_locked(&mut state, worker, job)?;
-                return Ok(());
-            }
-            state.submitted_tasks += 1;
+        if state.live_workers == 0 {
+            let worker = self.reserve_worker_locked(&mut state);
+            self.spawn_reserved_worker_with_initial_job_locked(&mut state, worker, job)?;
+            return Ok(());
+        }
+        if self.reserve_queue_slot() {
+            self.submitted_task_count.fetch_add(1, Ordering::Release);
             if !job.accept() {
-                state.completed_tasks += 1;
+                self.release_queue_slot();
+                self.completed_task_count.fetch_add(1, Ordering::Release);
                 self.notify_if_idle_or_terminated(&state);
                 return Ok(());
             }
-            state.queued_tasks += 1;
+            self.queued_task_count.fetch_add(1, Ordering::Release);
             // Only wake a waiter when at least one worker is currently idle.
             // Busy workers will eventually pull from the queue after finishing
             // their current task, so a broadcast wake-up is unnecessary.
             let should_wake_one_idle_worker = state.idle_workers > 0;
-            state.queue.push_back(job);
+            self.global_queue.push(job);
             // Release the monitor before notifying to keep the critical section
             // short and reduce lock handoff contention.
             drop(state);
@@ -347,8 +432,8 @@ impl ThreadPoolInner {
             }
         }) {
             Ok(_) => {
-                state.submitted_tasks += 1;
-                state.running_tasks += 1;
+                self.submitted_task_count.fetch_add(1, Ordering::Release);
+                self.running_task_count.fetch_add(1, Ordering::Release);
                 let _released = start_sender.send(());
                 Ok(())
             }
@@ -365,35 +450,94 @@ impl ThreadPoolInner {
         }
     }
 
-    /// Attempts to take one queued job.
-    ///
-    /// # Overall logic
-    ///
-    /// Dynamic pools use one global FIFO queue for ordinary submit semantics.
-    /// This method mutates queue-related counters only after a job is successfully
-    /// claimed.
-    ///
-    /// # Parameters
-    ///
-    /// * `state` - Locked mutable pool state.
+    /// Attempts to take one queued job without acquiring the state monitor.
     ///
     /// # Returns
     ///
     /// `Some(job)` when the queue has work, otherwise `None`.
-    pub(crate) fn try_take_queued_job_locked(
-        &self,
-        state: &mut ThreadPoolState,
-    ) -> Option<PoolJob> {
-        if let Some(job) = state.queue.pop_front() {
-            state.queued_tasks = state
-                .queued_tasks
-                .checked_sub(1)
-                .expect("thread pool queued task counter underflow");
-            state.running_tasks += 1;
-            return Some(job);
+    pub(crate) fn try_take_queued_job(&self) -> Option<PoolJob> {
+        if self.stop_now.load(Ordering::Acquire) {
+            return None;
         }
+        Self::steal_one(&self.global_queue).and_then(|job| self.accept_claimed_job(job))
+    }
 
-        None
+    /// Steals one job from a crossbeam injector with retry on contention.
+    ///
+    /// # Parameters
+    ///
+    /// * `queue` - Injector to steal from.
+    ///
+    /// # Returns
+    ///
+    /// `Some(job)` when the injector contains work, otherwise `None`.
+    fn steal_one(queue: &Injector<PoolJob>) -> Option<PoolJob> {
+        loop {
+            match queue.steal() {
+                Steal::Success(job) => return Some(job),
+                Steal::Empty => return None,
+                Steal::Retry => continue,
+            }
+        }
+    }
+
+    /// Accepts a claimed queued job or cancels it after immediate shutdown.
+    ///
+    /// # Parameters
+    ///
+    /// * `job` - Job claimed from the global queue.
+    ///
+    /// # Returns
+    ///
+    /// `Some(job)` when the job may run.
+    fn accept_claimed_job(&self, job: PoolJob) -> Option<PoolJob> {
+        if self.stop_now.load(Ordering::Acquire) {
+            self.begin_cancel_queued_job();
+            job.cancel();
+            self.finish_cancelled_job();
+            return None;
+        }
+        self.mark_queued_job_running();
+        Some(job)
+    }
+
+    /// Marks one claimed queued job as running.
+    fn mark_queued_job_running(&self) {
+        let previous = self.queued_task_count.fetch_sub(1, Ordering::Release);
+        debug_assert!(previous > 0, "thread pool queued task counter underflow");
+        let previous = self.queue_slot_count.fetch_sub(1, Ordering::Release);
+        debug_assert!(previous > 0, "thread pool queue slot counter underflow");
+        self.running_task_count.fetch_add(1, Ordering::Release);
+    }
+
+    /// Opens cancellation accounting for one queued job.
+    fn begin_cancel_queued_job(&self) {
+        let previous = self.queued_task_count.fetch_sub(1, Ordering::Release);
+        debug_assert!(previous > 0, "thread pool queued task counter underflow");
+        self.cancelling_task_count.fetch_add(1, Ordering::Release);
+    }
+
+    /// Drains all jobs currently visible in the global queue.
+    ///
+    /// # Returns
+    ///
+    /// Drained queued jobs.
+    fn drain_visible_queued_jobs(&self) -> Vec<PoolJob> {
+        let mut jobs = Vec::new();
+        while let Some(job) = Self::steal_one(&self.global_queue) {
+            jobs.push(job);
+        }
+        jobs
+    }
+
+    /// Marks one running job as finished.
+    pub(crate) fn finish_running_job(&self) {
+        let previous = self.running_task_count.fetch_sub(1, Ordering::Release);
+        debug_assert!(previous > 0, "thread pool running task counter underflow");
+        self.completed_task_count.fetch_add(1, Ordering::Release);
+        if previous == 1 && self.queue_slot_count.load(Ordering::Acquire) == 0 {
+            self.notify_waiters_after_atomic_change();
+        }
     }
 
     /// Requests graceful shutdown.
@@ -415,45 +559,66 @@ impl ThreadPoolInner {
     /// A report containing queued jobs cancelled and jobs running at the time
     /// of the request.
     pub(crate) fn stop(&self) -> StopReport {
-        let (jobs, report) = {
+        let cancelled_before_stop = self.cancelled_task_count.load(Ordering::Acquire);
+        let cancelling_before_stop = self.cancelling_task_count.load(Ordering::Acquire);
+        self.stop_now.store(true, Ordering::Release);
+        let (jobs, queued, running) = {
             let mut state = self.lock_state();
-            if matches!(
+            let is_new_stop = matches!(
                 state.lifecycle,
                 ExecutorServiceLifecycle::Running | ExecutorServiceLifecycle::ShuttingDown
-            ) {
+            );
+            if is_new_stop {
                 state.lifecycle = ExecutorServiceLifecycle::Stopping;
             }
-            let queued = state.queued_tasks;
-            let running = state.running_tasks;
-            let jobs = state.queue.drain(..).collect::<Vec<_>>();
-            debug_assert_eq!(jobs.len(), queued);
-            let cancelling = jobs.len();
-            state.queued_tasks = 0;
-            state.cancelling_tasks += cancelling;
-            state.cancelled_tasks += cancelling;
+            let running = self.running_count();
+            let jobs = self.drain_visible_queued_jobs();
+            let drained = jobs.len();
+            for _ in 0..drained {
+                self.begin_cancel_queued_job();
+            }
+            let cancelling_since_stop = self
+                .cancelling_task_count
+                .load(Ordering::Acquire)
+                .saturating_sub(cancelling_before_stop);
+            let cancelled_since_stop = self
+                .cancelled_task_count
+                .load(Ordering::Acquire)
+                .saturating_sub(cancelled_before_stop);
+            let queued = if is_new_stop {
+                drained + cancelling_since_stop.saturating_sub(drained) + cancelled_since_stop
+            } else {
+                drained
+            };
             self.state_monitor.notify_all();
             self.notify_if_terminated(&state);
-            (jobs, StopReport::new(queued, running, queued))
+            (jobs, queued, running)
         };
         for job in jobs {
             job.cancel();
             self.finish_cancelled_job();
         }
-        report
+        self.state_monitor.notify_all();
+        StopReport::new(queued, running, queued)
     }
 
     /// Marks one queued-job cancellation callback as completed.
     ///
-    /// `stop` drains queued jobs under the state lock but invokes cancellation
-    /// callbacks after releasing it. This method closes that in-progress
-    /// accounting slot after each callback returns.
+    /// This method closes the queue slot only after the callback returns, so
+    /// join and termination waiters cannot observe a cancelled job as fully
+    /// inactive while user cancellation code is still running.
     fn finish_cancelled_job(&self) {
-        let mut state = self.lock_state();
-        state.cancelling_tasks = state
-            .cancelling_tasks
-            .checked_sub(1)
-            .expect("thread pool cancelling task counter underflow");
-        self.notify_if_idle_or_terminated(&state);
+        let previous = self.cancelling_task_count.fetch_sub(1, Ordering::Release);
+        debug_assert!(
+            previous > 0,
+            "thread pool cancelling task counter underflow"
+        );
+        let previous = self.queue_slot_count.fetch_sub(1, Ordering::Release);
+        debug_assert!(previous > 0, "thread pool queue slot counter underflow");
+        self.cancelled_task_count.fetch_add(1, Ordering::Release);
+        if self.is_idle_snapshot() {
+            self.notify_waiters_after_atomic_change();
+        }
     }
 
     /// Returns whether shutdown has been requested.
@@ -473,7 +638,7 @@ impl ThreadPoolInner {
     /// workers are gone, otherwise the stored lifecycle state.
     pub(crate) fn lifecycle(&self) -> ExecutorServiceLifecycle {
         self.read_state(|state| {
-            if state.is_terminated() {
+            if self.is_terminated_locked(state) {
                 ExecutorServiceLifecycle::Terminated
             } else {
                 state.lifecycle
@@ -488,7 +653,7 @@ impl ThreadPoolInner {
     /// `true` if shutdown has started and no queued, running, or live worker
     /// state remains.
     pub(crate) fn is_terminated(&self) -> bool {
-        self.read_state(ThreadPoolState::is_terminated)
+        self.read_state(|state| self.is_terminated_locked(state))
     }
 
     /// Blocks the current thread until this pool is terminated.
@@ -497,7 +662,7 @@ impl ThreadPoolInner {
     /// calling thread.
     pub(crate) fn wait_for_termination(&self) {
         self.state_monitor
-            .wait_until(|state| state.is_terminated(), |_| ());
+            .wait_until(|state| self.is_terminated_locked(state), |_| ());
     }
 
     /// Blocks until all currently accepted work has completed.
@@ -506,7 +671,7 @@ impl ThreadPoolInner {
     /// request shutdown and does not wait for worker threads to exit.
     pub(crate) fn wait_until_idle(&self) {
         self.state_monitor
-            .wait_until(|state| state.is_idle(), |_| ());
+            .wait_until(|_| self.is_idle_snapshot(), |_| ());
     }
 
     /// Returns a point-in-time pool snapshot.
@@ -515,7 +680,31 @@ impl ThreadPoolInner {
     ///
     /// A snapshot built while holding the pool state lock.
     pub(crate) fn stats(&self) -> ThreadPoolStats {
-        self.read_state(ThreadPoolState::stats)
+        let queued_tasks = self.queued_count();
+        let running_tasks = self.running_count();
+        let submitted_tasks = self.submitted_task_count.load(Ordering::Acquire);
+        let completed_tasks = self.completed_task_count.load(Ordering::Acquire);
+        let cancelled_tasks = self.cancelled_task_count.load(Ordering::Acquire);
+        self.read_state(|state| {
+            let terminated = self.is_terminated_locked(state);
+            ThreadPoolStats {
+                lifecycle: if terminated {
+                    ExecutorServiceLifecycle::Terminated
+                } else {
+                    state.lifecycle
+                },
+                core_pool_size: state.core_pool_size,
+                maximum_pool_size: state.maximum_pool_size,
+                live_workers: state.live_workers,
+                idle_workers: state.idle_workers,
+                queued_tasks,
+                running_tasks,
+                submitted_tasks,
+                completed_tasks,
+                cancelled_tasks,
+                terminated,
+            }
+        })
     }
 
     /// Updates the core pool size.
@@ -630,13 +819,45 @@ impl ThreadPoolInner {
         self.state_monitor.notify_all();
     }
 
+    /// Checks whether all accepted work has drained.
+    ///
+    /// # Returns
+    ///
+    /// `true` when no queued slot, running job, or cancellation callback remains.
+    fn is_idle_snapshot(&self) -> bool {
+        self.queue_slot_count.load(Ordering::Acquire) == 0
+            && self.running_count() == 0
+            && self.cancelling_task_count.load(Ordering::Acquire) == 0
+    }
+
+    /// Checks termination against one locked lifecycle snapshot.
+    ///
+    /// # Parameters
+    ///
+    /// * `state` - Locked lifecycle and worker state.
+    ///
+    /// # Returns
+    ///
+    /// `true` when shutdown has started and no workers or jobs remain active.
+    fn is_terminated_locked(&self, state: &ThreadPoolState) -> bool {
+        state.lifecycle != ExecutorServiceLifecycle::Running
+            && state.live_workers == 0
+            && self.is_idle_snapshot()
+    }
+
+    /// Notifies waiters after an atomic-only condition change.
+    fn notify_waiters_after_atomic_change(&self) {
+        let state = self.lock_state();
+        self.notify_if_idle_or_terminated(&state);
+    }
+
     /// Notifies termination waiters when the state is terminal.
     ///
     /// # Parameters
     ///
     /// * `state` - Current pool state observed while holding the state lock.
     pub(crate) fn notify_if_terminated(&self, state: &ThreadPoolState) {
-        if state.is_terminated() {
+        if self.is_terminated_locked(state) {
             self.state_monitor.notify_all();
         }
     }
@@ -647,7 +868,7 @@ impl ThreadPoolInner {
     ///
     /// * `state` - Current pool state observed while holding the state lock.
     pub(crate) fn notify_if_idle_or_terminated(&self, state: &ThreadPoolState) {
-        if state.is_idle() || state.is_terminated() {
+        if self.is_idle_snapshot() || self.is_terminated_locked(state) {
             self.state_monitor.notify_all();
         }
     }

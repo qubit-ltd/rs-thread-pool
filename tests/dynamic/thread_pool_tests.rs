@@ -111,6 +111,52 @@ fn test_thread_pool_runs_configured_hooks() {
 }
 
 #[test]
+fn test_thread_pool_runs_task_hooks_for_queued_jobs() {
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let pool = ThreadPool::builder()
+        .pool_size(1)
+        .before_task({
+            let events = Arc::clone(&events);
+            move |_| events.lock().expect("events should lock").push("before")
+        })
+        .after_task({
+            let events = Arc::clone(&events);
+            move |_| events.lock().expect("events should lock").push("after")
+        })
+        .build()
+        .expect("thread pool should be created");
+    let (started_tx, started_rx) = mpsc::channel();
+    let (release_tx, release_rx) = mpsc::channel();
+    let running = pool
+        .submit_tracked(move || {
+            started_tx
+                .send(())
+                .expect("test should receive task start signal");
+            release_rx
+                .recv()
+                .map_err(|err| io::Error::other(err.to_string()))?;
+            Ok::<(), io::Error>(())
+        })
+        .expect("running task should be accepted");
+    wait_started(started_rx);
+    let queued = pool
+        .submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>)
+        .expect("queued task should be accepted");
+
+    release_tx
+        .send(())
+        .expect("running task should receive release signal");
+    running.get().expect("running task should complete");
+    queued.get().expect("queued task should complete");
+    pool.shutdown();
+    pool.wait_termination();
+
+    let events = events.lock().expect("events should lock");
+    assert_eq!(events.iter().filter(|event| **event == "before").count(), 2);
+    assert_eq!(events.iter().filter(|event| **event == "after").count(), 2);
+}
+
+#[test]
 fn test_thread_pool_submit_acceptance_is_not_task_success() {
     let pool = ThreadPool::new(2).expect("thread pool should be created");
 
@@ -816,6 +862,64 @@ fn test_thread_pool_wait_termination_waits_for_custom_cancel_callback() {
         !terminated_before_cancel_completed,
         "termination must wait until cancel callback completes",
     );
+}
+
+#[test]
+fn test_thread_pool_repeated_stop_does_not_recount_in_progress_cancellation() {
+    let pool = Arc::new(create_single_worker_pool());
+    let (started_tx, started_rx) = mpsc::channel();
+    let (release_running_tx, release_running_rx) = mpsc::channel();
+    let running = pool
+        .submit_tracked(move || {
+            started_tx
+                .send(())
+                .expect("test should receive task start signal");
+            release_running_rx
+                .recv()
+                .map_err(|err| io::Error::other(err.to_string()))?;
+            Ok::<(), io::Error>(())
+        })
+        .expect("running task should be accepted");
+    wait_started(started_rx);
+    let (cancel_started_tx, cancel_started_rx) = mpsc::channel();
+    let (release_cancel_tx, release_cancel_rx) = mpsc::channel();
+
+    pool.submit_job(PoolJob::new(
+        Box::new(|| panic!("queued job should not run after stop")),
+        Box::new(move || {
+            cancel_started_tx
+                .send(())
+                .expect("test should receive cancel start signal");
+            release_cancel_rx
+                .recv()
+                .expect("test should release cancel callback");
+        }),
+    ))
+    .expect("queued custom job should be accepted");
+
+    let stop_pool = Arc::clone(&pool);
+    let stop_thread = std::thread::spawn(move || stop_pool.stop());
+    cancel_started_rx
+        .recv_timeout(Duration::from_secs(1))
+        .expect("first stop should start cancellation");
+
+    let repeated = pool.stop();
+    assert_eq!(repeated.queued, 0);
+    assert_eq!(repeated.cancelled, 0);
+
+    release_cancel_tx
+        .send(())
+        .expect("cancel callback should receive release signal");
+    let first = stop_thread.join().expect("stop thread should not panic");
+    assert_eq!(first.queued, 1);
+    assert_eq!(first.cancelled, 1);
+
+    release_running_tx
+        .send(())
+        .expect("running task should receive release signal");
+    running.get().expect("running task should complete");
+    pool.wait_termination();
+    assert!(pool.is_terminated());
 }
 
 #[test]
