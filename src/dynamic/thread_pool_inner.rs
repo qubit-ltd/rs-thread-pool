@@ -45,12 +45,48 @@ use crate::{
     ThreadPoolStats,
 };
 
+/// Submit guard that leaves in-flight accounting on drop.
+struct ThreadPoolSubmitGuard<'a> {
+    /// Pool whose in-flight counter was entered.
+    inner: &'a ThreadPoolInner,
+}
+
+impl Drop for ThreadPoolSubmitGuard<'_> {
+    /// Leaves submit accounting and wakes waiters if this was the last submitter.
+    fn drop(&mut self) {
+        let previous = self
+            .inner
+            .inflight_submissions
+            .fetch_sub(1, Ordering::Release);
+        debug_assert!(previous > 0, "thread pool submit counter underflow");
+        if previous == 1 && (self.inner.has_submit_waiters() || self.inner.has_idle_waiters()) {
+            self.inner.notify_waiters_after_atomic_change();
+        }
+    }
+}
+
 /// Shared state for a thread pool.
 pub(crate) struct ThreadPoolInner {
     /// Lifecycle and worker state protected by a monitor.
     state_monitor: Monitor<ThreadPoolState>,
+    /// Admission gate used by submitters.
+    accepting: AtomicBool,
     /// Whether immediate shutdown has requested workers to stop taking jobs.
     stop_now: AtomicBool,
+    /// Successfully spawned workers that have not exited yet.
+    live_worker_count: AtomicUsize,
+    /// Current core size mirrored from the locked state for submit fast paths.
+    core_pool_size: AtomicUsize,
+    /// Submit calls that have passed the first admission check.
+    inflight_submissions: AtomicUsize,
+    /// Number of workers currently blocked or about to block waiting for work.
+    idle_worker_count: AtomicUsize,
+    /// Number of idle-worker wakeups already requested but not yet consumed.
+    pending_worker_wakes: AtomicUsize,
+    /// Number of callers waiting for in-flight submitters to leave admission.
+    submit_waiter_count: AtomicUsize,
+    /// Number of callers waiting for accepted work to become idle.
+    idle_waiter_count: AtomicUsize,
     /// Global FIFO-ish submission queue for worker consumption.
     global_queue: Injector<PoolJob>,
     /// Optional maximum number of queued jobs.
@@ -92,9 +128,18 @@ impl ThreadPoolInner {
         let thread_name_prefix = std::mem::take(&mut config.thread_name_prefix);
         let stack_size = config.stack_size;
         let queue_capacity = config.queue_capacity;
+        let core_pool_size = config.core_pool_size;
         Self {
             state_monitor: Monitor::new(ThreadPoolState::new(config)),
+            accepting: AtomicBool::new(true),
             stop_now: AtomicBool::new(false),
+            live_worker_count: AtomicUsize::new(0),
+            core_pool_size: AtomicUsize::new(core_pool_size),
+            inflight_submissions: AtomicUsize::new(0),
+            idle_worker_count: AtomicUsize::new(0),
+            pending_worker_wakes: AtomicUsize::new(0),
+            submit_waiter_count: AtomicUsize::new(0),
+            idle_waiter_count: AtomicUsize::new(0),
             global_queue: Injector::new(),
             queue_capacity,
             queue_slot_count: AtomicUsize::new(0),
@@ -138,6 +183,16 @@ impl ThreadPoolInner {
     #[inline]
     pub(crate) fn running_count(&self) -> usize {
         self.running_task_count.load(Ordering::Acquire)
+    }
+
+    /// Returns the number of submit calls currently inside admission.
+    ///
+    /// # Returns
+    ///
+    /// Number of submitters that may still publish, spawn, or roll back work.
+    #[inline]
+    fn inflight_count(&self) -> usize {
+        self.inflight_submissions.load(Ordering::Acquire)
     }
 
     /// Acquires the pool state monitor while tolerating poisoned locks.
@@ -184,6 +239,47 @@ impl ThreadPoolInner {
         self.state_monitor.write(f)
     }
 
+    /// Attempts to enter submit admission.
+    ///
+    /// # Returns
+    ///
+    /// A guard that leaves admission when dropped.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SubmissionError::Shutdown`] when admission is already closed.
+    fn begin_submit(&self) -> Result<ThreadPoolSubmitGuard<'_>, SubmissionError> {
+        self.inflight_submissions.fetch_add(1, Ordering::Release);
+        if self.accepting.load(Ordering::Acquire) {
+            Ok(ThreadPoolSubmitGuard { inner: self })
+        } else {
+            let previous = self.inflight_submissions.fetch_sub(1, Ordering::Release);
+            debug_assert!(previous > 0, "thread pool submit counter underflow");
+            if previous == 1 && self.has_submit_waiters() {
+                self.notify_waiters_after_atomic_change();
+            }
+            Err(SubmissionError::Shutdown)
+        }
+    }
+
+    /// Returns whether any caller is waiting for submit admission to drain.
+    ///
+    /// # Returns
+    ///
+    /// `true` when the last in-flight submitter should wake submit waiters.
+    fn has_submit_waiters(&self) -> bool {
+        self.submit_waiter_count.load(Ordering::Acquire) > 0
+    }
+
+    /// Returns whether any caller is waiting for accepted work to drain.
+    ///
+    /// # Returns
+    ///
+    /// `true` when the last in-flight submitter should wake idle waiters.
+    fn has_idle_waiters(&self) -> bool {
+        self.idle_waiter_count.load(Ordering::Acquire) > 0
+    }
+
     /// Attempts to reserve one queued-work slot.
     ///
     /// # Returns
@@ -208,12 +304,63 @@ impl ThreadPoolInner {
         debug_assert!(previous > 0, "thread pool queue slot counter underflow");
     }
 
+    /// Returns whether a queued submit can skip the pool-state monitor.
+    ///
+    /// # Returns
+    ///
+    /// `true` when a successfully spawned worker exists and the core size is
+    /// already satisfied.
+    fn can_submit_to_queue_without_state_lock(&self) -> bool {
+        let live_workers = self.live_worker_count.load(Ordering::Acquire);
+        live_workers > 0 && live_workers >= self.core_pool_size.load(Ordering::Acquire)
+    }
+
+    /// Attempts the lock-free queued submit path.
+    ///
+    /// # Parameters
+    ///
+    /// * `job` - Job to accept and queue if the fast path is usable.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when the job was handled, or `Err(job)` when the caller must use
+    /// the locked slow path.
+    fn try_submit_to_queue_without_state_lock(&self, job: PoolJob) -> Result<(), PoolJob> {
+        if !self.can_submit_to_queue_without_state_lock() || !self.reserve_queue_slot() {
+            return Err(job);
+        }
+        self.accept_and_enqueue_reserved_job(job);
+        Ok(())
+    }
+
+    /// Accepts a job whose queue slot has already been reserved and publishes it.
+    ///
+    /// This method may run custom acceptance callbacks and therefore must not be
+    /// called while holding the pool-state monitor.
+    ///
+    /// # Parameters
+    ///
+    /// * `job` - Job with one reserved queue slot.
+    fn accept_and_enqueue_reserved_job(&self, job: PoolJob) {
+        self.submitted_task_count.fetch_add(1, Ordering::Release);
+        if !job.accept() {
+            self.release_queue_slot();
+            self.completed_task_count.fetch_add(1, Ordering::Release);
+            self.notify_waiters_after_atomic_change();
+            return;
+        }
+        self.queued_task_count.fetch_add(1, Ordering::Release);
+        self.global_queue.push(job);
+        self.wake_one_idle_worker();
+    }
+
     /// Submits a job into the queue.
     ///
     /// # Overall logic
     ///
-    /// This method follows a staged admission strategy while holding the pool
-    /// monitor lock:
+    /// This method first tries the hot queued path without taking the pool-state
+    /// monitor. It falls back to locked dynamic admission only when the pool must
+    /// spawn, grow, reject saturation, or observe a lifecycle transition:
     ///
     /// 1. Reject immediately if the lifecycle is not running.
     /// 2. If live workers are below the core size, spawn a worker and hand the
@@ -223,9 +370,9 @@ impl ThreadPoolInner {
     ///    spawn a non-core worker with the job as its first task.
     /// 5. Otherwise reject as saturated.
     ///
-    /// For queued submissions we use a targeted wake-up strategy: wake exactly
-    /// one idle worker only when idle workers exist. This avoids the
-    /// `notify_all` "thundering herd" effect under high submission rates.
+    /// Queued submissions use a targeted wake-up strategy with pending wake
+    /// tokens, so submitters wake at most one idle worker while avoiding the
+    /// lost-notification window around worker parking.
     ///
     /// # Parameters
     ///
@@ -242,10 +389,32 @@ impl ThreadPoolInner {
     /// full, or returns [`SubmissionError::WorkerSpawnFailed`] if a required
     /// worker cannot be created.
     pub(crate) fn submit(self: &Arc<Self>, job: PoolJob) -> Result<(), SubmissionError> {
+        let _guard = self.begin_submit()?;
+        let job = match self.try_submit_to_queue_without_state_lock(job) {
+            Ok(()) => return Ok(()),
+            Err(job) => job,
+        };
+        self.submit_with_state_lock(job)
+    }
+
+    /// Submits a job through the locked dynamic admission path.
+    ///
+    /// # Parameters
+    ///
+    /// * `job` - Job that could not use the queue-only fast path.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when the job is accepted.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SubmissionError::Shutdown`], [`SubmissionError::Saturated`], or
+    /// [`SubmissionError::WorkerSpawnFailed`] according to the dynamic admission
+    /// state observed under the monitor.
+    fn submit_with_state_lock(self: &Arc<Self>, job: PoolJob) -> Result<(), SubmissionError> {
         let mut state = self.lock_state();
-        if state.lifecycle != ExecutorServiceLifecycle::Running {
-            return Err(SubmissionError::Shutdown);
-        }
+        debug_assert_eq!(state.lifecycle, ExecutorServiceLifecycle::Running);
         if state.live_workers < state.core_pool_size {
             let worker = self.reserve_worker_locked(&mut state);
             self.spawn_reserved_worker_with_initial_job_locked(&mut state, worker, job)?;
@@ -257,25 +426,8 @@ impl ThreadPoolInner {
             return Ok(());
         }
         if self.reserve_queue_slot() {
-            self.submitted_task_count.fetch_add(1, Ordering::Release);
-            if !job.accept() {
-                self.release_queue_slot();
-                self.completed_task_count.fetch_add(1, Ordering::Release);
-                self.notify_if_idle_or_terminated(&state);
-                return Ok(());
-            }
-            self.queued_task_count.fetch_add(1, Ordering::Release);
-            // Only wake a waiter when at least one worker is currently idle.
-            // Busy workers will eventually pull from the queue after finishing
-            // their current task, so a broadcast wake-up is unnecessary.
-            let should_wake_one_idle_worker = state.idle_workers > 0;
-            self.global_queue.push(job);
-            // Release the monitor before notifying to keep the critical section
-            // short and reduce lock handoff contention.
             drop(state);
-            if should_wake_one_idle_worker {
-                self.state_monitor.notify_one();
-            }
+            self.accept_and_enqueue_reserved_job(job);
             return Ok(());
         }
         if state.live_workers < state.maximum_pool_size {
@@ -376,7 +528,10 @@ impl ThreadPoolInner {
         match builder.spawn(move || {
             ThreadPoolWorker::run(worker_inner, index, None);
         }) {
-            Ok(_) => Ok(()),
+            Ok(_) => {
+                self.live_worker_count.fetch_add(1, Ordering::Release);
+                Ok(())
+            }
             Err(source) => {
                 state.live_workers = state
                     .live_workers
@@ -432,6 +587,7 @@ impl ThreadPoolInner {
             }
         }) {
             Ok(_) => {
+                self.live_worker_count.fetch_add(1, Ordering::Release);
                 self.submitted_task_count.fetch_add(1, Ordering::Release);
                 self.running_task_count.fetch_add(1, Ordering::Release);
                 let _released = start_sender.send(());
@@ -510,6 +666,56 @@ impl ThreadPoolInner {
         self.running_task_count.fetch_add(1, Ordering::Release);
     }
 
+    /// Marks a worker as idle in lock-free wake-up state.
+    pub(crate) fn mark_worker_idle(&self) {
+        self.idle_worker_count.fetch_add(1, Ordering::AcqRel);
+    }
+
+    /// Marks a worker as no longer idle and consumes one pending wake token.
+    pub(crate) fn unmark_worker_idle(&self) {
+        let previous = self.idle_worker_count.fetch_sub(1, Ordering::AcqRel);
+        debug_assert!(previous > 0, "thread pool idle worker counter underflow");
+        self.consume_pending_worker_wake();
+    }
+
+    /// Wakes one idle worker if no already-requested wakeup covers it.
+    ///
+    /// Pending wake tokens close the lost-notification window between a worker
+    /// marking itself idle and actually parking on the condition variable.
+    fn wake_one_idle_worker(&self) {
+        let idle_workers = self.idle_worker_count.load(Ordering::Acquire);
+        if idle_workers == 0 {
+            return;
+        }
+        let requested = self.pending_worker_wakes.fetch_update(
+            Ordering::AcqRel,
+            Ordering::Acquire,
+            |pending_wakes| (pending_wakes < idle_workers).then_some(pending_wakes + 1),
+        );
+        if requested.is_ok() {
+            let _state = self.lock_state();
+            self.state_monitor.notify_one();
+        }
+    }
+
+    /// Returns whether an idle-worker wakeup has been requested.
+    ///
+    /// # Returns
+    ///
+    /// `true` when a worker should retry taking work instead of parking.
+    pub(crate) fn has_pending_worker_wake(&self) -> bool {
+        self.pending_worker_wakes.load(Ordering::Acquire) > 0
+    }
+
+    /// Consumes one pending idle-worker wakeup if one exists.
+    fn consume_pending_worker_wake(&self) {
+        let _ = self.pending_worker_wakes.fetch_update(
+            Ordering::AcqRel,
+            Ordering::Acquire,
+            |current| current.checked_sub(1),
+        );
+    }
+
     /// Opens cancellation accounting for one queued job.
     fn begin_cancel_queued_job(&self) {
         let previous = self.queued_task_count.fetch_sub(1, Ordering::Release);
@@ -544,7 +750,14 @@ impl ThreadPoolInner {
     ///
     /// The pool rejects later submissions but lets queued work drain.
     pub(crate) fn shutdown(&self) {
+        self.accepting.store(false, Ordering::Release);
+        self.submit_waiter_count.fetch_add(1, Ordering::AcqRel);
         let mut state = self.lock_state();
+        while self.inflight_count() > 0 {
+            state = state.wait();
+        }
+        let previous = self.submit_waiter_count.fetch_sub(1, Ordering::AcqRel);
+        debug_assert!(previous > 0, "thread pool submit waiter counter underflow");
         if state.lifecycle == ExecutorServiceLifecycle::Running {
             state.lifecycle = ExecutorServiceLifecycle::ShuttingDown;
         }
@@ -561,6 +774,7 @@ impl ThreadPoolInner {
     pub(crate) fn stop(&self) -> StopReport {
         let cancelled_before_stop = self.cancelled_task_count.load(Ordering::Acquire);
         let cancelling_before_stop = self.cancelling_task_count.load(Ordering::Acquire);
+        self.accepting.store(false, Ordering::Release);
         self.stop_now.store(true, Ordering::Release);
         let (jobs, queued, running) = {
             let mut state = self.lock_state();
@@ -570,6 +784,14 @@ impl ThreadPoolInner {
             );
             if is_new_stop {
                 state.lifecycle = ExecutorServiceLifecycle::Stopping;
+            }
+            if self.inflight_count() > 0 {
+                self.submit_waiter_count.fetch_add(1, Ordering::AcqRel);
+                while self.inflight_count() > 0 {
+                    state = state.wait();
+                }
+                let previous = self.submit_waiter_count.fetch_sub(1, Ordering::AcqRel);
+                debug_assert!(previous > 0, "thread pool submit waiter counter underflow");
             }
             let running = self.running_count();
             let jobs = self.drain_visible_queued_jobs();
@@ -670,8 +892,13 @@ impl ThreadPoolInner {
     /// This method waits for queued and running tasks to drain, but it does not
     /// request shutdown and does not wait for worker threads to exit.
     pub(crate) fn wait_until_idle(&self) {
-        self.state_monitor
-            .wait_until(|_| self.is_idle_snapshot(), |_| ());
+        self.idle_waiter_count.fetch_add(1, Ordering::AcqRel);
+        let mut state = self.lock_state();
+        while !self.is_idle_snapshot() {
+            state = state.wait();
+        }
+        let previous = self.idle_waiter_count.fetch_sub(1, Ordering::AcqRel);
+        debug_assert!(previous > 0, "thread pool idle waiter counter underflow");
     }
 
     /// Returns a point-in-time pool snapshot.
@@ -739,6 +966,7 @@ impl ThreadPoolInner {
                 maximum_pool_size,
             });
         }
+        self.core_pool_size.store(core_pool_size, Ordering::Release);
         self.state_monitor.notify_all();
         Ok(())
     }
@@ -828,6 +1056,7 @@ impl ThreadPoolInner {
         self.queue_slot_count.load(Ordering::Acquire) == 0
             && self.running_count() == 0
             && self.cancelling_task_count.load(Ordering::Acquire) == 0
+            && self.inflight_count() == 0
     }
 
     /// Checks termination against one locked lifecycle snapshot.
@@ -847,8 +1076,8 @@ impl ThreadPoolInner {
 
     /// Notifies waiters after an atomic-only condition change.
     fn notify_waiters_after_atomic_change(&self) {
-        let state = self.lock_state();
-        self.notify_if_idle_or_terminated(&state);
+        let _state = self.lock_state();
+        self.state_monitor.notify_all();
     }
 
     /// Notifies termination waiters when the state is terminal.
@@ -871,6 +1100,21 @@ impl ThreadPoolInner {
         if self.is_idle_snapshot() || self.is_terminated_locked(state) {
             self.state_monitor.notify_all();
         }
+    }
+
+    /// Marks one worker as exited while the caller holds the state lock.
+    ///
+    /// # Parameters
+    ///
+    /// * `state` - Locked mutable pool state whose live count is decremented.
+    pub(crate) fn unregister_worker_locked(&self, state: &mut ThreadPoolState) {
+        state.live_workers = state
+            .live_workers
+            .checked_sub(1)
+            .expect("thread pool live worker counter underflow");
+        let previous = self.live_worker_count.fetch_sub(1, Ordering::Release);
+        debug_assert!(previous > 0, "thread pool live worker counter underflow");
+        self.notify_if_terminated(state);
     }
 }
 

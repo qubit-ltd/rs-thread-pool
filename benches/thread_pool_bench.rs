@@ -151,6 +151,25 @@ where
 /// the pool terminates.
 fn run_cpu_work_batch(pool_size: usize, task_count: usize, inner_iters: usize) {
     let pool = ThreadPool::new(pool_size).expect("thread pool should be created");
+    run_cpu_work_batch_on_pool(&pool, task_count, inner_iters);
+    pool.shutdown();
+    wait_for_termination(&pool);
+}
+
+/// Runs one batch of CPU tasks on a prestarted dynamic pool.
+fn run_prestarted_cpu_work_batch(pool_size: usize, task_count: usize, inner_iters: usize) {
+    let pool = ThreadPool::builder()
+        .pool_size(pool_size)
+        .prestart_core_threads()
+        .build()
+        .expect("thread pool should be created");
+    run_cpu_work_batch_on_pool(&pool, task_count, inner_iters);
+    pool.shutdown();
+    wait_for_termination(&pool);
+}
+
+/// Runs one CPU work batch on an already created dynamic pool.
+fn run_cpu_work_batch_on_pool(pool: &ThreadPool, task_count: usize, inner_iters: usize) {
     let mut handles = Vec::with_capacity(task_count);
     let seed = inner_iters as u64;
     for task_index in 0..task_count {
@@ -168,8 +187,6 @@ fn run_cpu_work_batch(pool_size: usize, task_count: usize, inner_iters: usize) {
         sum = sum.wrapping_add(handle.get().expect("task should complete"));
     }
     black_box(sum);
-    pool.shutdown();
-    wait_for_termination(&pool);
 }
 
 /// Runs one batch with Rayon using equivalent task count and per-task work.
@@ -191,6 +208,25 @@ fn run_rayon_cpu_work_batch(worker_count: usize, task_count: usize, inner_iters:
 /// Runs one batch on the dynamic Qubit pool through `submit`.
 fn run_dynamic_submit_batch(pool_size: usize, task_count: usize, workload: Workload) {
     let pool = ThreadPool::new(pool_size).expect("thread pool should be created");
+    run_dynamic_submit_batch_on_pool(&pool, task_count, workload);
+    pool.shutdown();
+    wait_for_termination(&pool);
+}
+
+/// Runs one batch on the prestarted dynamic Qubit pool through `submit`.
+fn run_dynamic_prestarted_submit_batch(pool_size: usize, task_count: usize, workload: Workload) {
+    let pool = ThreadPool::builder()
+        .pool_size(pool_size)
+        .prestart_core_threads()
+        .build()
+        .expect("thread pool should be created");
+    run_dynamic_submit_batch_on_pool(&pool, task_count, workload);
+    pool.shutdown();
+    wait_for_termination(&pool);
+}
+
+/// Runs one dynamic submit batch on an already created pool.
+fn run_dynamic_submit_batch_on_pool(pool: &ThreadPool, task_count: usize, workload: Workload) {
     let (sender, receiver) = mpsc::channel();
     for task_index in 0..task_count {
         let sender = sender.clone();
@@ -206,8 +242,6 @@ fn run_dynamic_submit_batch(pool_size: usize, task_count: usize, workload: Workl
         .take(task_count)
         .fold(0usize, usize::wrapping_add);
     black_box(sum);
-    pool.shutdown();
-    wait_for_termination(&pool);
 }
 
 /// Runs one batch on the dynamic Qubit pool through `submit_tracked`.
@@ -391,6 +425,11 @@ fn bench_thread_pool_implementations(c: &mut Criterion) {
             |b, &wc| b.iter(|| run_cpu_work_batch(wc, task_count, inner_iters)),
         );
         group.bench_with_input(
+            BenchmarkId::new("dynamic_prestarted_thread_pool", worker_count),
+            &worker_count,
+            |b, &wc| b.iter(|| run_prestarted_cpu_work_batch(wc, task_count, inner_iters)),
+        );
+        group.bench_with_input(
             BenchmarkId::new("fixed_thread_pool", worker_count),
             &worker_count,
             |b, &wc| b.iter(|| run_fixed_cpu_work_batch(wc, task_count, inner_iters)),
@@ -422,6 +461,11 @@ fn bench_thread_pool_submit_modes(c: &mut Criterion) {
                 BenchmarkId::new("dynamic_submit", &case),
                 &worker_count,
                 |b, &wc| b.iter(|| run_dynamic_submit_batch(wc, task_count, workload)),
+            );
+            group.bench_with_input(
+                BenchmarkId::new("dynamic_prestarted_submit", &case),
+                &worker_count,
+                |b, &wc| b.iter(|| run_dynamic_prestarted_submit_batch(wc, task_count, workload)),
             );
             group.bench_with_input(
                 BenchmarkId::new("dynamic_submit_tracked", &case),

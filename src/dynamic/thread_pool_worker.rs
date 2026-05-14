@@ -140,32 +140,34 @@ fn wait_for_job(inner: &ThreadPoolInner, worker_index: usize) -> Option<PoolJob>
                     unregister_exiting_worker(inner, &mut state, worker_index);
                     return None;
                 }
-                if state.worker_wait_is_timed() {
+                drop(state);
+                state = inner.lock_state();
+                if state.lifecycle == ExecutorServiceLifecycle::Running
+                    && state.worker_wait_is_timed()
+                {
                     let keep_alive = state.keep_alive;
-                    state.idle_workers += 1;
+                    mark_thread_pool_worker_idle(inner, &mut state);
                     let mut timed_out = false;
-                    if inner.queued_count() == 0 {
+                    if inner.queued_count() == 0 && !inner.has_pending_worker_wake() {
                         let (next_state, status) = state.wait_timeout(keep_alive);
                         state = next_state;
                         timed_out = status == WaitTimeoutStatus::TimedOut;
                     }
-                    state.idle_workers = state
-                        .idle_workers
-                        .checked_sub(1)
-                        .expect("thread pool idle worker counter underflow");
-                    if timed_out && inner.queued_count() == 0 && state.idle_worker_can_retire() {
+                    let should_retire = timed_out
+                        && inner.queued_count() == 0
+                        && !inner.has_pending_worker_wake()
+                        && state.idle_worker_can_retire();
+                    unmark_thread_pool_worker_idle(inner, &mut state);
+                    if should_retire {
                         unregister_exiting_worker(inner, &mut state, worker_index);
                         return None;
                     }
-                } else {
-                    state.idle_workers += 1;
-                    if inner.queued_count() == 0 {
+                } else if state.lifecycle == ExecutorServiceLifecycle::Running {
+                    mark_thread_pool_worker_idle(inner, &mut state);
+                    if inner.queued_count() == 0 && !inner.has_pending_worker_wake() {
                         state = state.wait();
                     }
-                    state.idle_workers = state
-                        .idle_workers
-                        .checked_sub(1)
-                        .expect("thread pool idle worker counter underflow");
+                    unmark_thread_pool_worker_idle(inner, &mut state);
                 }
             }
             ExecutorServiceLifecycle::ShuttingDown => {
@@ -182,6 +184,31 @@ fn wait_for_job(inner: &ThreadPoolInner, worker_index: usize) -> Option<PoolJob>
     }
 }
 
+/// Marks a dynamic-pool worker as idle in locked and lock-free state.
+///
+/// # Parameters
+///
+/// * `inner` - Pool whose idle counter is updated.
+/// * `state` - Locked mutable state containing authoritative idle workers.
+fn mark_thread_pool_worker_idle(inner: &ThreadPoolInner, state: &mut ThreadPoolState) {
+    state.idle_workers += 1;
+    inner.mark_worker_idle();
+}
+
+/// Marks a dynamic-pool worker as no longer idle.
+///
+/// # Parameters
+///
+/// * `inner` - Pool whose idle counter is updated.
+/// * `state` - Locked mutable state containing authoritative idle workers.
+fn unmark_thread_pool_worker_idle(inner: &ThreadPoolInner, state: &mut ThreadPoolState) {
+    state.idle_workers = state
+        .idle_workers
+        .checked_sub(1)
+        .expect("thread pool idle worker counter underflow");
+    inner.unmark_worker_idle();
+}
+
 /// Marks a worker as exited.
 ///
 /// # Parameters
@@ -195,9 +222,5 @@ fn unregister_exiting_worker(
     state: &mut ThreadPoolState,
     _worker_index: usize,
 ) {
-    state.live_workers = state
-        .live_workers
-        .checked_sub(1)
-        .expect("thread pool live worker counter underflow");
-    inner.notify_if_terminated(state);
+    inner.unregister_worker_locked(state);
 }

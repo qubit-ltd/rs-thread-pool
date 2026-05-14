@@ -788,6 +788,209 @@ fn test_thread_pool_queued_accept_panic_does_not_unwind_or_leak_state() {
 }
 
 #[test]
+fn test_thread_pool_blocked_accept_does_not_hold_state_lock() {
+    let pool = Arc::new(
+        ThreadPool::builder()
+            .pool_size(1)
+            .prestart_core_threads()
+            .build()
+            .expect("thread pool should be created"),
+    );
+    super::mod_tests::wait_until(|| pool.stats().idle_workers == 1);
+    let (accept_started_tx, accept_started_rx) = mpsc::channel();
+    let (release_accept_tx, release_accept_rx) = mpsc::channel();
+    let submit_pool = Arc::clone(&pool);
+    let submit_thread = std::thread::spawn(move || {
+        submit_pool.submit_job(PoolJob::with_accept(
+            Box::new(move || {
+                accept_started_tx
+                    .send(())
+                    .expect("test should receive accept start signal");
+                release_accept_rx
+                    .recv()
+                    .expect("test should release accept callback");
+            }),
+            Box::new(|| {}),
+            Box::new(|| panic!("accepted job should run after accept is released")),
+        ))
+    });
+    accept_started_rx
+        .recv_timeout(Duration::from_secs(1))
+        .expect("accept callback should start");
+    let (stats_tx, stats_rx) = mpsc::channel();
+    let stats_pool = Arc::clone(&pool);
+    std::thread::spawn(move || {
+        let stats = stats_pool.stats();
+        stats_tx
+            .send(stats.live_workers)
+            .expect("test should receive stats snapshot");
+    });
+
+    assert_eq!(
+        stats_rx
+            .recv_timeout(Duration::from_secs(1))
+            .expect("stats should not block on custom accept"),
+        1,
+    );
+    release_accept_tx
+        .send(())
+        .expect("accept callback should receive release signal");
+    submit_thread
+        .join()
+        .expect("submit caller should not panic")
+        .expect("job should be accepted");
+    pool.join();
+    pool.shutdown();
+    pool.wait_termination();
+}
+
+#[test]
+fn test_thread_pool_stop_waits_for_inflight_accept_then_cancels() {
+    let pool = Arc::new(
+        ThreadPool::builder()
+            .pool_size(1)
+            .prestart_core_threads()
+            .build()
+            .expect("thread pool should be created"),
+    );
+    super::mod_tests::wait_until(|| pool.stats().idle_workers == 1);
+    let ran = Arc::new(AtomicBool::new(false));
+    let (accept_started_tx, accept_started_rx) = mpsc::channel();
+    let (release_accept_tx, release_accept_rx) = mpsc::channel();
+    let (cancelled_tx, cancelled_rx) = mpsc::channel();
+    let submit_pool = Arc::clone(&pool);
+    let submit_ran = Arc::clone(&ran);
+    let submit_thread = std::thread::spawn(move || {
+        submit_pool.submit_job(PoolJob::with_accept(
+            Box::new(move || {
+                accept_started_tx
+                    .send(())
+                    .expect("test should receive accept start signal");
+                release_accept_rx
+                    .recv()
+                    .expect("test should release accept callback");
+            }),
+            Box::new(move || {
+                submit_ran.store(true, Ordering::Release);
+            }),
+            Box::new(move || {
+                cancelled_tx
+                    .send(())
+                    .expect("test should receive cancellation signal");
+            }),
+        ))
+    });
+    accept_started_rx
+        .recv_timeout(Duration::from_secs(1))
+        .expect("accept callback should start");
+    let stop_pool = Arc::clone(&pool);
+    let (stop_tx, stop_rx) = mpsc::channel();
+    let stop_thread = std::thread::spawn(move || {
+        let report = stop_pool.stop();
+        stop_tx
+            .send(report)
+            .expect("test should receive stop report");
+    });
+
+    assert!(
+        stop_rx.recv_timeout(Duration::from_millis(50)).is_err(),
+        "stop should wait while submit is inside accept",
+    );
+    release_accept_tx
+        .send(())
+        .expect("accept callback should receive release signal");
+    submit_thread
+        .join()
+        .expect("submit caller should not panic")
+        .expect("in-flight submit should be accepted before stop drains");
+    let report = stop_rx
+        .recv_timeout(Duration::from_secs(1))
+        .expect("stop should finish after accept is released");
+    stop_thread.join().expect("stop caller should not panic");
+
+    assert_eq!(report.queued, 1);
+    assert_eq!(report.cancelled, 1);
+    cancelled_rx
+        .recv_timeout(Duration::from_secs(1))
+        .expect("accepted queued job should be cancelled");
+    assert!(
+        !ran.load(Ordering::Acquire),
+        "accepted queued job must not run after stop",
+    );
+    pool.wait_termination();
+    assert!(pool.is_terminated());
+}
+
+#[test]
+fn test_thread_pool_shutdown_waits_for_inflight_accept_then_drains() {
+    let pool = Arc::new(
+        ThreadPool::builder()
+            .pool_size(1)
+            .prestart_core_threads()
+            .build()
+            .expect("thread pool should be created"),
+    );
+    super::mod_tests::wait_until(|| pool.stats().idle_workers == 1);
+    let ran = Arc::new(AtomicBool::new(false));
+    let (accept_started_tx, accept_started_rx) = mpsc::channel();
+    let (release_accept_tx, release_accept_rx) = mpsc::channel();
+    let submit_pool = Arc::clone(&pool);
+    let submit_ran = Arc::clone(&ran);
+    let submit_thread = std::thread::spawn(move || {
+        submit_pool.submit_job(PoolJob::with_accept(
+            Box::new(move || {
+                accept_started_tx
+                    .send(())
+                    .expect("test should receive accept start signal");
+                release_accept_rx
+                    .recv()
+                    .expect("test should release accept callback");
+            }),
+            Box::new(move || {
+                submit_ran.store(true, Ordering::Release);
+            }),
+            Box::new(|| panic!("graceful shutdown should not cancel accepted job")),
+        ))
+    });
+    accept_started_rx
+        .recv_timeout(Duration::from_secs(1))
+        .expect("accept callback should start");
+    let shutdown_pool = Arc::clone(&pool);
+    let (shutdown_tx, shutdown_rx) = mpsc::channel();
+    let shutdown_thread = std::thread::spawn(move || {
+        shutdown_pool.shutdown();
+        shutdown_tx
+            .send(())
+            .expect("test should receive shutdown completion signal");
+    });
+
+    assert!(
+        shutdown_rx.recv_timeout(Duration::from_millis(50)).is_err(),
+        "shutdown should wait while submit is inside accept",
+    );
+    release_accept_tx
+        .send(())
+        .expect("accept callback should receive release signal");
+    submit_thread
+        .join()
+        .expect("submit caller should not panic")
+        .expect("in-flight submit should be accepted before shutdown drains");
+    shutdown_rx
+        .recv_timeout(Duration::from_secs(1))
+        .expect("shutdown should finish after accept is released");
+    shutdown_thread
+        .join()
+        .expect("shutdown caller should not panic");
+
+    pool.wait_termination();
+    assert!(
+        ran.load(Ordering::Acquire),
+        "graceful shutdown should drain the accepted queued job",
+    );
+    assert!(pool.is_terminated());
+}
+
+#[test]
 fn test_thread_pool_wait_termination_waits_for_custom_cancel_callback() {
     let pool = Arc::new(create_single_worker_pool());
     let (started_tx, started_rx) = mpsc::channel();
