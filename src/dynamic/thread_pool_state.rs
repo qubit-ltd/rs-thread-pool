@@ -24,15 +24,9 @@ use crate::{
 pub(crate) struct ThreadPoolState {
     /// Current lifecycle state controlling submissions and worker exits.
     pub(super) lifecycle: ExecutorServiceLifecycle,
-    /// Primary FIFO queue for accepted jobs waiting for a worker.
-    ///
-    /// Worker-local queues may also contain jobs during migration or future
-    /// local-dispatch paths. Retiring workers migrate any leftover local jobs
-    /// back into this queue.
+    /// FIFO queue for accepted jobs waiting for a worker.
     pub(super) queue: VecDeque<PoolJob>,
     /// Number of accepted jobs that are queued but not started yet.
-    ///
-    /// This includes jobs in the global queue and all per-worker local queues.
     pub(super) queued_tasks: usize,
     /// Optional maximum number of queued jobs.
     pub(super) queue_capacity: Option<usize>,

@@ -10,7 +10,7 @@ description = "Dynamic and fixed thread pool executor services for Qubit Rust li
 homepage = "https://github.com/qubit-ltd/rs-thread-pool"
 documentation = "https://docs.rs/qubit-thread-pool"
 readme = "README.md"
-keywords = ["thread-pool", "executor", "concurrency", "work-stealing"]
+keywords = ["thread-pool", "executor", "concurrency", "blocking"]
 categories = ["concurrency"]
 exclude = [
     "align-ci.sh",

@@ -50,11 +50,10 @@ predictable scheduling is more important than dynamic growth.
 `FixedThreadPool::default()` is equivalent to `FixedThreadPoolBuilder::default().build()` except that build errors become a panic; prefer the builder's `build()` when you must handle `ExecutorServiceBuilderError`.
 
 Internally, the dynamic pool keeps accepted waiting work in a monitor-protected
-global FIFO queue and registers worker-owned stealers for worker lifecycle
-bookkeeping and local-queue draining. FIFO describes the global waiting queue;
-it is not a strict task start or completion ordering guarantee. The fixed pool
-uses a lock-free global injector with targeted idle-worker wakeups, which keeps
-the fire-and-forget submit path small and predictable.
+global FIFO queue. FIFO describes the waiting queue; it is not a strict task
+start or completion ordering guarantee. The fixed pool uses a lock-free global
+injector with targeted idle-worker wakeups, which keeps the fire-and-forget
+submit path small and predictable.
 
 Runtime size setters on `ThreadPool` are intended for explicit control-plane
 adjustments, such as operator-driven throttling or short-lived incident
@@ -214,9 +213,9 @@ The submission-mode benchmark compares `ThreadPool.submit`,
 `ThreadPool.submit_tracked`, `FixedThreadPool.submit`,
 `FixedThreadPool.submit_tracked`, the external `threadpool` crate, and Rayon on
 `cpu_light`, `cpu_medium`, and `cpu_heavy` tasks. CPU task costs are
-deterministically varied with a bell-shaped distribution so worker scheduling
-and stealing behavior are visible instead of every task completing at the same
-time.
+deterministically varied with a bell-shaped distribution so worker scheduling,
+queue contention, and wakeup behavior are visible instead of every task
+completing at the same time.
 
 Benchmark inputs and historical comparison data are kept under `test-data`.
 

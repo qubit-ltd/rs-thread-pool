@@ -20,7 +20,6 @@ use qubit_lock::WaitTimeoutStatus;
 
 use super::thread_pool_inner::ThreadPoolInner;
 use super::thread_pool_state::ThreadPoolState;
-use super::thread_pool_worker_runtime::ThreadPoolWorkerRuntime;
 use crate::{
     PoolJob,
     ThreadPoolHooks,
@@ -35,20 +34,19 @@ impl ThreadPoolWorker {
     /// # Parameters
     ///
     /// * `inner` - Shared pool state used for queue access and counters.
-    /// * `worker_runtime` - Local runtime owned by this worker.
+    /// * `worker_index` - Stable worker index assigned by the pool.
     pub(crate) fn run(
         inner: Arc<ThreadPoolInner>,
-        worker_runtime: ThreadPoolWorkerRuntime,
+        worker_index: usize,
         initial_job: Option<PoolJob>,
     ) {
-        let worker_index = worker_runtime.worker_index();
         inner.hooks().run_before_worker_start(worker_index);
         let has_task_hooks = inner.hooks().has_task_hooks();
         if let Some(job) = initial_job {
             run_initial_job(&inner, job, has_task_hooks, worker_index);
         }
         loop {
-            let job = wait_for_job(&inner, &worker_runtime);
+            let job = wait_for_job(&inner, worker_index);
             match job {
                 Some(job) => {
                     if has_task_hooks {
@@ -122,21 +120,17 @@ fn run_with_task_hooks(job: PoolJob, hooks: &ThreadPoolHooks, worker_index: usiz
 /// # Parameters
 ///
 /// * `inner` - Shared pool state and monitor wait queue.
-/// * `worker_queue` - Local queue owned by the worker requesting a job.
+/// * `worker_index` - Stable worker index assigned by the pool.
 ///
 /// # Returns
 ///
 /// `Some(job)` when work is available, or `None` when the worker should exit.
-fn wait_for_job(
-    inner: &ThreadPoolInner,
-    worker_runtime: &ThreadPoolWorkerRuntime,
-) -> Option<PoolJob> {
-    let worker_index = worker_runtime.worker_index();
+fn wait_for_job(inner: &ThreadPoolInner, worker_index: usize) -> Option<PoolJob> {
     let mut state = inner.lock_state();
     loop {
         match state.lifecycle {
             ExecutorServiceLifecycle::Running => {
-                if let Some(job) = inner.try_take_queued_job_locked(&mut state, worker_runtime) {
+                if let Some(job) = inner.try_take_queued_job_locked(&mut state) {
                     return Some(job);
                 }
                 if state.live_workers > state.maximum_pool_size && state.live_workers > 0 {
@@ -169,7 +163,7 @@ fn wait_for_job(
                 }
             }
             ExecutorServiceLifecycle::ShuttingDown => {
-                if let Some(job) = inner.try_take_queued_job_locked(&mut state, worker_runtime) {
+                if let Some(job) = inner.try_take_queued_job_locked(&mut state) {
                     return Some(job);
                 }
                 unregister_exiting_worker(inner, &mut state, worker_index);
@@ -210,13 +204,8 @@ fn finish_running_job(inner: &ThreadPoolInner) {
 fn unregister_exiting_worker(
     inner: &ThreadPoolInner,
     state: &mut ThreadPoolState,
-    worker_index: usize,
+    _worker_index: usize,
 ) {
-    // Migrate leftover local jobs back to the global queue before removing the
-    // worker registration so queued work is not lost while this worker retires.
-    state
-        .queue
-        .extend(inner.remove_worker_queue_locked(worker_index));
     state.live_workers = state
         .live_workers
         .checked_sub(1)

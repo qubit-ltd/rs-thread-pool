@@ -263,7 +263,7 @@ fn test_thread_pool_submit_wakes_prestarted_idle_worker() {
 }
 
 #[test]
-fn test_thread_pool_bounded_submit_uses_worker_queue_when_worker_busy() {
+fn test_thread_pool_bounded_submit_queues_when_worker_busy() {
     let pool = ThreadPool::builder()
         .core_pool_size(1)
         .maximum_pool_size(1)

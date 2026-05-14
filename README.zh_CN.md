@@ -38,7 +38,7 @@ Qubit Thread Pool 为同步工作提供基于 OS 线程的 `ExecutorService` 实
 
 `FixedThreadPool::default()` 与 `FixedThreadPoolBuilder::default().build()` 等价，但构建失败会转为 panic；若需要处理错误，请使用 builder 的 `build()` 并处理 `ExecutorServiceBuilderError`。
 
-内部实现上，动态池把已接受但尚未开始的任务放入由 monitor 保护的全局 FIFO 队列，并注册 worker-owned stealer 用于 worker 生命周期管理和本地队列清理。FIFO 描述的是全局等待队列，不表示任务启动或完成顺序具有严格 FIFO 保证。固定池使用 lock-free 全局 injector，并只唤醒有需要的 idle worker，使 fire-and-forget submit 路径更短且更可预测。
+内部实现上，动态池把已接受但尚未开始的任务放入由 monitor 保护的全局 FIFO 队列。FIFO 描述的是等待队列，不表示任务启动或完成顺序具有严格 FIFO 保证。固定池使用 lock-free 全局 injector，并只唤醒有需要的 idle worker，使 fire-and-forget submit 路径更短且更可预测。
 
 `ThreadPool` 的运行时尺寸调整接口主要面向显式控制面操作，例如运维限流、临时扩容或故障处置。普通业务代码应优先在构造时确定线程池大小。运行时调整 core size 会影响后续提交和预启动行为，但不会主动为已经排队的任务创建 worker。
 
@@ -164,7 +164,7 @@ CPU 密集型、适合 divide-and-conquer 的工作，优先使用 `qubit-rayon-
 cargo bench --bench thread_pool_bench
 ```
 
-提交模式 benchmark 会对比 `ThreadPool.submit`、`ThreadPool.submit_tracked`、`FixedThreadPool.submit`、`FixedThreadPool.submit_tracked`、外部 `threadpool` crate 和 Rayon，并覆盖 `cpu_light`、`cpu_medium`、`cpu_heavy` 三类任务。CPU 任务耗时使用确定性的钟形分布生成，避免所有任务几乎同时完成，从而更容易体现调度与 stealing 行为差异。
+提交模式 benchmark 会对比 `ThreadPool.submit`、`ThreadPool.submit_tracked`、`FixedThreadPool.submit`、`FixedThreadPool.submit_tracked`、外部 `threadpool` crate 和 Rayon，并覆盖 `cpu_light`、`cpu_medium`、`cpu_heavy` 三类任务。CPU 任务耗时使用确定性的钟形分布生成，避免所有任务几乎同时完成，从而更容易体现调度、队列竞争与唤醒行为差异。
 
 benchmark 输入与历史对比数据保存在 `test-data` 下。
 

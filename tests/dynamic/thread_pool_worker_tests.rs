@@ -6,7 +6,7 @@ use qubit_thread_pool::{
 };
 
 #[test]
-fn test_worker_runtime_runs_job_on_named_worker_thread() {
+fn test_worker_runs_job_on_named_worker_thread() {
     let pool = ThreadPool::builder()
         .core_pool_size(1)
         .maximum_pool_size(1)

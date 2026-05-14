@@ -10,11 +10,6 @@
 use std::{
     sync::{
         Arc,
-        Mutex,
-        atomic::{
-            AtomicUsize,
-            Ordering,
-        },
         mpsc,
     },
     thread,
@@ -34,8 +29,6 @@ use qubit_lock::{
 use super::thread_pool_config::ThreadPoolConfig;
 use super::thread_pool_state::ThreadPoolState;
 use super::thread_pool_worker::ThreadPoolWorker;
-use super::thread_pool_worker_queue::ThreadPoolWorkerQueue;
-use super::thread_pool_worker_runtime::ThreadPoolWorkerRuntime;
 use crate::{
     ExecutorServiceBuilderError,
     PoolJob,
@@ -47,10 +40,6 @@ use crate::{
 pub(crate) struct ThreadPoolInner {
     /// Mutable pool state protected by a monitor.
     state_monitor: Monitor<ThreadPoolState>,
-    /// Registered worker-local queue descriptors used for stealing and draining.
-    worker_queues: Mutex<Vec<Arc<ThreadPoolWorkerQueue>>>,
-    /// Round-robin cursor used for queue selection and steal start offsets.
-    next_enqueue_worker: AtomicUsize,
     /// Prefix used for naming newly spawned workers.
     thread_name_prefix: String,
     /// Optional stack size in bytes for newly spawned workers.
@@ -75,8 +64,6 @@ impl ThreadPoolInner {
         let stack_size = config.stack_size;
         Self {
             state_monitor: Monitor::new(ThreadPoolState::new(config)),
-            worker_queues: Mutex::new(Vec::new()),
-            next_enqueue_worker: AtomicUsize::new(0),
             thread_name_prefix,
             stack_size,
             hooks,
@@ -271,8 +258,7 @@ impl ThreadPoolInner {
         let index = state.next_worker_index;
         state.next_worker_index += 1;
         state.live_workers += 1;
-        let runtime = self.register_worker_queue_locked(index);
-        ReservedWorker { index, runtime }
+        ReservedWorker { index }
     }
 
     /// Spawns a previously reserved worker while holding the state lock.
@@ -295,7 +281,7 @@ impl ThreadPoolInner {
         state: &mut ThreadPoolState,
         worker: ReservedWorker,
     ) -> Result<(), SubmissionError> {
-        let ReservedWorker { index, runtime } = worker;
+        let ReservedWorker { index } = worker;
         let worker_inner = Arc::clone(self);
         let mut builder =
             thread::Builder::new().name(format!("{}-{index}", self.thread_name_prefix));
@@ -303,15 +289,10 @@ impl ThreadPoolInner {
             builder = builder.stack_size(stack_size);
         }
         match builder.spawn(move || {
-            ThreadPoolWorker::run(worker_inner, runtime, None);
+            ThreadPoolWorker::run(worker_inner, index, None);
         }) {
             Ok(_) => Ok(()),
             Err(source) => {
-                let cancelled_jobs = self.remove_worker_queue_locked(index);
-                debug_assert!(
-                    cancelled_jobs.is_empty(),
-                    "newly reserved worker queue should be empty before spawn succeeds",
-                );
                 state.live_workers = state
                     .live_workers
                     .checked_sub(1)
@@ -352,7 +333,7 @@ impl ThreadPoolInner {
         worker: ReservedWorker,
         job: PoolJob,
     ) -> Result<(), SubmissionError> {
-        let ReservedWorker { index, runtime } = worker;
+        let ReservedWorker { index } = worker;
         let (start_sender, start_receiver) = mpsc::sync_channel(1);
         let worker_inner = Arc::clone(self);
         let mut builder =
@@ -362,7 +343,7 @@ impl ThreadPoolInner {
         }
         match builder.spawn(move || {
             if start_receiver.recv().is_ok() {
-                ThreadPoolWorker::run(worker_inner, runtime, Some(job));
+                ThreadPoolWorker::run(worker_inner, index, Some(job));
             }
         }) {
             Ok(_) => {
@@ -372,11 +353,6 @@ impl ThreadPoolInner {
                 Ok(())
             }
             Err(source) => {
-                let cancelled_jobs = self.remove_worker_queue_locked(index);
-                debug_assert!(
-                    cancelled_jobs.is_empty(),
-                    "newly reserved worker queue should be empty before spawn succeeds",
-                );
                 state.live_workers = state
                     .live_workers
                     .checked_sub(1)
@@ -389,91 +365,25 @@ impl ThreadPoolInner {
         }
     }
 
-    /// Registers an empty worker-local queue for a newly spawned worker.
-    ///
-    /// # Parameters
-    ///
-    /// * `worker_index` - Stable index of the new worker.
-    fn register_worker_queue_locked(&self, worker_index: usize) -> ThreadPoolWorkerRuntime {
-        let runtime = ThreadPoolWorkerRuntime::new(worker_index);
-        self.worker_queues
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .push(runtime.queue());
-        runtime
-    }
-
-    /// Removes one worker-local queue and returns all jobs still queued in it.
-    ///
-    /// # Parameters
-    ///
-    /// * `worker_index` - Stable index of the retiring worker.
-    ///
-    /// # Returns
-    ///
-    /// Remaining queued jobs from the removed queue, if any.
-    pub(crate) fn remove_worker_queue_locked(&self, worker_index: usize) -> Vec<PoolJob> {
-        let queue = {
-            let mut queues = self
-                .worker_queues
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
-            queues
-                .iter()
-                .position(|queue| queue.worker_index() == worker_index)
-                .map(|position| queues.remove(position))
-        };
-        queue.map_or_else(Vec::new, |queue| queue.drain())
-    }
-
-    /// Attempts to take one queued job for the specified worker.
+    /// Attempts to take one queued job.
     ///
     /// # Overall logic
     ///
-    /// The lookup order favors locality first and balance second:
-    ///
-    /// 1. Pop from the worker's own local queue.
-    /// 2. Steal from other workers' local queues (bounded pools only).
-    /// 3. Pop from the global fallback queue.
-    ///
-    /// This method mutates queue-related counters only after a job is
-    /// successfully claimed.
+    /// Dynamic pools use one global FIFO queue for ordinary submit semantics.
+    /// This method mutates queue-related counters only after a job is successfully
+    /// claimed.
     ///
     /// # Parameters
     ///
     /// * `state` - Locked mutable pool state.
-    /// * `worker_queue` - Local queue owned by the worker requesting work.
     ///
     /// # Returns
     ///
-    /// `Some(job)` when any queue has work, otherwise `None`.
+    /// `Some(job)` when the queue has work, otherwise `None`.
     pub(crate) fn try_take_queued_job_locked(
         &self,
         state: &mut ThreadPoolState,
-        worker_runtime: &ThreadPoolWorkerRuntime,
     ) -> Option<PoolJob> {
-        let worker_index = worker_runtime.worker_index();
-        let own_job = worker_runtime.pop_front();
-        if let Some(job) = own_job {
-            state.queued_tasks = state
-                .queued_tasks
-                .checked_sub(1)
-                .expect("thread pool queued task counter underflow");
-            state.running_tasks += 1;
-            return Some(job);
-        }
-
-        if state.queue_capacity.is_some()
-            && let Some(job) = self.try_steal_job_locked(worker_index)
-        {
-            state.queued_tasks = state
-                .queued_tasks
-                .checked_sub(1)
-                .expect("thread pool queued task counter underflow");
-            state.running_tasks += 1;
-            return Some(job);
-        }
-
         if let Some(job) = state.queue.pop_front() {
             state.queued_tasks = state
                 .queued_tasks
@@ -484,59 +394,6 @@ impl ThreadPoolInner {
         }
 
         None
-    }
-
-    /// Attempts to steal one queued job from another worker queue.
-    ///
-    /// # Parameters
-    ///
-    /// * `worker_index` - Worker that is requesting stolen work.
-    ///
-    /// # Returns
-    ///
-    /// `Some(job)` when any other worker queue can provide one job.
-    fn try_steal_job_locked(&self, worker_index: usize) -> Option<PoolJob> {
-        let queues = self
-            .worker_queues
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let queue_count = queues.len();
-        if queue_count <= 1 {
-            return None;
-        }
-        // Rotate victim probing start index to avoid repeatedly hammering the
-        // same queue under contention.
-        let start = self.next_enqueue_worker.fetch_add(1, Ordering::Relaxed) % queue_count;
-        for offset in 0..queue_count {
-            let victim = &queues[(start + offset) % queue_count];
-            if victim.worker_index() == worker_index {
-                continue;
-            }
-            if let Some(job) = victim.steal_back() {
-                return Some(job);
-            }
-        }
-        None
-    }
-
-    /// Drains all jobs from all worker-local queues.
-    ///
-    /// # Returns
-    ///
-    /// A vector containing every job drained from worker-local queues.
-    fn drain_all_worker_queued_jobs_locked(&self) -> Vec<PoolJob> {
-        let queues = self
-            .worker_queues
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .iter()
-            .cloned()
-            .collect::<Vec<_>>();
-        let mut jobs = Vec::new();
-        for queue in queues {
-            jobs.extend(queue.drain());
-        }
-        jobs
     }
 
     /// Requests graceful shutdown.
@@ -568,8 +425,7 @@ impl ThreadPoolInner {
             }
             let queued = state.queued_tasks;
             let running = state.running_tasks;
-            let mut jobs = state.queue.drain(..).collect::<Vec<_>>();
-            jobs.extend(self.drain_all_worker_queued_jobs_locked());
+            let jobs = state.queue.drain(..).collect::<Vec<_>>();
             debug_assert_eq!(jobs.len(), queued);
             let cancelling = jobs.len();
             state.queued_tasks = 0;
@@ -797,11 +653,8 @@ impl ThreadPoolInner {
     }
 }
 
-/// Worker reservation created under the pool state lock and spawned after the
-/// lock is released.
+/// Worker reservation created under the pool state lock before thread spawn.
 struct ReservedWorker {
     /// Stable worker index assigned in pool state.
     index: usize,
-    /// Worker-local runtime owning the local queue.
-    runtime: ThreadPoolWorkerRuntime,
 }
