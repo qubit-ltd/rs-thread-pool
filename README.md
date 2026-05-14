@@ -13,8 +13,7 @@ Thread-pool executor services for Rust.
 
 Qubit Thread Pool provides OS-thread based `ExecutorService` implementations for
 synchronous work. It contains a dynamic `ThreadPool` for bursty workloads, a
-`FixedThreadPool` for stable worker counts, and a `DelayedTaskScheduler` for
-cancellable deadline-based callbacks.
+`FixedThreadPool` for stable worker counts.
 
 The crate is built on `qubit-executor`, so it shares the same task acceptance,
 shutdown, cancellation, and `TaskHandle` semantics as other Qubit executor
@@ -25,7 +24,6 @@ implementations. It does not require Tokio or Rayon for normal use.
 - Dynamic `ThreadPool` with separate core and maximum worker limits.
 - Fixed-size `FixedThreadPool` for predictable worker counts.
 - `FixedThreadPool` implements `Default`: it is built from `FixedThreadPoolBuilder::default()` with the same defaults (worker count from available parallelism, unbounded queue, default thread name prefix). On failure to spawn workers it panics; use `FixedThreadPoolBuilder::default().build()` when you need a `Result`.
-- Single-threaded `DelayedTaskScheduler` for cancellable delayed callbacks.
 - Bounded or unbounded queue configuration.
 - Lazy worker creation for the dynamic pool, with optional core-worker prestart.
 - Keep-alive and optional core-thread timeout for dynamic-pool workers.
@@ -116,10 +114,6 @@ finish according to their own code.
 `wait_termination` blocks the current thread after shutdown has been requested
 until all accepted work has completed or been cancelled.
 
-`DelayedTaskScheduler` follows the same lifecycle shape for delayed callbacks:
-`shutdown` rejects new callbacks and lets accepted callbacks run at their
-deadlines, while `stop` cancels callbacks that have not started.
-
 ## Quick Start
 
 ### Dynamic thread pool
@@ -162,34 +156,12 @@ pool.shutdown();
 
 With default builder settings you can also write `let pool = FixedThreadPool::default();`—same as `FixedThreadPoolBuilder::default().build()` but panics if worker threads cannot be spawned.
 
-### Delayed task scheduler
-
-```rust
-use std::sync::mpsc;
-use std::time::Duration;
-
-use qubit_thread_pool::DelayedTaskScheduler;
-
-let scheduler = DelayedTaskScheduler::new("app-delay")?;
-let (tx, rx) = mpsc::channel();
-
-let handle = scheduler.schedule(Duration::from_millis(25), move || {
-    tx.send("ready").expect("receiver should be alive");
-})?;
-
-assert_eq!(rx.recv()?, "ready");
-assert!(!handle.cancel());
-scheduler.shutdown();
-# Ok::<(), Box<dyn std::error::Error>>(())
-```
-
 ## Choosing an Executor
 
 Use `ThreadPool` when a service has blocking work with bursty traffic and needs
 core/maximum worker tuning. Use `FixedThreadPool` when the desired worker count
-is stable and should not grow dynamically. Use `DelayedTaskScheduler` when you
-need many delayed callbacks without dedicating one sleeping OS thread per
-callback; keep scheduled callbacks small and submit heavier work to a pool.
+is stable and should not grow dynamically. Use `qubit-executor`'s scheduled
+executor service when you need delayed or deadline-based task submission.
 
 For CPU-bound divide-and-conquer work, prefer `qubit-rayon-executor`. For Tokio
 applications, prefer `qubit-tokio-executor` for Tokio blocking tasks or async IO

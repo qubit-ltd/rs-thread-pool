@@ -12,17 +12,12 @@
 //! Dynamic and fixed-size thread pool executor services.
 //!
 
-pub mod delayed;
 pub mod dynamic;
 pub mod fixed;
 mod pool_job;
 mod thread_pool_hooks;
 mod thread_pool_stats;
 
-pub use delayed::{
-    DelayedTaskHandle,
-    DelayedTaskScheduler,
-};
 pub use dynamic::{
     ThreadPool,
     ThreadPoolBuilder,
