@@ -1,6 +1,6 @@
 [package]
 name = "qubit-thread-pool"
-version = "0.7.0"
+version = "0.7.1"
 edition = "2024"
 rust-version = "1.94"
 authors = ["Haixing Hu <starfish.hu@gmail.com>"]
@@ -31,7 +31,7 @@ doctest = true
 crossbeam-deque = "0.8"
 thiserror = "2.0"
 
-qubit-executor = "0.5"
+qubit-executor = "0.5.1"
 qubit-function = "0.13"
 qubit-lock = "0.6"
 
