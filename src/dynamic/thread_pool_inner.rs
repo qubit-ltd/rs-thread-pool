@@ -31,8 +31,8 @@ use qubit_executor::service::{
     SubmissionError,
 };
 use qubit_lock::{
-    Monitor,
-    MonitorGuard,
+    ParkingLotMonitor,
+    ParkingLotMonitorGuard,
 };
 
 use super::thread_pool_config::ThreadPoolConfig;
@@ -68,7 +68,7 @@ impl Drop for ThreadPoolSubmitGuard<'_> {
 /// Shared state for a thread pool.
 pub(crate) struct ThreadPoolInner {
     /// Lifecycle and worker state protected by a monitor.
-    state_monitor: Monitor<ThreadPoolState>,
+    state_monitor: ParkingLotMonitor<ThreadPoolState>,
     /// Admission gate used by submitters.
     accepting: AtomicBool,
     /// Whether immediate shutdown has requested workers to stop taking jobs.
@@ -130,7 +130,7 @@ impl ThreadPoolInner {
         let queue_capacity = config.queue_capacity;
         let core_pool_size = config.core_pool_size;
         Self {
-            state_monitor: Monitor::new(ThreadPoolState::new(config)),
+            state_monitor: ParkingLotMonitor::new(ThreadPoolState::new(config)),
             accepting: AtomicBool::new(true),
             stop_now: AtomicBool::new(false),
             live_worker_count: AtomicUsize::new(0),
@@ -201,7 +201,7 @@ impl ThreadPoolInner {
     ///
     /// A monitor guard for the mutable pool state.
     #[inline]
-    pub(crate) fn lock_state(&self) -> MonitorGuard<'_, ThreadPoolState> {
+    pub(crate) fn lock_state(&self) -> ParkingLotMonitorGuard<'_, ThreadPoolState> {
         self.state_monitor.lock()
     }
 

@@ -23,7 +23,7 @@ use qubit_executor::service::{
     StopReport,
     SubmissionError,
 };
-use qubit_lock::Monitor;
+use qubit_lock::ParkingLotMonitor;
 
 use super::fixed_thread_pool_state::FixedThreadPoolState;
 use crate::{
@@ -57,7 +57,7 @@ pub struct FixedThreadPoolInner {
     /// Number of workers in this fixed pool.
     pub pool_size: usize,
     /// Mutable lifecycle and worker counters.
-    pub state: Monitor<FixedThreadPoolState>,
+    pub state: ParkingLotMonitor<FixedThreadPoolState>,
     /// Admission gate used by submitters.
     pub accepting: AtomicBool,
     /// Whether immediate shutdown has requested workers to stop taking jobs.
@@ -111,7 +111,7 @@ impl FixedThreadPoolInner {
     ) -> Self {
         Self {
             pool_size,
-            state: Monitor::new(FixedThreadPoolState::new()),
+            state: ParkingLotMonitor::new(FixedThreadPoolState::new()),
             accepting: AtomicBool::new(true),
             stop_now: AtomicBool::new(false),
             inflight_submissions: AtomicUsize::new(0),
