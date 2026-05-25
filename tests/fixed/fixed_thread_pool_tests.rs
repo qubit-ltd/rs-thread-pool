@@ -116,10 +116,7 @@ fn test_fixed_thread_pool_submit_callable_returns_value() {
         .submit_callable(ok_usize_task as fn() -> Result<usize, io::Error>)
         .expect("fixed thread pool should accept callable");
 
-    assert_eq!(
-        handle.get().expect("callable should complete successfully"),
-        42,
-    );
+    assert_eq!(handle.get().expect("callable should complete successfully"), 42,);
     pool.shutdown();
     pool.wait_termination();
 }
@@ -158,12 +155,8 @@ fn test_fixed_thread_pool_join_waits_for_running_and_queued_tasks() {
 
     let first = pool
         .submit_tracked(move || {
-            started_tx
-                .send(())
-                .expect("test should receive task start signal");
-            release_rx
-                .recv()
-                .map_err(|err| io::Error::other(err.to_string()))?;
+            started_tx.send(()).expect("test should receive task start signal");
+            release_rx.recv().map_err(|err| io::Error::other(err.to_string()))?;
             Ok::<(), io::Error>(())
         })
         .expect("first task should be accepted");
@@ -175,16 +168,10 @@ fn test_fixed_thread_pool_join_waits_for_running_and_queued_tasks() {
     let join_pool = Arc::clone(&pool);
     let join_waiter = thread::spawn(move || {
         join_pool.join();
-        join_done_tx
-            .send(())
-            .expect("test should receive join completion");
+        join_done_tx.send(()).expect("test should receive join completion");
     });
 
-    assert!(
-        join_done_rx
-            .recv_timeout(Duration::from_millis(30))
-            .is_err()
-    );
+    assert!(join_done_rx.recv_timeout(Duration::from_millis(30)).is_err());
     release_tx
         .send(())
         .expect("blocking task should receive release signal");
@@ -237,12 +224,8 @@ fn test_fixed_thread_pool_bounded_queue_rejects_when_saturated() {
 
     let first = pool
         .submit_tracked(move || {
-            started_tx
-                .send(())
-                .expect("test should receive task start signal");
-            release_rx
-                .recv()
-                .map_err(|err| io::Error::other(err.to_string()))?;
+            started_tx.send(()).expect("test should receive task start signal");
+            release_rx.recv().map_err(|err| io::Error::other(err.to_string()))?;
             Ok::<(), io::Error>(())
         })
         .expect("first task should be accepted");
@@ -271,12 +254,8 @@ fn test_fixed_thread_pool_shutdown_drains_queued_tasks() {
 
     let first = pool
         .submit_tracked(move || {
-            started_tx
-                .send(())
-                .expect("test should receive task start signal");
-            release_rx
-                .recv()
-                .map_err(|err| io::Error::other(err.to_string()))?;
+            started_tx.send(()).expect("test should receive task start signal");
+            release_rx.recv().map_err(|err| io::Error::other(err.to_string()))?;
             Ok::<(), io::Error>(())
         })
         .expect("first task should be accepted");
@@ -290,9 +269,7 @@ fn test_fixed_thread_pool_shutdown_drains_queued_tasks() {
     release_tx
         .send(())
         .expect("blocking task should receive release signal");
-    first
-        .get()
-        .expect("first task should complete successfully");
+    first.get().expect("first task should complete successfully");
 
     assert!(matches!(rejected, Err(SubmissionError::Shutdown)));
     assert_eq!(second.get().expect("queued task should still run"), 42);
@@ -308,12 +285,8 @@ fn test_fixed_thread_pool_stop_cancels_queued_tasks() {
 
     let first = pool
         .submit_tracked(move || {
-            started_tx
-                .send(())
-                .expect("test should receive task start signal");
-            release_rx
-                .recv()
-                .map_err(|err| io::Error::other(err.to_string()))?;
+            started_tx.send(()).expect("test should receive task start signal");
+            release_rx.recv().map_err(|err| io::Error::other(err.to_string()))?;
             Ok::<(), io::Error>(())
         })
         .expect("first task should be accepted");
@@ -344,12 +317,8 @@ fn test_fixed_thread_pool_cancel_before_start_reports_cancelled() {
 
     let first = pool
         .submit_tracked(move || {
-            started_tx
-                .send(())
-                .expect("test should receive task start signal");
-            release_rx
-                .recv()
-                .map_err(|err| io::Error::other(err.to_string()))?;
+            started_tx.send(()).expect("test should receive task start signal");
+            release_rx.recv().map_err(|err| io::Error::other(err.to_string()))?;
             Ok::<(), io::Error>(())
         })
         .expect("first task should be accepted");
@@ -426,9 +395,7 @@ fn test_fixed_thread_pool_large_pool_uses_global_queue_stop() {
         let started_tx = started_tx.clone();
         running.push(
             pool.submit_tracked(move || {
-                started_tx
-                    .send(())
-                    .expect("test should receive task start signal");
+                started_tx.send(()).expect("test should receive task start signal");
                 while !release_for_task.load(Ordering::Acquire) {
                     std::thread::sleep(Duration::from_millis(5));
                 }
@@ -487,9 +454,7 @@ fn test_fixed_thread_pool_large_pool_runs_global_queue_tasks() {
 fn test_fixed_thread_pool_default_uses_builder_defaults() {
     let pool = FixedThreadPool::default();
 
-    let expected_pool_size = thread::available_parallelism()
-        .map(usize::from)
-        .unwrap_or(1);
+    let expected_pool_size = thread::available_parallelism().map(usize::from).unwrap_or(1);
     assert_eq!(pool.pool_size(), expected_pool_size);
     let stats = pool.stats();
     assert_eq!(stats.core_pool_size, expected_pool_size);
@@ -545,9 +510,7 @@ fn test_fixed_thread_pool_stop_cancels_queued_batch() {
         let started_tx = started_tx.clone();
         handles.push(
             pool.submit_tracked(move || {
-                started_tx
-                    .send(())
-                    .expect("test should receive task start signal");
+                started_tx.send(()).expect("test should receive task start signal");
                 while !release_for_task.load(Ordering::Acquire) {
                     std::thread::sleep(Duration::from_millis(5));
                 }

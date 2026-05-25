@@ -41,10 +41,7 @@ struct FixedSubmitGuard<'a> {
 impl Drop for FixedSubmitGuard<'_> {
     /// Leaves submit accounting and wakes waiters if needed.
     fn drop(&mut self) {
-        let previous = self
-            .inner
-            .inflight_submissions
-            .fetch_sub(1, Ordering::Release);
+        let previous = self.inner.inflight_submissions.fetch_sub(1, Ordering::Release);
         debug_assert!(previous > 0, "fixed pool submit counter underflow");
         if previous == 1 && (self.inner.has_submit_waiters() || self.inner.has_idle_waiters()) {
             self.inner.notify_waiters_after_atomic_change();
@@ -104,11 +101,7 @@ impl FixedThreadPoolInner {
     /// # Returns
     ///
     /// A shared state object ready for worker startup.
-    pub(crate) fn with_hooks(
-        pool_size: usize,
-        queue_capacity: Option<usize>,
-        hooks: ThreadPoolHooks,
-    ) -> Self {
+    pub(crate) fn with_hooks(pool_size: usize, queue_capacity: Option<usize>, hooks: ThreadPoolHooks) -> Self {
         Self {
             pool_size,
             state: ParkingLotMonitor::new(FixedThreadPoolState::new()),
@@ -268,11 +261,11 @@ impl FixedThreadPoolInner {
         if idle_workers == 0 {
             return;
         }
-        let requested = self.pending_worker_wakes.fetch_update(
-            Ordering::AcqRel,
-            Ordering::Acquire,
-            |pending_wakes| (pending_wakes < idle_workers).then_some(pending_wakes + 1),
-        );
+        let requested = self
+            .pending_worker_wakes
+            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |pending_wakes| {
+                (pending_wakes < idle_workers).then_some(pending_wakes + 1)
+            });
         if requested.is_ok() {
             let _state = self.state.lock();
             self.state.notify_one();
@@ -291,11 +284,9 @@ impl FixedThreadPoolInner {
 
     /// Consumes one requested idle-worker wakeup if one exists.
     pub fn consume_pending_worker_wake(&self) {
-        let _ = self.pending_worker_wakes.fetch_update(
-            Ordering::AcqRel,
-            Ordering::Acquire,
-            |current| current.checked_sub(1),
-        );
+        let _ = self
+            .pending_worker_wakes
+            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |current| current.checked_sub(1));
     }
 
     /// Returns whether any caller is waiting for submit admission to drain.
@@ -440,8 +431,7 @@ impl FixedThreadPoolInner {
 
     /// Blocks until the pool is fully terminated.
     pub fn wait_for_termination(&self) {
-        self.state
-            .wait_until(|state| self.is_terminated_locked(state), |_| ());
+        self.state.wait_until(|state| self.is_terminated_locked(state), |_| ());
     }
 
     /// Blocks until all accepted work has completed or been cancelled.
@@ -611,9 +601,7 @@ impl FixedThreadPoolInner {
     /// `true` when no submitter is still admitting work, no queued slot remains,
     /// and no worker-held task is running.
     fn is_idle_locked(&self) -> bool {
-        self.queue_slot_count.load(Ordering::Acquire) == 0
-            && self.running_count() == 0
-            && self.inflight_count() == 0
+        self.queue_slot_count.load(Ordering::Acquire) == 0 && self.running_count() == 0 && self.inflight_count() == 0
     }
 
     /// Returns a point-in-time stats snapshot.
@@ -700,20 +688,14 @@ mod tests {
     /// deterministically exercise step 3 without relying on timing.
     #[test]
     fn test_stop_reports_worker_side_cancel_after_stop_now() {
-        let inner = Arc::new(FixedThreadPoolInner::with_hooks(
-            1,
-            None,
-            ThreadPoolHooks::new(),
-        ));
+        let inner = Arc::new(FixedThreadPoolInner::with_hooks(1, None, ThreadPoolHooks::new()));
         let (cancelled_tx, cancelled_rx) = mpsc::channel();
 
         inner
             .submit(PoolJob::new(
                 Box::new(thread::yield_now),
                 Box::new(move || {
-                    cancelled_tx
-                        .send(())
-                        .expect("test should receive cancellation signal");
+                    cancelled_tx.send(()).expect("test should receive cancellation signal");
                 }),
             ))
             .expect("job should be accepted before stop");
@@ -725,10 +707,7 @@ mod tests {
         inner.inflight_submissions.fetch_add(1, Ordering::Release);
         let stop_inner = Arc::clone(&inner);
         let stop_thread = thread::spawn(move || stop_inner.stop());
-        wait_until(|| {
-            inner.stop_now.load(Ordering::Acquire)
-                && inner.submit_waiter_count.load(Ordering::Acquire) > 0
-        });
+        wait_until(|| inner.stop_now.load(Ordering::Acquire) && inner.submit_waiter_count.load(Ordering::Acquire) > 0);
 
         // This is the worker-side cancellation window being protected. The
         // public worker helper checks `stop_now` before stealing, so this test

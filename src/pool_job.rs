@@ -151,10 +151,7 @@ impl PoolJob {
     /// # Returns
     ///
     /// A custom type-erased job accepted by thread pools.
-    pub fn new(
-        run: Box<dyn FnOnce() + Send + 'static>,
-        cancel: Box<dyn FnOnce() + Send + 'static>,
-    ) -> Self {
+    pub fn new(run: Box<dyn FnOnce() + Send + 'static>, cancel: Box<dyn FnOnce() + Send + 'static>) -> Self {
         Self::with_accept(Box::new(|| {}), run, cancel)
     }
 

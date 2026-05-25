@@ -62,9 +62,7 @@ impl FixedThreadPool {
     /// # Errors
     ///
     /// Returns [`ExecutorServiceBuilderError`] when a worker thread cannot be spawned.
-    pub(crate) fn new_with_builder(
-        builder: FixedThreadPoolBuilder,
-    ) -> Result<Self, ExecutorServiceBuilderError> {
+    pub(crate) fn new_with_builder(builder: FixedThreadPoolBuilder) -> Result<Self, ExecutorServiceBuilderError> {
         let FixedThreadPoolBuilder {
             pool_size,
             queue_capacity,
@@ -77,11 +75,7 @@ impl FixedThreadPool {
             let worker_runtime = FixedWorkerRuntime::new(index);
             worker_runtimes.push(worker_runtime);
         }
-        let inner = Arc::new(FixedThreadPoolInner::with_hooks(
-            pool_size,
-            queue_capacity,
-            hooks,
-        ));
+        let inner = Arc::new(FixedThreadPoolInner::with_hooks(pool_size, queue_capacity, hooks));
         let mut worker_handles = Vec::with_capacity(pool_size);
         for (index, worker_runtime) in worker_runtimes.into_iter().enumerate() {
             inner.reserve_worker_slot();
@@ -277,10 +271,7 @@ impl ExecutorService for FixedThreadPool {
     ///
     /// Returns [`SubmissionError::Shutdown`] after shutdown or
     /// [`SubmissionError::Saturated`] when a bounded queue is full.
-    fn submit_tracked_callable<C, R, E>(
-        &self,
-        task: C,
-    ) -> Result<Self::TrackedHandle<R, E>, SubmissionError>
+    fn submit_tracked_callable<C, R, E>(&self, task: C) -> Result<Self::TrackedHandle<R, E>, SubmissionError>
     where
         C: Callable<R, E> + Send + 'static,
         R: Send + 'static,

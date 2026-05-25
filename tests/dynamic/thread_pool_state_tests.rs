@@ -18,9 +18,7 @@ fn test_thread_pool_state_reports_queue_saturation_and_shutdown_cancellation() {
     let running = pool
         .submit_tracked(move || {
             started_tx.send(()).unwrap();
-            release_rx
-                .recv()
-                .map_err(|err| io::Error::other(err.to_string()))?;
+            release_rx.recv().map_err(|err| io::Error::other(err.to_string()))?;
             Ok::<(), io::Error>(())
         })
         .unwrap();

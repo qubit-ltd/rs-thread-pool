@@ -24,9 +24,7 @@ fn test_thread_pool_lifecycle_reports_shutting_down_with_running_work() {
     let (release_tx, release_rx) = std::sync::mpsc::channel::<()>();
     let handle = pool
         .submit_tracked(move || {
-            started_tx
-                .send(())
-                .expect("test should receive task start signal");
+            started_tx.send(()).expect("test should receive task start signal");
             release_rx
                 .recv()
                 .map_err(|err| std::io::Error::other(err.to_string()))?;
