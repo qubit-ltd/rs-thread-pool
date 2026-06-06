@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! Builder for [`super::FixedThreadPool`].
 
 use std::thread;
@@ -190,8 +188,8 @@ impl FixedThreadPoolBuilder {
     ///
     /// # Errors
     ///
-    /// Returns [`ExecutorServiceBuilderError`] when configuration is invalid or a
-    /// worker thread cannot be spawned.
+    /// Returns [`ExecutorServiceBuilderError`] when configuration is invalid or
+    /// a worker thread cannot be spawned.
     pub fn build(self) -> Result<FixedThreadPool, ExecutorServiceBuilderError> {
         self.validate()?;
         FixedThreadPool::new_with_builder(self)
@@ -205,8 +203,8 @@ impl FixedThreadPoolBuilder {
     ///
     /// # Errors
     ///
-    /// Returns [`ExecutorServiceBuilderError`] for zero pool size, zero queue capacity,
-    /// or zero stack size.
+    /// Returns [`ExecutorServiceBuilderError`] for zero pool size, zero queue
+    /// capacity, or zero stack size.
     fn validate(&self) -> Result<(), ExecutorServiceBuilderError> {
         if self.pool_size == 0 {
             return Err(ExecutorServiceBuilderError::ZeroPoolSize);
@@ -244,5 +242,7 @@ impl Default for FixedThreadPoolBuilder {
 ///
 /// Available CPU parallelism, or `1` if it cannot be detected.
 fn default_fixed_pool_size() -> usize {
-    thread::available_parallelism().map(usize::from).unwrap_or(1)
+    thread::available_parallelism()
+        .map(usize::from)
+        .unwrap_or(1)
 }

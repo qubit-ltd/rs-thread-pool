@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 use std::{
     sync::Arc,
     time::Duration,
@@ -50,7 +48,6 @@ use qubit_executor::service::{
 /// `shutdown` is graceful: already accepted queued tasks are allowed to run.
 /// `stop` is abrupt: queued tasks that have not started are completed
 /// with [`TaskExecutionError::Cancelled`](qubit_executor::TaskExecutionError::Cancelled).
-///
 pub struct ThreadPool {
     /// Shared pool state and worker coordination primitives.
     inner: Arc<ThreadPoolInner>,
@@ -73,8 +70,8 @@ impl ThreadPool {
     ///
     /// # Errors
     ///
-    /// Returns [`ExecutorServiceBuilderError`] if the resulting maximum pool size is
-    /// zero or a worker thread cannot be spawned.
+    /// Returns [`ExecutorServiceBuilderError`] if the resulting maximum pool
+    /// size is zero or a worker thread cannot be spawned.
     #[inline]
     pub fn new(pool_size: usize) -> Result<Self, ExecutorServiceBuilderError> {
         Self::builder().pool_size(pool_size).build()
@@ -84,7 +81,8 @@ impl ThreadPool {
     ///
     /// # Returns
     ///
-    /// A builder with default core and maximum pool sizes and an unbounded queue.
+    /// A builder with default core and maximum pool sizes and an unbounded
+    /// queue.
     #[inline]
     pub fn builder() -> ThreadPoolBuilder {
         ThreadPoolBuilder::default()
@@ -229,10 +227,10 @@ impl ThreadPool {
     /// Updates the core pool size.
     ///
     /// Increasing the core size changes future admission and prestart limits,
-    /// but it does not eagerly create workers or reschedule already queued work.
-    /// Call [`Self::prestart_all_core_threads`] when eager creation is desired.
-    /// Decreasing the core size lets excess idle workers retire according to
-    /// the keep-alive policy.
+    /// but it does not eagerly create workers or reschedule already queued
+    /// work. Call [`Self::prestart_all_core_threads`] when eager creation
+    /// is desired. Decreasing the core size lets excess idle workers retire
+    /// according to the keep-alive policy.
     ///
     /// # Parameters
     ///
@@ -244,9 +242,12 @@ impl ThreadPool {
     ///
     /// # Errors
     ///
-    /// Returns [`ExecutorServiceBuilderError::CorePoolSizeExceedsMaximum`] when the
-    /// new core size would exceed the current maximum size.
-    pub fn set_core_pool_size(&self, core_pool_size: usize) -> Result<(), ExecutorServiceBuilderError> {
+    /// Returns [`ExecutorServiceBuilderError::CorePoolSizeExceedsMaximum`] when
+    /// the new core size would exceed the current maximum size.
+    pub fn set_core_pool_size(
+        &self,
+        core_pool_size: usize,
+    ) -> Result<(), ExecutorServiceBuilderError> {
         self.inner.set_core_pool_size(core_pool_size)
     }
 
@@ -265,10 +266,14 @@ impl ThreadPool {
     ///
     /// # Errors
     ///
-    /// Returns [`ExecutorServiceBuilderError::ZeroMaximumPoolSize`] when the maximum
-    /// size is zero, or [`ExecutorServiceBuilderError::CorePoolSizeExceedsMaximum`]
+    /// Returns [`ExecutorServiceBuilderError::ZeroMaximumPoolSize`] when the
+    /// maximum size is zero, or
+    /// [`ExecutorServiceBuilderError::CorePoolSizeExceedsMaximum`]
     /// when it would be smaller than the current core size.
-    pub fn set_maximum_pool_size(&self, maximum_pool_size: usize) -> Result<(), ExecutorServiceBuilderError> {
+    pub fn set_maximum_pool_size(
+        &self,
+        maximum_pool_size: usize,
+    ) -> Result<(), ExecutorServiceBuilderError> {
         self.inner.set_maximum_pool_size(maximum_pool_size)
     }
 
@@ -284,9 +289,12 @@ impl ThreadPool {
     ///
     /// # Errors
     ///
-    /// Returns [`ExecutorServiceBuilderError::ZeroKeepAlive`] when `keep_alive` is
-    /// zero.
-    pub fn set_keep_alive(&self, keep_alive: Duration) -> Result<(), ExecutorServiceBuilderError> {
+    /// Returns [`ExecutorServiceBuilderError::ZeroKeepAlive`] when `keep_alive`
+    /// is zero.
+    pub fn set_keep_alive(
+        &self,
+        keep_alive: Duration,
+    ) -> Result<(), ExecutorServiceBuilderError> {
         self.inner.set_keep_alive(keep_alive)
     }
 
@@ -345,7 +353,10 @@ impl ExecutorService for ThreadPool {
     /// [`SubmissionError::Saturated`] when the bounded pool cannot accept
     /// more work, or returns [`SubmissionError::WorkerSpawnFailed`] when a
     /// required worker cannot be created.
-    fn submit_callable<C, R, E>(&self, task: C) -> Result<Self::ResultHandle<R, E>, SubmissionError>
+    fn submit_callable<C, R, E>(
+        &self,
+        task: C,
+    ) -> Result<Self::ResultHandle<R, E>, SubmissionError>
     where
         C: Callable<R, E> + Send + 'static,
         R: Send + 'static,
@@ -358,7 +369,10 @@ impl ExecutorService for ThreadPool {
     }
 
     /// Accepts a callable and queues it with a tracked handle.
-    fn submit_tracked_callable<C, R, E>(&self, task: C) -> Result<Self::TrackedHandle<R, E>, SubmissionError>
+    fn submit_tracked_callable<C, R, E>(
+        &self,
+        task: C,
+    ) -> Result<Self::TrackedHandle<R, E>, SubmissionError>
     where
         C: Callable<R, E> + Send + 'static,
         R: Send + 'static,

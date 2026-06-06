@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 use std::{
     sync::Arc,
     thread,
@@ -31,7 +29,6 @@ const DEFAULT_KEEP_ALIVE: Duration = Duration::from_secs(60);
 ///
 /// The default builder uses the available CPU parallelism as both core and
 /// maximum pool size, with an unbounded FIFO queue.
-///
 #[derive(Debug, Clone)]
 pub struct ThreadPoolBuilder {
     /// Configured core pool size.
@@ -294,8 +291,8 @@ impl ThreadPoolBuilder {
     ///
     /// # Errors
     ///
-    /// Returns [`ExecutorServiceBuilderError`] if the configuration is invalid or a
-    /// prestarted worker thread cannot be spawned.
+    /// Returns [`ExecutorServiceBuilderError`] if the configuration is invalid
+    /// or a prestarted worker thread cannot be spawned.
     pub fn build(self) -> Result<ThreadPool, ExecutorServiceBuilderError> {
         self.validate()?;
         let prestart_core_threads = self.prestart_core_threads;
@@ -311,10 +308,14 @@ impl ThreadPoolBuilder {
             },
             self.hooks,
         ));
-        if prestart_core_threads && let Err(error) = inner.prestart_all_core_threads() {
+        if prestart_core_threads
+            && let Err(error) = inner.prestart_all_core_threads()
+        {
             inner.stop();
             inner.wait_for_termination();
-            return Err(ExecutorServiceBuilderError::from_submission_error(error));
+            return Err(ExecutorServiceBuilderError::from_submission_error(
+                error,
+            ));
         }
         Ok(ThreadPool::from_inner(inner))
     }
@@ -327,18 +328,20 @@ impl ThreadPoolBuilder {
     ///
     /// # Errors
     ///
-    /// Returns [`ExecutorServiceBuilderError`] for zero maximum size, core size larger
-    /// than maximum size, zero bounded queue capacity, zero stack size, or zero
-    /// keep-alive timeout.
+    /// Returns [`ExecutorServiceBuilderError`] for zero maximum size, core size
+    /// larger than maximum size, zero bounded queue capacity, zero stack
+    /// size, or zero keep-alive timeout.
     fn validate(&self) -> Result<(), ExecutorServiceBuilderError> {
         if self.maximum_pool_size == 0 {
             return Err(ExecutorServiceBuilderError::ZeroMaximumPoolSize);
         }
         if self.core_pool_size > self.maximum_pool_size {
-            return Err(ExecutorServiceBuilderError::CorePoolSizeExceedsMaximum {
-                core_pool_size: self.core_pool_size,
-                maximum_pool_size: self.maximum_pool_size,
-            });
+            return Err(
+                ExecutorServiceBuilderError::CorePoolSizeExceedsMaximum {
+                    core_pool_size: self.core_pool_size,
+                    maximum_pool_size: self.maximum_pool_size,
+                },
+            );
         }
         if self.queue_capacity == Some(0) {
             return Err(ExecutorServiceBuilderError::ZeroQueueCapacity);
@@ -382,5 +385,7 @@ impl Default for ThreadPoolBuilder {
 ///
 /// The available CPU parallelism, or `1` if it cannot be detected.
 fn default_pool_size() -> usize {
-    thread::available_parallelism().map(usize::from).unwrap_or(1)
+    thread::available_parallelism()
+        .map(usize::from)
+        .unwrap_or(1)
 }

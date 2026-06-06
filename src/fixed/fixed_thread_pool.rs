@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 use std::{
     sync::Arc,
     thread::JoinHandle,
@@ -61,8 +59,11 @@ impl FixedThreadPool {
     ///
     /// # Errors
     ///
-    /// Returns [`ExecutorServiceBuilderError`] when a worker thread cannot be spawned.
-    pub(crate) fn new_with_builder(builder: FixedThreadPoolBuilder) -> Result<Self, ExecutorServiceBuilderError> {
+    /// Returns [`ExecutorServiceBuilderError`] when a worker thread cannot be
+    /// spawned.
+    pub(crate) fn new_with_builder(
+        builder: FixedThreadPoolBuilder,
+    ) -> Result<Self, ExecutorServiceBuilderError> {
         let FixedThreadPoolBuilder {
             pool_size,
             queue_capacity,
@@ -75,7 +76,11 @@ impl FixedThreadPool {
             let worker_runtime = FixedWorkerRuntime::new(index);
             worker_runtimes.push(worker_runtime);
         }
-        let inner = Arc::new(FixedThreadPoolInner::with_hooks(pool_size, queue_capacity, hooks));
+        let inner = Arc::new(FixedThreadPoolInner::with_hooks(
+            pool_size,
+            queue_capacity,
+            hooks,
+        ));
         let mut worker_handles = Vec::with_capacity(pool_size);
         for (index, worker_runtime) in worker_runtimes.into_iter().enumerate() {
             inner.reserve_worker_slot();
@@ -85,7 +90,9 @@ impl FixedThreadPool {
             if let Some(stack_size) = stack_size {
                 builder = builder.stack_size(stack_size);
             }
-            match builder.spawn(move || FixedWorker::run(worker_inner, worker_runtime)) {
+            match builder
+                .spawn(move || FixedWorker::run(worker_inner, worker_runtime))
+            {
                 Ok(handle) => worker_handles.push(handle),
                 Err(source) => {
                     inner.rollback_worker_slot();
@@ -113,8 +120,8 @@ impl FixedThreadPool {
     ///
     /// # Errors
     ///
-    /// Returns [`ExecutorServiceBuilderError`] if the worker count is zero or a worker
-    /// cannot be spawned.
+    /// Returns [`ExecutorServiceBuilderError`] if the worker count is zero or a
+    /// worker cannot be spawned.
     pub fn new(pool_size: usize) -> Result<Self, ExecutorServiceBuilderError> {
         Self::builder().pool_size(pool_size).build()
     }
@@ -189,7 +196,8 @@ impl Default for FixedThreadPool {
     ///
     /// # Returns
     ///
-    /// A fixed thread pool with CPU parallelism defaults and prestarted workers.
+    /// A fixed thread pool with CPU parallelism defaults and prestarted
+    /// workers.
     ///
     /// # Panics
     ///
@@ -244,7 +252,10 @@ impl ExecutorService for FixedThreadPool {
     ///
     /// Returns [`SubmissionError::Shutdown`] after shutdown or
     /// [`SubmissionError::Saturated`] when a bounded queue is full.
-    fn submit_callable<C, R, E>(&self, task: C) -> Result<Self::ResultHandle<R, E>, SubmissionError>
+    fn submit_callable<C, R, E>(
+        &self,
+        task: C,
+    ) -> Result<Self::ResultHandle<R, E>, SubmissionError>
     where
         C: Callable<R, E> + Send + 'static,
         R: Send + 'static,
@@ -271,7 +282,10 @@ impl ExecutorService for FixedThreadPool {
     ///
     /// Returns [`SubmissionError::Shutdown`] after shutdown or
     /// [`SubmissionError::Saturated`] when a bounded queue is full.
-    fn submit_tracked_callable<C, R, E>(&self, task: C) -> Result<Self::TrackedHandle<R, E>, SubmissionError>
+    fn submit_tracked_callable<C, R, E>(
+        &self,
+        task: C,
+    ) -> Result<Self::TrackedHandle<R, E>, SubmissionError>
     where
         C: Callable<R, E> + Send + 'static,
         R: Send + 'static,
@@ -330,7 +344,8 @@ impl ExecutorService for FixedThreadPool {
 ///
 /// # Parameters
 ///
-/// * `worker_handles` - Join handles for workers started before construction failed.
+/// * `worker_handles` - Join handles for workers started before construction
+///   failed.
 fn join_started_workers(worker_handles: Vec<JoinHandle<()>>) {
     for worker_handle in worker_handles {
         let _ignored = worker_handle.join();

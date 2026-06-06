@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 use std::{
     panic::{
         AssertUnwindSafe,
@@ -151,18 +149,22 @@ impl PoolJob {
     /// # Returns
     ///
     /// A custom type-erased job accepted by thread pools.
-    pub fn new(run: Box<dyn FnOnce() + Send + 'static>, cancel: Box<dyn FnOnce() + Send + 'static>) -> Self {
+    pub fn new(
+        run: Box<dyn FnOnce() + Send + 'static>,
+        cancel: Box<dyn FnOnce() + Send + 'static>,
+    ) -> Self {
         Self::with_accept(Box::new(|| {}), run, cancel)
     }
 
     /// Creates a custom cancellable job with an acceptance callback.
     ///
     /// The pool invokes `accept` exactly once after the submission crosses the
-    /// acceptance boundary. If submission is rejected before acceptance, neither
-    /// `accept`, `run`, nor `cancel` is invoked. Custom callbacks run
-    /// synchronously and should not block. Panics raised by these callbacks are
-    /// caught and ignored by the pool job wrapper; an `accept` panic is reported
-    /// to the pool as a failed acceptance callback.
+    /// acceptance boundary. If submission is rejected before acceptance,
+    /// neither `accept`, `run`, nor `cancel` is invoked. Custom callbacks
+    /// run synchronously and should not block. Panics raised by these
+    /// callbacks are caught and ignored by the pool job wrapper; an
+    /// `accept` panic is reported to the pool as a failed acceptance
+    /// callback.
     ///
     /// # Parameters
     ///
@@ -200,18 +202,25 @@ impl PoolJob {
     ///
     /// A type-erased job that runs the task on worker start and cancels the
     /// completion endpoint if the job is cancelled while queued.
-    pub(crate) fn from_task<C, R, E>(task: C, completion: TaskSlot<R, E>) -> Self
+    pub(crate) fn from_task<C, R, E>(
+        task: C,
+        completion: TaskSlot<R, E>,
+    ) -> Self
     where
         C: Callable<R, E> + Send + 'static,
         R: Send + 'static,
         E: Send + 'static,
     {
         Self {
-            inner: PoolJobInner::Completable(Box::new(CompletablePoolTask { task, completion })),
+            inner: PoolJobInner::Completable(Box::new(CompletablePoolTask {
+                task,
+                completion,
+            })),
         }
     }
 
-    /// Creates a pool job from a runnable task without retaining a result handle.
+    /// Creates a pool job from a runnable task without retaining a result
+    /// handle.
     ///
     /// # Parameters
     ///
@@ -220,8 +229,8 @@ impl PoolJob {
     /// # Returns
     ///
     /// A type-erased job that runs the task and discards its final result. If
-    /// the job is abandoned while queued, cancellation has no result endpoint to
-    /// notify.
+    /// the job is abandoned while queued, cancellation has no result endpoint
+    /// to notify.
     pub(crate) fn detached<T, E>(task: T) -> Self
     where
         T: Runnable<E> + Send + 'static,
@@ -231,7 +240,8 @@ impl PoolJob {
             inner: PoolJobInner::Detached {
                 run: Box::new(move || {
                     let mut task = task;
-                    let _ignored = catch_unwind(AssertUnwindSafe(|| task.run()));
+                    let _ignored =
+                        catch_unwind(AssertUnwindSafe(|| task.run()));
                 }),
             },
         }

@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2025 - 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 use std::{
     io,
     sync::mpsc,
@@ -26,18 +24,26 @@ fn test_fixed_thread_pool_inner_tracks_public_task_counts() {
 
     let handle = pool
         .submit_tracked(move || {
-            started_sender.send(()).expect("test should observe task start");
-            release_receiver.recv().expect("test should release running task");
+            started_sender
+                .send(())
+                .expect("test should observe task start");
+            release_receiver
+                .recv()
+                .expect("test should release running task");
             Ok::<_, io::Error>(())
         })
         .expect("task should be accepted");
 
-    started_receiver.recv().expect("worker should start submitted task");
+    started_receiver
+        .recv()
+        .expect("worker should start submitted task");
     let running_stats = pool.stats();
     assert_eq!(running_stats.submitted_tasks, 1);
     assert_eq!(running_stats.running_tasks, 1);
 
-    release_sender.send(()).expect("running task should still be waiting");
+    release_sender
+        .send(())
+        .expect("running task should still be waiting");
     handle.get().expect("task should complete successfully");
     let idle_stats = pool.stats();
     assert_eq!(idle_stats.queued_tasks, 0);
