@@ -11,6 +11,12 @@ use std::{
     time::Duration,
 };
 
+use qubit_argument::{
+    ArgumentResult,
+    DurationArgument,
+    NumericArgument,
+};
+
 use super::thread_pool::ThreadPool;
 use super::thread_pool_config::ThreadPoolConfig;
 use super::thread_pool_inner::ThreadPoolInner;
@@ -332,28 +338,53 @@ impl ThreadPoolBuilder {
     /// larger than maximum size, zero bounded queue capacity, zero stack
     /// size, or zero keep-alive timeout.
     fn validate(&self) -> Result<(), ExecutorServiceBuilderError> {
-        if self.maximum_pool_size == 0 {
-            return Err(ExecutorServiceBuilderError::ZeroMaximumPoolSize);
+        map_argument_error(
+            self.maximum_pool_size.require_positive("maximum_pool_size"),
+            ExecutorServiceBuilderError::ZeroMaximumPoolSize,
+        )?;
+        map_argument_error(
+            self.core_pool_size
+                .require_at_most("core_pool_size", self.maximum_pool_size),
+            ExecutorServiceBuilderError::CorePoolSizeExceedsMaximum {
+                core_pool_size: self.core_pool_size,
+                maximum_pool_size: self.maximum_pool_size,
+            },
+        )?;
+        if let Some(queue_capacity) = self.queue_capacity {
+            map_argument_error(
+                queue_capacity.require_positive("queue_capacity"),
+                ExecutorServiceBuilderError::ZeroQueueCapacity,
+            )?;
         }
-        if self.core_pool_size > self.maximum_pool_size {
-            return Err(
-                ExecutorServiceBuilderError::CorePoolSizeExceedsMaximum {
-                    core_pool_size: self.core_pool_size,
-                    maximum_pool_size: self.maximum_pool_size,
-                },
-            );
+        if let Some(stack_size) = self.stack_size {
+            map_argument_error(
+                stack_size.require_positive("stack_size"),
+                ExecutorServiceBuilderError::ZeroStackSize,
+            )?;
         }
-        if self.queue_capacity == Some(0) {
-            return Err(ExecutorServiceBuilderError::ZeroQueueCapacity);
-        }
-        if self.stack_size == Some(0) {
-            return Err(ExecutorServiceBuilderError::ZeroStackSize);
-        }
-        if self.keep_alive.is_zero() {
-            return Err(ExecutorServiceBuilderError::ZeroKeepAlive);
-        }
+        map_argument_error(
+            self.keep_alive.require_positive("keep_alive"),
+            ExecutorServiceBuilderError::ZeroKeepAlive,
+        )?;
         Ok(())
     }
+}
+
+/// Maps an argument-validation failure to the builder's stable error type.
+///
+/// # Parameters
+///
+/// * `result` - Result produced by an argument validation operation.
+/// * `error` - Builder error that preserves the existing public error contract.
+///
+/// # Returns
+///
+/// The validated value, or `error` when argument validation fails.
+fn map_argument_error<T>(
+    result: ArgumentResult<T>,
+    error: ExecutorServiceBuilderError,
+) -> Result<T, ExecutorServiceBuilderError> {
+    result.map_err(|_| error)
 }
 
 impl Default for ThreadPoolBuilder {

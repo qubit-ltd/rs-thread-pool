@@ -34,6 +34,7 @@ doctest = true
 crossbeam-deque = "0.8"
 thiserror = "2.0"
 
+qubit-argument = "0.4"
 qubit-executor = "0.7"
 qubit-function = "0.15"
 qubit-lock = "0.9"

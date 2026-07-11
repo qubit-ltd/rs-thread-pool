@@ -9,6 +9,11 @@
 
 use std::thread;
 
+use qubit_argument::{
+    ArgumentResult,
+    NumericArgument,
+};
+
 use super::fixed_thread_pool::FixedThreadPool;
 use crate::{
     ExecutorServiceBuilderError,
@@ -206,17 +211,41 @@ impl FixedThreadPoolBuilder {
     /// Returns [`ExecutorServiceBuilderError`] for zero pool size, zero queue
     /// capacity, or zero stack size.
     fn validate(&self) -> Result<(), ExecutorServiceBuilderError> {
-        if self.pool_size == 0 {
-            return Err(ExecutorServiceBuilderError::ZeroPoolSize);
+        map_argument_error(
+            self.pool_size.require_positive("pool_size"),
+            ExecutorServiceBuilderError::ZeroPoolSize,
+        )?;
+        if let Some(queue_capacity) = self.queue_capacity {
+            map_argument_error(
+                queue_capacity.require_positive("queue_capacity"),
+                ExecutorServiceBuilderError::ZeroQueueCapacity,
+            )?;
         }
-        if self.queue_capacity == Some(0) {
-            return Err(ExecutorServiceBuilderError::ZeroQueueCapacity);
-        }
-        if self.stack_size == Some(0) {
-            return Err(ExecutorServiceBuilderError::ZeroStackSize);
+        if let Some(stack_size) = self.stack_size {
+            map_argument_error(
+                stack_size.require_positive("stack_size"),
+                ExecutorServiceBuilderError::ZeroStackSize,
+            )?;
         }
         Ok(())
     }
+}
+
+/// Maps an argument-validation failure to the builder's stable error type.
+///
+/// # Parameters
+///
+/// * `result` - Result produced by an argument validation operation.
+/// * `error` - Builder error that preserves the existing public error contract.
+///
+/// # Returns
+///
+/// The validated value, or `error` when argument validation fails.
+fn map_argument_error<T>(
+    result: ArgumentResult<T>,
+    error: ExecutorServiceBuilderError,
+) -> Result<T, ExecutorServiceBuilderError> {
+    result.map_err(|_| error)
 }
 
 impl Default for FixedThreadPoolBuilder {
