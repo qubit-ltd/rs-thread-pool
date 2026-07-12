@@ -15,6 +15,7 @@ use qubit_argument::{
     ArgumentResult,
     DurationArgument,
     NumericArgument,
+    OptionArgument,
 };
 
 use super::thread_pool::ThreadPool;
@@ -350,18 +351,18 @@ impl ThreadPoolBuilder {
                 maximum_pool_size: self.maximum_pool_size,
             },
         )?;
-        if let Some(queue_capacity) = self.queue_capacity {
-            map_argument_error(
-                queue_capacity.require_positive("queue_capacity"),
-                ExecutorServiceBuilderError::ZeroQueueCapacity,
-            )?;
-        }
-        if let Some(stack_size) = self.stack_size {
-            map_argument_error(
-                stack_size.require_positive("stack_size"),
-                ExecutorServiceBuilderError::ZeroStackSize,
-            )?;
-        }
+        map_argument_error(
+            self.queue_capacity.validate_some(|queue_capacity| {
+                queue_capacity.require_positive("queue_capacity")
+            }),
+            ExecutorServiceBuilderError::ZeroQueueCapacity,
+        )?;
+        map_argument_error(
+            self.stack_size.validate_some(|stack_size| {
+                stack_size.require_positive("stack_size")
+            }),
+            ExecutorServiceBuilderError::ZeroStackSize,
+        )?;
         map_argument_error(
             self.keep_alive.require_positive("keep_alive"),
             ExecutorServiceBuilderError::ZeroKeepAlive,

@@ -800,9 +800,9 @@ dependencies = [
 
 [[package]]
 name = "qubit-argument"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bd7c4c6323e838dc61e9c37e24691a185a40e50aeb172a56ab1772dc7de31c5a"
+checksum = "52917ecf4305b3a354fca78aa569dfbfb2e12fe651a539760f3d66bc6034c96e"
 
 [[package]]
 name = "qubit-atomic"

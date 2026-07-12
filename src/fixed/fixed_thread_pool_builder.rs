@@ -12,6 +12,7 @@ use std::thread;
 use qubit_argument::{
     ArgumentResult,
     NumericArgument,
+    OptionArgument,
 };
 
 use super::fixed_thread_pool::FixedThreadPool;
@@ -215,18 +216,18 @@ impl FixedThreadPoolBuilder {
             self.pool_size.require_positive("pool_size"),
             ExecutorServiceBuilderError::ZeroPoolSize,
         )?;
-        if let Some(queue_capacity) = self.queue_capacity {
-            map_argument_error(
-                queue_capacity.require_positive("queue_capacity"),
-                ExecutorServiceBuilderError::ZeroQueueCapacity,
-            )?;
-        }
-        if let Some(stack_size) = self.stack_size {
-            map_argument_error(
-                stack_size.require_positive("stack_size"),
-                ExecutorServiceBuilderError::ZeroStackSize,
-            )?;
-        }
+        map_argument_error(
+            self.queue_capacity.validate_some(|queue_capacity| {
+                queue_capacity.require_positive("queue_capacity")
+            }),
+            ExecutorServiceBuilderError::ZeroQueueCapacity,
+        )?;
+        map_argument_error(
+            self.stack_size.validate_some(|stack_size| {
+                stack_size.require_positive("stack_size")
+            }),
+            ExecutorServiceBuilderError::ZeroStackSize,
+        )?;
         Ok(())
     }
 }
