@@ -168,7 +168,9 @@ impl FixedThreadPool {
     ///
     /// Number of worker loops that have not exited.
     pub fn live_worker_count(&self) -> usize {
-        self.inner.state.read(|state| state.live_workers)
+        self.inner
+            .state
+            .with_read(|state| state.live_workers)
     }
 
     /// Returns a point-in-time stats snapshot.

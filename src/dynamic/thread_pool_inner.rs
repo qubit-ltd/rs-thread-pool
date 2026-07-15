@@ -226,7 +226,7 @@ impl ThreadPoolInner {
     where
         F: FnOnce(&ThreadPoolState) -> R,
     {
-        self.state_monitor.read(f)
+        self.state_monitor.with_read(f)
     }
 
     /// Acquires the pool state and mutates it while holding the monitor lock.
@@ -243,7 +243,7 @@ impl ThreadPoolInner {
     where
         F: FnOnce(&mut ThreadPoolState) -> R,
     {
-        self.state_monitor.write(f)
+        self.state_monitor.with_write(f)
     }
 
     /// Attempts to enter submit admission.

@@ -418,14 +418,14 @@ impl FixedThreadPoolInner {
 
     /// Reserves one worker slot before spawning a worker thread.
     pub fn reserve_worker_slot(&self) {
-        self.state.write(|state| {
+        self.state.with_write(|state| {
             state.live_workers += 1;
         });
     }
 
     /// Rolls back one worker slot after spawn failure.
     pub fn rollback_worker_slot(&self) {
-        self.state.write(|state| {
+        self.state.with_write(|state| {
             state.live_workers = state
                 .live_workers
                 .checked_sub(1)
@@ -437,7 +437,7 @@ impl FixedThreadPoolInner {
     pub fn stop_after_failed_build(&self) {
         self.accepting.store(false, Ordering::Release);
         self.stop_now.store(true, Ordering::Release);
-        self.state.write(|state| {
+        self.state.with_write(|state| {
             state.lifecycle = ExecutorServiceLifecycle::Stopping;
         });
         self.state.notify_all();
@@ -573,7 +573,9 @@ impl FixedThreadPoolInner {
     /// `true` when lifecycle is not running.
     pub fn is_not_running(&self) -> bool {
         self.state
-            .read(|state| state.lifecycle != ExecutorServiceLifecycle::Running)
+            .with_read(|state| {
+                state.lifecycle != ExecutorServiceLifecycle::Running
+            })
     }
 
     /// Returns the current lifecycle state.
@@ -583,7 +585,7 @@ impl FixedThreadPoolInner {
     /// [`ExecutorServiceLifecycle::Terminated`] after all accepted work and
     /// workers are gone, otherwise the stored lifecycle state.
     pub fn lifecycle(&self) -> ExecutorServiceLifecycle {
-        self.state.read(|state| {
+        self.state.with_read(|state| {
             if self.is_terminated_locked(state) {
                 ExecutorServiceLifecycle::Terminated
             } else {
@@ -598,7 +600,8 @@ impl FixedThreadPoolInner {
     ///
     /// `true` after shutdown and after all workers and jobs are gone.
     pub fn is_terminated(&self) -> bool {
-        self.state.read(|state| self.is_terminated_locked(state))
+        self.state
+            .with_read(|state| self.is_terminated_locked(state))
     }
 
     /// Checks termination against one locked state snapshot.
@@ -641,7 +644,7 @@ impl FixedThreadPoolInner {
         let submitted_tasks = self.submitted_task_count.load(Ordering::Relaxed);
         let completed_tasks = self.completed_task_count.load(Ordering::Relaxed);
         let cancelled_tasks = self.cancelled_task_count.load(Ordering::Relaxed);
-        self.state.read(|state| ThreadPoolStats {
+        self.state.with_read(|state| ThreadPoolStats {
             lifecycle: if self.is_terminated_locked(state) {
                 ExecutorServiceLifecycle::Terminated
             } else {
