@@ -572,10 +572,9 @@ impl FixedThreadPoolInner {
     ///
     /// `true` when lifecycle is not running.
     pub fn is_not_running(&self) -> bool {
-        self.state
-            .with_read(|state| {
-                state.lifecycle != ExecutorServiceLifecycle::Running
-            })
+        self.state.with_read(|state| {
+            state.lifecycle != ExecutorServiceLifecycle::Running
+        })
     }
 
     /// Returns the current lifecycle state.
