@@ -35,9 +35,9 @@ crossbeam-deque = "0.8"
 thiserror = "2.0"
 
 qubit-argument = "0.4"
-qubit-executor = "0.7"
-qubit-function = "0.15"
-qubit-lock = "0.9"
+qubit-executor = { version = "0.7", path = "../rs-executor" }
+qubit-function = { version = "0.16.0", path = "../rs-function" }
+qubit-lock = { version = "0.10.0", path = "../rs-lock" }
 
 [dev-dependencies]
 criterion = "0.8"
