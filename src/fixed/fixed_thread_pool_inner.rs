@@ -458,7 +458,7 @@ impl FixedThreadPoolInner {
         self.idle_waiter_count.fetch_add(1, Ordering::AcqRel);
         let mut state = self.state.lock();
         while !self.is_idle_locked() {
-            state = state.wait();
+            state.wait();
         }
         let previous = self.idle_waiter_count.fetch_sub(1, Ordering::AcqRel);
         debug_assert!(previous > 0, "fixed pool idle waiter counter underflow");
@@ -470,7 +470,7 @@ impl FixedThreadPoolInner {
         self.submit_waiter_count.fetch_add(1, Ordering::AcqRel);
         let mut state = self.state.lock();
         while self.inflight_count() > 0 {
-            state = state.wait();
+            state.wait();
         }
         let previous = self.submit_waiter_count.fetch_sub(1, Ordering::AcqRel);
         debug_assert!(
@@ -517,7 +517,7 @@ impl FixedThreadPoolInner {
         if self.inflight_count() > 0 {
             self.submit_waiter_count.fetch_add(1, Ordering::AcqRel);
             while self.inflight_count() > 0 {
-                state = state.wait();
+                state.wait();
             }
             let previous =
                 self.submit_waiter_count.fetch_sub(1, Ordering::AcqRel);

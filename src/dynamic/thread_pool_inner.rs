@@ -807,7 +807,7 @@ impl ThreadPoolInner {
         self.submit_waiter_count.fetch_add(1, Ordering::AcqRel);
         let mut state = self.lock_state();
         while self.inflight_count() > 0 {
-            state = state.wait();
+            state.wait();
         }
         let previous = self.submit_waiter_count.fetch_sub(1, Ordering::AcqRel);
         debug_assert!(
@@ -847,7 +847,7 @@ impl ThreadPoolInner {
             if self.inflight_count() > 0 {
                 self.submit_waiter_count.fetch_add(1, Ordering::AcqRel);
                 while self.inflight_count() > 0 {
-                    state = state.wait();
+                    state.wait();
                 }
                 let previous =
                     self.submit_waiter_count.fetch_sub(1, Ordering::AcqRel);
@@ -963,7 +963,7 @@ impl ThreadPoolInner {
         self.idle_waiter_count.fetch_add(1, Ordering::AcqRel);
         let mut state = self.lock_state();
         while !self.is_idle_snapshot() {
-            state = state.wait();
+            state.wait();
         }
         let previous = self.idle_waiter_count.fetch_sub(1, Ordering::AcqRel);
         debug_assert!(

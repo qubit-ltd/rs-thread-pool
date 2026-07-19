@@ -119,7 +119,7 @@ pub fn wait_for_fixed_pool_work(inner: &FixedThreadPoolInner) -> bool {
                     unmark_fixed_worker_idle(inner, &mut state);
                     return true;
                 }
-                state = state.wait();
+                state.wait();
                 unmark_fixed_worker_idle(inner, &mut state);
             }
             ExecutorServiceLifecycle::ShuttingDown => {

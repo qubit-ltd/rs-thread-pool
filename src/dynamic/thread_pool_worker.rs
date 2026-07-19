@@ -156,9 +156,9 @@ fn wait_for_job(
                     if inner.queued_count() == 0
                         && !inner.has_pending_worker_wake()
                     {
-                        let (next_state, status) =
-                            state.wait_timeout(keep_alive);
-                        state = next_state;
+                        let status = state
+                            .wait_for(keep_alive)
+                            .expect("standard Timer should register");
                         timed_out = status == WaitTimeoutStatus::TimedOut;
                     }
                     let should_retire = timed_out
@@ -179,7 +179,7 @@ fn wait_for_job(
                     if inner.queued_count() == 0
                         && !inner.has_pending_worker_wake()
                     {
-                        state = state.wait();
+                        state.wait();
                     }
                     unmark_thread_pool_worker_idle(inner, &mut state);
                 }
