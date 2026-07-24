@@ -45,6 +45,7 @@ fn test_fixed_thread_pool_inner_tracks_public_task_counts() {
         .send(())
         .expect("running task should still be waiting");
     handle.get().expect("task should complete successfully");
+    pool.join();
     let idle_stats = pool.stats();
     assert_eq!(idle_stats.queued_tasks, 0);
     assert_eq!(idle_stats.running_tasks, 0);
