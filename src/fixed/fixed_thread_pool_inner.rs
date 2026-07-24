@@ -437,10 +437,9 @@ impl FixedThreadPoolInner {
     pub fn stop_after_failed_build(&self) {
         self.accepting.store(false, Ordering::Release);
         self.stop_now.store(true, Ordering::Release);
-        self.state.with_write(|state| {
+        self.state.with_write_notify_all(|state| {
             state.lifecycle = ExecutorServiceLifecycle::Stopping;
         });
-        self.state.notify_all();
     }
 
     /// Blocks until the pool is fully terminated.

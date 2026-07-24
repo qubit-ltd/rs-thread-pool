@@ -1107,8 +1107,8 @@ impl ThreadPoolInner {
         if keep_alive.is_zero() {
             return Err(ExecutorServiceBuilderError::ZeroKeepAlive);
         }
-        self.write_state(|state| state.keep_alive = keep_alive);
-        self.state_monitor.notify_all();
+        self.state_monitor
+            .with_write_notify_all(|state| state.keep_alive = keep_alive);
         Ok(())
     }
 
@@ -1118,8 +1118,9 @@ impl ThreadPoolInner {
     ///
     /// * `allow` - Whether idle core workers may retire after keep-alive.
     pub(crate) fn allow_core_thread_timeout(&self, allow: bool) {
-        self.write_state(|state| state.allow_core_thread_timeout = allow);
-        self.state_monitor.notify_all();
+        self.state_monitor.with_write_notify_all(|state| {
+            state.allow_core_thread_timeout = allow;
+        });
     }
 
     /// Checks whether all accepted work has drained.

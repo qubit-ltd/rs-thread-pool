@@ -201,11 +201,10 @@ fn unmark_fixed_worker_idle(
 /// * `inner` - Shared fixed-pool state.
 /// * `_worker_index` - Index of the exiting worker.
 fn worker_exited(inner: &FixedThreadPoolInner, _worker_index: usize) {
-    inner.state.with_write(|state| {
+    inner.state.with_write_notify_all(|state| {
         state.live_workers = state
             .live_workers
             .checked_sub(1)
             .expect("fixed pool live worker counter underflow");
     });
-    inner.state.notify_all();
 }
