@@ -189,6 +189,11 @@ deterministically varied with a bell-shaped distribution so worker scheduling,
 queue contention, and wakeup behavior are visible instead of every task
 completing at the same time.
 
+The `thread_pool_idle_wakeup` group separately measures a single prestarted
+idle worker accepting a no-op task in `ThreadPool` and `FixedThreadPool`. It
+times submission through task completion while returning the worker to idle
+outside the timed interval.
+
 Benchmark inputs and historical comparison data are kept under `test-data`.
 
 ### Latest local run

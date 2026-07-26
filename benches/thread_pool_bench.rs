@@ -12,6 +12,8 @@
 use std::convert::Infallible;
 use std::hint::black_box;
 use std::sync::mpsc;
+use std::thread;
+use std::time::Duration;
 
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use qubit_thread_pool::FixedThreadPool;
@@ -131,6 +133,136 @@ where
     P: ExecutorService,
 {
     pool.wait_termination();
+}
+
+/// Fixture that measures one task waking a prestarted idle worker.
+struct IdleWakeupFixture<P> {
+    /// Pool containing exactly one worker that returns to the idle state.
+    pool: P,
+    /// Sends task-completion notifications from the worker to the benchmark.
+    sender: mpsc::Sender<()>,
+    /// Receives task-completion notifications before timing stops.
+    receiver: mpsc::Receiver<()>,
+}
+
+impl<P> IdleWakeupFixture<P> {
+    /// Creates a fixture and waits for its worker to become idle.
+    ///
+    /// # Parameters
+    ///
+    /// * `pool` - Single-worker pool whose wake-up path is measured.
+    /// * `idle_worker_count` - Reads the pool's current idle-worker count.
+    ///
+    /// # Returns
+    ///
+    /// A fixture ready to measure idle-worker wake-ups.
+    fn new(pool: P, idle_worker_count: fn(&P) -> usize) -> Self {
+        let (sender, receiver) = mpsc::channel();
+        let fixture = Self {
+            pool,
+            sender,
+            receiver,
+        };
+        fixture.wait_for_idle_worker(idle_worker_count);
+        fixture
+    }
+
+    /// Measures submission through completion while the worker starts idle.
+    ///
+    /// Returning the worker to idle happens after timing stops so the measured
+    /// duration isolates the submit-and-wake path.
+    ///
+    /// # Parameters
+    ///
+    /// * `submit` - Submits a task that signals completion through the sender.
+    /// * `idle_worker_count` - Reads the pool's current idle-worker count.
+    ///
+    /// # Returns
+    ///
+    /// The duration from submission until task completion.
+    fn round_trip(
+        &self,
+        submit: fn(&P, mpsc::Sender<()>),
+        idle_worker_count: fn(&P) -> usize,
+    ) -> Duration {
+        let started = std::time::Instant::now();
+        submit(&self.pool, self.sender.clone());
+        self.receiver
+            .recv()
+            .expect("benchmark task should signal completion");
+        let elapsed = started.elapsed();
+        self.wait_for_idle_worker(idle_worker_count);
+        elapsed
+    }
+
+    /// Waits until the fixture's only worker has re-entered the idle state.
+    ///
+    /// # Parameters
+    ///
+    /// * `idle_worker_count` - Reads the pool's current idle-worker count.
+    fn wait_for_idle_worker(&self, idle_worker_count: fn(&P) -> usize) {
+        while idle_worker_count(&self.pool) != 1 {
+            thread::yield_now();
+        }
+    }
+}
+
+/// Submits a completion-signalling task to a dynamic pool.
+///
+/// # Parameters
+///
+/// * `pool` - Dynamic pool whose idle worker should run the task.
+/// * `completed_sender` - Reports task completion to the benchmark thread.
+fn submit_dynamic_idle_wakeup(pool: &ThreadPool, completed_sender: mpsc::Sender<()>) {
+    pool.submit(move || {
+        completed_sender
+            .send(())
+            .expect("benchmark should receive dynamic task completion");
+        Ok::<(), Infallible>(())
+    })
+    .expect("dynamic pool should accept benchmark task");
+}
+
+/// Submits a completion-signalling task to a fixed pool.
+///
+/// # Parameters
+///
+/// * `pool` - Fixed pool whose idle worker should run the task.
+/// * `completed_sender` - Reports task completion to the benchmark thread.
+fn submit_fixed_idle_wakeup(pool: &FixedThreadPool, completed_sender: mpsc::Sender<()>) {
+    pool.submit(move || {
+        completed_sender
+            .send(())
+            .expect("benchmark should receive fixed task completion");
+        Ok::<(), Infallible>(())
+    })
+    .expect("fixed pool should accept benchmark task");
+}
+
+/// Returns the number of idle workers in a dynamic pool.
+///
+/// # Parameters
+///
+/// * `pool` - Dynamic pool whose state is observed.
+///
+/// # Returns
+///
+/// The current idle-worker count.
+fn dynamic_idle_worker_count(pool: &ThreadPool) -> usize {
+    pool.stats().idle_workers
+}
+
+/// Returns the number of idle workers in a fixed pool.
+///
+/// # Parameters
+///
+/// * `pool` - Fixed pool whose state is observed.
+///
+/// # Returns
+///
+/// The current idle-worker count.
+fn fixed_idle_worker_count(pool: &FixedThreadPool) -> usize {
+    pool.stats().idle_workers
 }
 
 /// Runs one batch of CPU tasks with configurable per-task work and waits until
@@ -397,6 +529,49 @@ fn bench_thread_pool_granularity(c: &mut Criterion) {
     group.finish();
 }
 
+/// Measures the idle-worker submit-and-wake path for both Qubit pool types.
+fn bench_thread_pool_idle_wakeup(c: &mut Criterion) {
+    let mut group = c.benchmark_group("thread_pool_idle_wakeup");
+    group.throughput(Throughput::Elements(1));
+
+    let dynamic_pool = ThreadPool::builder()
+        .pool_size(1)
+        .prestart_core_threads()
+        .build()
+        .expect("dynamic thread pool should be created");
+    let dynamic = IdleWakeupFixture::new(dynamic_pool, dynamic_idle_worker_count);
+    group.bench_function("dynamic_prestarted", |bencher| {
+        bencher.iter_custom(|iterations| {
+            let mut elapsed = Duration::ZERO;
+            for _ in 0..iterations {
+                elapsed +=
+                    dynamic.round_trip(submit_dynamic_idle_wakeup, dynamic_idle_worker_count);
+            }
+            elapsed
+        });
+    });
+
+    let fixed = IdleWakeupFixture::new(
+        FixedThreadPool::new(1).expect("fixed thread pool should be created"),
+        fixed_idle_worker_count,
+    );
+    group.bench_function("fixed", |bencher| {
+        bencher.iter_custom(|iterations| {
+            let mut elapsed = Duration::ZERO;
+            for _ in 0..iterations {
+                elapsed += fixed.round_trip(submit_fixed_idle_wakeup, fixed_idle_worker_count);
+            }
+            elapsed
+        });
+    });
+    group.finish();
+
+    dynamic.pool.shutdown();
+    wait_for_termination(&dynamic.pool);
+    fixed.pool.shutdown();
+    wait_for_termination(&fixed.pool);
+}
+
 /// Compares dynamic, fixed, Rayon, and external thread-pool implementations.
 fn bench_thread_pool_implementations(c: &mut Criterion) {
     let mut group = c.benchmark_group("thread_pool_implementations");
@@ -487,7 +662,7 @@ criterion_group!(
     config = Criterion::default().sample_size(20);
     targets = bench_thread_pool_throughput, bench_thread_pool_granularity,
         bench_thread_pool_vs_rayon, bench_thread_pool_implementations,
-        bench_thread_pool_submit_modes
+        bench_thread_pool_submit_modes, bench_thread_pool_idle_wakeup
 );
 criterion_main!(benches);
 

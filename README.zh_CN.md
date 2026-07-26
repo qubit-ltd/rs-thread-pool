@@ -142,6 +142,10 @@ cargo bench --bench thread_pool_bench
 
 提交模式 benchmark 会对比 `ThreadPool.submit`、`ThreadPool.submit_tracked`、`FixedThreadPool.submit`、`FixedThreadPool.submit_tracked`、外部 `threadpool` crate 和 Rayon，并覆盖 `cpu_light`、`cpu_medium`、`cpu_heavy` 三类任务。CPU 任务耗时使用确定性的钟形分布生成，避免所有任务几乎同时完成，从而更容易体现调度、队列竞争与唤醒行为差异。
 
+`thread_pool_idle_wakeup` 分组则单独测量 `ThreadPool` 与 `FixedThreadPool`
+中一个预启动空闲 worker 接收无操作任务的路径。计时范围从提交开始到任务完成，
+worker 回到空闲状态的等待不计入结果。
+
 benchmark 输入与历史对比数据保存在 `test-data` 下。
 
 ### 最新本地运行结果
