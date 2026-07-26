@@ -5,15 +5,9 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use std::{
-    io,
-    sync::mpsc,
-};
+use std::{io, sync::mpsc};
 
-use qubit_thread_pool::{
-    ExecutorService,
-    FixedThreadPool,
-};
+use qubit_thread_pool::{ExecutorService, FixedThreadPool};
 
 /// Tests fixed-pool shared counters through public task execution.
 #[test]

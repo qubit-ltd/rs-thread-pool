@@ -1,8 +1,4 @@
-use qubit_thread_pool::{
-    ExecutorService,
-    ExecutorServiceLifecycle,
-    FixedThreadPool,
-};
+use qubit_thread_pool::{ExecutorService, ExecutorServiceLifecycle, FixedThreadPool};
 
 #[test]
 fn test_fixed_thread_pool_lifecycle_reports_shutdown_and_termination() {

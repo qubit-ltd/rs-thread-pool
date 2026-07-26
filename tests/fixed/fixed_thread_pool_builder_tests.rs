@@ -9,11 +9,7 @@
 
 use std::io;
 
-use qubit_thread_pool::{
-    ExecutorService,
-    ExecutorServiceBuilderError,
-    FixedThreadPool,
-};
+use qubit_thread_pool::{ExecutorService, ExecutorServiceBuilderError, FixedThreadPool};
 
 use super::mod_tests::wait_until;
 

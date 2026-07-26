@@ -5,26 +5,14 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use std::{
-    sync::Arc,
-    thread,
-    time::Duration,
-};
+use std::{sync::Arc, thread, time::Duration};
 
-use qubit_argument::{
-    ArgumentResult,
-    DurationArgument,
-    NumericArgument,
-    OptionArgument,
-};
+use qubit_argument::{ArgumentResult, DurationArgument, NumericArgument, OptionArgument};
 
 use super::thread_pool::ThreadPool;
 use super::thread_pool_config::ThreadPoolConfig;
 use super::thread_pool_inner::ThreadPoolInner;
-use crate::{
-    ExecutorServiceBuilderError,
-    ThreadPoolHooks,
-};
+use crate::{ExecutorServiceBuilderError, ThreadPoolHooks};
 
 /// Default thread name prefix used by [`ThreadPoolBuilder`].
 const DEFAULT_THREAD_NAME_PREFIX: &str = "qubit-thread-pool";
@@ -315,14 +303,10 @@ impl ThreadPoolBuilder {
             },
             self.hooks,
         ));
-        if prestart_core_threads
-            && let Err(error) = inner.prestart_all_core_threads()
-        {
+        if prestart_core_threads && let Err(error) = inner.prestart_all_core_threads() {
             inner.stop();
             inner.wait_for_termination();
-            return Err(ExecutorServiceBuilderError::from_submission_error(
-                error,
-            ));
+            return Err(ExecutorServiceBuilderError::from_submission_error(error));
         }
         Ok(ThreadPool::from_inner(inner))
     }
@@ -352,15 +336,13 @@ impl ThreadPoolBuilder {
             },
         )?;
         map_argument_error(
-            self.queue_capacity.validate_some(|queue_capacity| {
-                queue_capacity.require_positive("queue_capacity")
-            }),
+            self.queue_capacity
+                .validate_some(|queue_capacity| queue_capacity.require_positive("queue_capacity")),
             ExecutorServiceBuilderError::ZeroQueueCapacity,
         )?;
         map_argument_error(
-            self.stack_size.validate_some(|stack_size| {
-                stack_size.require_positive("stack_size")
-            }),
+            self.stack_size
+                .validate_some(|stack_size| stack_size.require_positive("stack_size")),
             ExecutorServiceBuilderError::ZeroStackSize,
         )?;
         map_argument_error(

@@ -5,34 +5,18 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use std::{
-    sync::Arc,
-    time::Duration,
-};
+use std::{sync::Arc, time::Duration};
 
-use qubit_function::{
-    Callable,
-    Runnable,
-};
+use qubit_function::{Callable, Runnable};
 
 use qubit_executor::task::spi::TaskEndpointPair;
-use qubit_executor::{
-    TaskHandle,
-    TrackedTask,
-};
+use qubit_executor::{TaskHandle, TrackedTask};
 
 use super::thread_pool_builder::ThreadPoolBuilder;
 use super::thread_pool_inner::ThreadPoolInner;
-use crate::{
-    ExecutorServiceBuilderError,
-    PoolJob,
-    ThreadPoolStats,
-};
+use crate::{ExecutorServiceBuilderError, PoolJob, ThreadPoolStats};
 use qubit_executor::service::{
-    ExecutorService,
-    ExecutorServiceLifecycle,
-    StopReport,
-    SubmissionError,
+    ExecutorService, ExecutorServiceLifecycle, StopReport, SubmissionError,
 };
 
 /// OS thread pool implementing [`ExecutorService`].
@@ -291,10 +275,7 @@ impl ThreadPool {
     ///
     /// Returns [`ExecutorServiceBuilderError::ZeroKeepAlive`] when `keep_alive`
     /// is zero.
-    pub fn set_keep_alive(
-        &self,
-        keep_alive: Duration,
-    ) -> Result<(), ExecutorServiceBuilderError> {
+    pub fn set_keep_alive(&self, keep_alive: Duration) -> Result<(), ExecutorServiceBuilderError> {
         self.inner.set_keep_alive(keep_alive)
     }
 
@@ -353,10 +334,7 @@ impl ExecutorService for ThreadPool {
     /// [`SubmissionError::Saturated`] when the bounded pool cannot accept
     /// more work, or returns [`SubmissionError::WorkerSpawnFailed`] when a
     /// required worker cannot be created.
-    fn submit_callable<C, R, E>(
-        &self,
-        task: C,
-    ) -> Result<Self::ResultHandle<R, E>, SubmissionError>
+    fn submit_callable<C, R, E>(&self, task: C) -> Result<Self::ResultHandle<R, E>, SubmissionError>
     where
         C: Callable<R, E> + Send + 'static,
         R: Send + 'static,

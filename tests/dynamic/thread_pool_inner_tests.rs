@@ -1,14 +1,8 @@
-use std::{
-    io,
-    sync::mpsc,
-};
+use std::{io, sync::mpsc};
 
 use qubit_thread_pool::ExecutorService;
 
-use super::mod_tests::{
-    create_single_worker_pool,
-    wait_started,
-};
+use super::mod_tests::{create_single_worker_pool, wait_started};
 
 #[test]
 fn test_thread_pool_inner_tracks_running_queued_and_completed_counts() {

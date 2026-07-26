@@ -9,17 +9,11 @@ use std::{
     io,
     sync::{
         Arc,
-        atomic::{
-            AtomicUsize,
-            Ordering,
-        },
+        atomic::{AtomicUsize, Ordering},
     },
 };
 
-use qubit_thread_pool::{
-    ExecutorService,
-    FixedThreadPool,
-};
+use qubit_thread_pool::{ExecutorService, FixedThreadPool};
 
 /// Tests fixed workers execute submitted public tasks.
 #[test]

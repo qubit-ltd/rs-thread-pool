@@ -7,10 +7,7 @@
 // =============================================================================
 use std::{
     fmt,
-    panic::{
-        AssertUnwindSafe,
-        catch_unwind,
-    },
+    panic::{AssertUnwindSafe, catch_unwind},
     sync::Arc,
 };
 

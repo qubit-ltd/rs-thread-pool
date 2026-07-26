@@ -11,31 +11,19 @@ use std::{
     io,
     panic::PanicHookInfo,
     sync::{
-        Arc,
-        Mutex,
-        atomic::{
-            AtomicBool,
-            Ordering,
-        },
+        Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
         mpsc,
     },
     time::Duration,
 };
 
 use qubit_thread_pool::{
-    CancelResult,
-    ExecutorService,
-    ExecutorServiceBuilderError,
-    PoolJob,
-    SubmissionError,
-    TaskExecutionError,
-    ThreadPool,
+    CancelResult, ExecutorService, ExecutorServiceBuilderError, PoolJob, SubmissionError,
+    TaskExecutionError, ThreadPool,
 };
 
-use super::mod_tests::{
-    create_single_worker_pool,
-    wait_started,
-};
+use super::mod_tests::{create_single_worker_pool, wait_started};
 
 static PANIC_HOOK_LOCK: Mutex<()> = Mutex::new(());
 
@@ -167,9 +155,9 @@ fn test_thread_pool_submit_acceptance_is_not_task_success() {
         .submit_tracked(|| Err::<(), _>(io::Error::other("task failed")))
         .expect("thread pool should accept runnable");
 
-    let err = handle.get().expect_err(
-        "accepted runnable should report task failure through handle",
-    );
+    let err = handle
+        .get()
+        .expect_err("accepted runnable should report task failure through handle");
     assert!(matches!(err, TaskExecutionError::Failed(_)));
     pool.shutdown();
     pool.wait_termination();
@@ -360,8 +348,7 @@ fn test_thread_pool_shutdown_rejects_new_tasks() {
     let pool = ThreadPool::new(1).expect("thread pool should be created");
 
     pool.shutdown();
-    let result =
-        pool.submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>);
+    let result = pool.submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>);
 
     assert!(matches!(result, Err(SubmissionError::Shutdown)));
     pool.wait_termination();
@@ -392,8 +379,7 @@ fn test_thread_pool_shutdown_drains_queued_tasks() {
         .expect("queued task should be accepted");
 
     pool.shutdown();
-    let rejected =
-        pool.submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>);
+    let rejected = pool.submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>);
     release_tx
         .send(())
         .expect("blocking task should receive release signal");
@@ -477,9 +463,7 @@ fn test_thread_pool_cancel_before_start_reports_cancelled() {
         .expect("first task should be accepted");
     wait_started(started_rx);
     let queued = pool
-        .submit_tracked_callable(
-            ok_usize_task as fn() -> Result<usize, io::Error>,
-        )
+        .submit_tracked_callable(ok_usize_task as fn() -> Result<usize, io::Error>)
         .expect("queued task should be accepted");
 
     assert_eq!(queued.cancel(), CancelResult::Cancelled);
@@ -542,8 +526,7 @@ fn test_thread_pool_reports_worker_spawn_failure() {
         .build()
         .expect("thread pool should be created lazily");
 
-    let result =
-        pool.submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>);
+    let result = pool.submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>);
 
     assert!(matches!(
         result,
@@ -569,9 +552,7 @@ fn test_thread_pool_spawn_failure_does_not_accept_or_cancel_direct_job() {
                 .send(())
                 .expect("test should receive acceptance signal");
         }),
-        Box::new(|| {
-            panic!("custom job should not run when worker spawn fails")
-        }),
+        Box::new(|| panic!("custom job should not run when worker spawn fails")),
         Box::new(move || {
             cancelled_tx
                 .send(())
@@ -607,8 +588,7 @@ fn test_thread_pool_cancels_queued_job_when_initial_worker_spawn_fails() {
         .build()
         .expect("thread pool should be created lazily");
 
-    let result =
-        pool.submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>);
+    let result = pool.submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>);
 
     assert!(matches!(
         result,
@@ -637,9 +617,7 @@ fn test_thread_pool_spawn_failure_does_not_accept_or_cancel_queued_start_job() {
                 .send(())
                 .expect("test should receive acceptance signal");
         }),
-        Box::new(|| {
-            panic!("custom job should not run when worker spawn fails")
-        }),
+        Box::new(|| panic!("custom job should not run when worker spawn fails")),
         Box::new(move || {
             cancelled_tx
                 .send(())
@@ -666,8 +644,7 @@ fn test_thread_pool_spawn_failure_does_not_accept_or_cancel_queued_start_job() {
 }
 
 #[test]
-fn test_thread_pool_custom_job_panic_does_not_kill_worker_or_leak_running_count()
- {
+fn test_thread_pool_custom_job_panic_does_not_kill_worker_or_leak_running_count() {
     let _panic_hook_lock = PANIC_HOOK_LOCK
         .lock()
         .expect("panic hook lock should not be poisoned");
@@ -699,8 +676,7 @@ fn test_thread_pool_custom_job_panic_does_not_kill_worker_or_leak_running_count(
 }
 
 #[test]
-fn test_thread_pool_initial_accept_panic_does_not_kill_worker_or_leak_running_count()
- {
+fn test_thread_pool_initial_accept_panic_does_not_kill_worker_or_leak_running_count() {
     let _panic_hook_lock = PANIC_HOOK_LOCK
         .lock()
         .expect("panic hook lock should not be poisoned");
@@ -757,24 +733,21 @@ fn test_thread_pool_queued_accept_panic_does_not_unwind_or_leak_state() {
     let ran = Arc::new(AtomicBool::new(false));
     let cancelled = Arc::new(AtomicBool::new(false));
 
-    let submit_result =
-        std::panic::catch_unwind(std::panic::AssertUnwindSafe({
-            let ran = Arc::clone(&ran);
-            let cancelled = Arc::clone(&cancelled);
-            || {
-                pool.submit_job(PoolJob::with_accept(
-                    Box::new(|| {
-                        panic!("custom accept panic should be isolated")
-                    }),
-                    Box::new(move || {
-                        ran.store(true, Ordering::Release);
-                    }),
-                    Box::new(move || {
-                        cancelled.store(true, Ordering::Release);
-                    }),
-                ))
-            }
-        }));
+    let submit_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe({
+        let ran = Arc::clone(&ran);
+        let cancelled = Arc::clone(&cancelled);
+        || {
+            pool.submit_job(PoolJob::with_accept(
+                Box::new(|| panic!("custom accept panic should be isolated")),
+                Box::new(move || {
+                    ran.store(true, Ordering::Release);
+                }),
+                Box::new(move || {
+                    cancelled.store(true, Ordering::Release);
+                }),
+            ))
+        }
+    }));
 
     release_tx
         .send(())
@@ -824,9 +797,7 @@ fn test_thread_pool_blocked_accept_does_not_hold_state_lock() {
                     .expect("test should release accept callback");
             }),
             Box::new(|| {}),
-            Box::new(|| {
-                panic!("accepted job should run after accept is released")
-            }),
+            Box::new(|| panic!("accepted job should run after accept is released")),
         ))
     });
     accept_started_rx
@@ -964,9 +935,7 @@ fn test_thread_pool_shutdown_waits_for_inflight_accept_then_drains() {
             Box::new(move || {
                 submit_ran.store(true, Ordering::Release);
             }),
-            Box::new(|| {
-                panic!("graceful shutdown should not cancel accepted job")
-            }),
+            Box::new(|| panic!("graceful shutdown should not cancel accepted job")),
         ))
     });
     accept_started_rx
@@ -1071,9 +1040,9 @@ fn test_thread_pool_wait_termination_waits_for_custom_cancel_callback() {
     assert_eq!(report.queued, 1);
     assert_eq!(report.cancelled, 1);
     if !terminated_before_cancel_completed {
-        terminated_rx.recv_timeout(Duration::from_secs(1)).expect(
-            "termination should complete after cancel callback returns",
-        );
+        terminated_rx
+            .recv_timeout(Duration::from_secs(1))
+            .expect("termination should complete after cancel callback returns");
     }
     wait_thread
         .join()
@@ -1169,8 +1138,7 @@ fn test_thread_pool_stop_contains_custom_cancel_panic() {
     ))
     .expect("queued custom job should be accepted");
 
-    let stop_result =
-        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| pool.stop()));
+    let stop_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| pool.stop()));
     release_tx
         .send(())
         .expect("running task should receive release signal");

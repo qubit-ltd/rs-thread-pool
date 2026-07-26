@@ -7,23 +7,13 @@
 // =============================================================================
 //! Tests for [`qubit_thread_pool::ThreadPoolBuilder`].
 
-use std::{
-    io,
-    sync::mpsc,
-    time::Duration,
-};
+use std::{io, sync::mpsc, time::Duration};
 
 use qubit_thread_pool::{
-    ExecutorService,
-    ExecutorServiceBuilderError,
-    SubmissionError,
-    ThreadPool,
+    ExecutorService, ExecutorServiceBuilderError, SubmissionError, ThreadPool,
 };
 
-use super::mod_tests::{
-    wait_started,
-    wait_until,
-};
+use super::mod_tests::{wait_started, wait_until};
 
 fn ok_unit_task() -> Result<(), io::Error> {
     Ok(())
@@ -55,8 +45,7 @@ fn test_thread_pool_bounded_queue_rejects_when_saturated() {
     let second = pool
         .submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>)
         .expect("second task should fill the queue");
-    let third =
-        pool.submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>);
+    let third = pool.submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>);
 
     assert!(matches!(third, Err(SubmissionError::Saturated)));
     release_tx
@@ -115,8 +104,7 @@ fn test_thread_pool_grows_above_core_when_queue_is_full() {
         .expect("third task should create a non-core worker");
     wait_started(third_started_rx);
 
-    let fourth =
-        pool.submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>);
+    let fourth = pool.submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>);
 
     assert!(matches!(fourth, Err(SubmissionError::Saturated)));
     assert_eq!(pool.stats().live_workers, 2);

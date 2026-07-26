@@ -1,15 +1,9 @@
 use std::sync::{
     Arc,
-    atomic::{
-        AtomicBool,
-        Ordering,
-    },
+    atomic::{AtomicBool, Ordering},
 };
 
-use qubit_thread_pool::{
-    ExecutorService,
-    ThreadPool,
-};
+use qubit_thread_pool::{ExecutorService, ThreadPool};
 
 #[test]
 fn test_pool_job_internals_run_via_public_submit() {

@@ -6,10 +6,7 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 use qubit_executor::service::ExecutorServiceLifecycle;
-use qubit_thread_pool::{
-    ExecutorService,
-    FixedThreadPool,
-};
+use qubit_thread_pool::{ExecutorService, FixedThreadPool};
 
 /// Tests fixed-pool state snapshots through the public stats API.
 #[test]
