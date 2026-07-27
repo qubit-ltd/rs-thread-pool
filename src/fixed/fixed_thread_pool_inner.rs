@@ -310,8 +310,7 @@ impl FixedThreadPoolInner {
     /// closes the condition-variable lost-wakeup window for waiters that check
     /// those atomic predicates while holding the same monitor.
     pub fn notify_waiters_after_atomic_change(&self) {
-        let _state = self.state.lock();
-        self.state.notify_all();
+        self.state.lock().notify_all();
     }
 
     /// Attempts to claim one queued job for a worker.
@@ -476,8 +475,7 @@ impl FixedThreadPoolInner {
         if state.lifecycle == ExecutorServiceLifecycle::Running {
             state.lifecycle = ExecutorServiceLifecycle::ShuttingDown;
         }
-        drop(state);
-        self.state.notify_all();
+        state.notify_all();
     }
 
     /// Requests immediate shutdown and cancels visible queued jobs.
@@ -531,7 +529,7 @@ impl FixedThreadPoolInner {
         for job in jobs {
             self.cancel_claimed_job(job);
         }
-        self.state.notify_all();
+        self.state.lock().notify_all();
         StopReport::new(queued, running, queued)
     }
 

@@ -743,8 +743,7 @@ impl ThreadPoolInner {
         if state.lifecycle == ExecutorServiceLifecycle::Running {
             state.lifecycle = ExecutorServiceLifecycle::ShuttingDown;
         }
-        self.state_monitor.notify_all();
-        self.notify_if_terminated(&state);
+        state.notify_all();
     }
 
     /// Requests abrupt shutdown and cancels queued jobs.
@@ -794,15 +793,14 @@ impl ThreadPoolInner {
             } else {
                 drained
             };
-            self.state_monitor.notify_all();
-            self.notify_if_terminated(&state);
+            state.notify_all();
             (jobs, queued, running)
         };
         for job in jobs {
             job.cancel();
             self.finish_cancelled_job();
         }
-        self.state_monitor.notify_all();
+        self.lock_state().notify_all();
         StopReport::new(queued, running, queued)
     }
 
@@ -1080,8 +1078,7 @@ impl ThreadPoolInner {
 
     /// Notifies waiters after an atomic-only condition change.
     fn notify_waiters_after_atomic_change(&self) {
-        let _state = self.lock_state();
-        self.state_monitor.notify_all();
+        self.lock_state().notify_all();
     }
 
     /// Notifies termination waiters when the state is terminal.
