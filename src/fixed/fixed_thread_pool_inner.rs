@@ -8,12 +8,16 @@
 // qubit-style: allow inline-tests
 use std::{
     sync::atomic::{AtomicBool, AtomicUsize, Ordering},
-    time::{Duration, Instant},
+    time::Duration,
 };
 
 use crossbeam_deque::{Injector, Steal};
 use qubit_executor::service::{ExecutorServiceLifecycle, StopReport, SubmissionError};
-use qubit_lock::ParkingLotMonitor;
+use qubit_lock::{
+    ParkingLotMonitor,
+    TimeError,
+    WaitTimeoutResult,
+};
 
 use super::fixed_thread_pool_state::FixedThreadPoolState;
 use crate::{PoolJob, ThreadPoolHooks, ThreadPoolStats};
@@ -429,21 +433,25 @@ impl FixedThreadPoolInner {
 
     /// Waits for termination for at most `timeout`.
     pub fn wait_for_termination_timeout(&self, timeout: Duration) -> bool {
-        let deadline = Instant::now() + timeout;
-        let mut state = self.state.lock();
-        loop {
-            if self.is_terminated_locked(&state) {
+        let deadline = match self.state.timer().now().checked_add(timeout) {
+            Ok(deadline) => deadline,
+            Err(TimeError::InstantOverflow) => {
+                self.wait_for_termination();
                 return true;
             }
-            let Some(remaining) = deadline.checked_duration_since(Instant::now()) else {
-                return false;
-            };
-            if remaining.is_zero() {
-                return false;
+            Err(error) => panic!("fixed pool deadline construction failed: {error}"),
+        };
+        match self.state.wait_until_ready_with_deadline(
+            deadline,
+            |state| self.is_terminated_locked(state),
+        ) {
+            Ok(WaitTimeoutResult::Ready(())) => true,
+            Ok(WaitTimeoutResult::TimedOut) => false,
+            Err(TimeError::InstantOverflow) => {
+                self.wait_for_termination();
+                true
             }
-            let _ = state
-                .wait_for(remaining)
-                .expect("fixed pool termination waiter should remain registered");
+            Err(error) => panic!("fixed pool termination wait failed: {error}"),
         }
     }
 
