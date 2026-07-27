@@ -18,10 +18,9 @@ use std::{
     time::Duration,
 };
 
-use qubit_thread_pool::{
-    CancelResult, ExecutorService, ExecutorServiceBuilderError, PoolJob, SubmissionError,
-    TaskExecutionError, ThreadPool,
-};
+use qubit_executor::service::{ExecutorService, ExecutorServiceBuilderError, SubmissionError};
+use qubit_executor::{CancelResult, TaskExecutionError};
+use qubit_thread_pool::{PoolJob, ThreadPool};
 
 use super::mod_tests::{create_single_worker_pool, wait_started};
 

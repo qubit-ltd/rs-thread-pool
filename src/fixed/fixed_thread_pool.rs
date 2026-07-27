@@ -5,7 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use std::{sync::Arc, thread::JoinHandle};
+use std::{sync::Arc, thread::JoinHandle, time::Duration};
 
 use qubit_executor::service::{
     ExecutorService, ExecutorServiceLifecycle, StopReport, SubmissionError,
@@ -316,6 +316,11 @@ impl ExecutorService for FixedThreadPool {
     /// Blocks until this fixed pool has terminated.
     fn wait_termination(&self) {
         self.inner.wait_for_termination();
+    }
+
+    /// Waits until this fixed pool terminates or the timeout expires.
+    fn wait_termination_timeout(&self, timeout: Duration) -> bool {
+        self.inner.wait_for_termination_timeout(timeout)
     }
 }
 

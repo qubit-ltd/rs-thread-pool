@@ -5,7 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use crate::ExecutorServiceLifecycle;
+use qubit_executor::service::ExecutorServiceLifecycle;
 
 /// Point-in-time counters reported by [`crate::ThreadPool`].
 ///

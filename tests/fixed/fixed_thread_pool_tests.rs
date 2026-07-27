@@ -18,9 +18,9 @@ use std::{
     time::Duration,
 };
 
-use qubit_thread_pool::{
-    CancelResult, ExecutorService, FixedThreadPool, SubmissionError, TaskExecutionError,
-};
+use qubit_executor::service::{ExecutorService, SubmissionError};
+use qubit_executor::{CancelResult, TaskExecutionError};
+use qubit_thread_pool::FixedThreadPool;
 
 use super::mod_tests::{wait_started, wait_until};
 

@@ -9,9 +9,8 @@
 
 use std::{io, sync::mpsc, time::Duration};
 
-use qubit_thread_pool::{
-    ExecutorService, ExecutorServiceBuilderError, SubmissionError, ThreadPool,
-};
+use qubit_executor::service::{ExecutorService, ExecutorServiceBuilderError, SubmissionError};
+use qubit_thread_pool::ThreadPool;
 
 use super::mod_tests::{wait_started, wait_until};
 

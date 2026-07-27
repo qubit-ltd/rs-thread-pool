@@ -12,7 +12,7 @@ use std::{
         mpsc,
     },
     thread,
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use crossbeam_deque::{Injector, Steal};
@@ -867,6 +867,26 @@ impl ThreadPoolInner {
     pub(crate) fn wait_for_termination(&self) {
         self.state_monitor
             .wait_until(|state| self.is_terminated_locked(state), |_| ());
+    }
+
+    /// Waits for termination for at most `timeout`.
+    pub(crate) fn wait_for_termination_timeout(&self, timeout: Duration) -> bool {
+        let deadline = Instant::now() + timeout;
+        let mut state = self.lock_state();
+        loop {
+            if self.is_terminated_locked(&state) {
+                return true;
+            }
+            let Some(remaining) = deadline.checked_duration_since(Instant::now()) else {
+                return false;
+            };
+            if remaining.is_zero() {
+                return false;
+            }
+            let _ = state
+                .wait_for(remaining)
+                .expect("thread pool termination waiter should remain registered");
+        }
     }
 
     /// Blocks until all currently accepted work has completed.

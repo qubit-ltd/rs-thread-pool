@@ -3,7 +3,8 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
 };
 
-use qubit_thread_pool::{ExecutorService, ThreadPool};
+use qubit_executor::service::ExecutorService;
+use qubit_thread_pool::ThreadPool;
 
 #[test]
 fn test_pool_job_internals_run_via_public_submit() {

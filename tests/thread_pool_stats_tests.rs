@@ -7,7 +7,8 @@
 // =============================================================================
 //! Tests for [`qubit_thread_pool::ThreadPoolStats`].
 
-use qubit_thread_pool::{ExecutorService, ExecutorServiceLifecycle, ThreadPool, ThreadPoolStats};
+use qubit_executor::service::{ExecutorService, ExecutorServiceLifecycle};
+use qubit_thread_pool::{ThreadPool, ThreadPoolStats};
 
 #[test]
 fn test_thread_pool_stats_default_uses_empty_running_snapshot() {

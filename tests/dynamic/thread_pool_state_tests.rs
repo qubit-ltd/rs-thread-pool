@@ -1,6 +1,6 @@
 use std::{io, sync::mpsc};
 
-use qubit_thread_pool::ExecutorService;
+use qubit_executor::service::ExecutorService;
 
 use super::mod_tests::{create_single_worker_pool, wait_started};
 

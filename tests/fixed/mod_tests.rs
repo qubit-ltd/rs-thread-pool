@@ -1,6 +1,7 @@
 use std::time::Duration;
 
-use qubit_thread_pool::{ExecutorService, FixedThreadPool};
+use qubit_executor::service::ExecutorService;
+use qubit_thread_pool::FixedThreadPool;
 
 pub(crate) fn wait_started(receiver: std::sync::mpsc::Receiver<()>) {
     receiver

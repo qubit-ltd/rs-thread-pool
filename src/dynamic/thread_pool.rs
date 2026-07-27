@@ -403,4 +403,9 @@ impl ExecutorService for ThreadPool {
     fn wait_termination(&self) {
         self.inner.wait_for_termination();
     }
+
+    /// Waits until this pool terminates or the timeout expires.
+    fn wait_termination_timeout(&self, timeout: Duration) -> bool {
+        self.inner.wait_for_termination_timeout(timeout)
+    }
 }

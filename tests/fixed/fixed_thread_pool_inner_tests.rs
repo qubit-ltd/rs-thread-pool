@@ -7,7 +7,8 @@
 // =============================================================================
 use std::{io, sync::mpsc};
 
-use qubit_thread_pool::{ExecutorService, FixedThreadPool};
+use qubit_executor::service::ExecutorService;
+use qubit_thread_pool::FixedThreadPool;
 
 /// Tests fixed-pool shared counters through public task execution.
 #[test]

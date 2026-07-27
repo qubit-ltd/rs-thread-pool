@@ -13,7 +13,8 @@ use std::{
     },
 };
 
-use qubit_thread_pool::{ExecutorService, FixedThreadPool};
+use qubit_executor::service::ExecutorService;
+use qubit_thread_pool::FixedThreadPool;
 
 /// Tests fixed workers execute submitted public tasks.
 #[test]

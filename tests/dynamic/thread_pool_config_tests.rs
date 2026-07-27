@@ -1,6 +1,7 @@
 use std::time::Duration;
 
-use qubit_thread_pool::{ExecutorService, ThreadPool};
+use qubit_executor::service::ExecutorService;
+use qubit_thread_pool::ThreadPool;
 
 #[test]
 fn test_thread_pool_config_is_reflected_by_builder_and_stats() {

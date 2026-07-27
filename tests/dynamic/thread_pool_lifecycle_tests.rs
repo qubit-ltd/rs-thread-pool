@@ -1,4 +1,5 @@
-use qubit_thread_pool::{ExecutorService, ExecutorServiceLifecycle, ThreadPool};
+use qubit_executor::service::{ExecutorService, ExecutorServiceLifecycle};
+use qubit_thread_pool::ThreadPool;
 
 #[test]
 fn test_thread_pool_lifecycle_accessors_report_running_shutdown_and_terminated() {

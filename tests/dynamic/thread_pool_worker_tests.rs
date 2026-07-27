@@ -1,6 +1,7 @@
 use std::io;
 
-use qubit_thread_pool::{ExecutorService, ThreadPool};
+use qubit_executor::service::ExecutorService;
+use qubit_thread_pool::ThreadPool;
 
 #[test]
 fn test_worker_runs_job_on_named_worker_thread() {

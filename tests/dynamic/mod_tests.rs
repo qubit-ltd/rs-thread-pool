@@ -1,6 +1,7 @@
 use std::time::Duration;
 
-use qubit_thread_pool::{ExecutorService, ThreadPool};
+use qubit_executor::service::ExecutorService;
+use qubit_thread_pool::ThreadPool;
 
 pub(crate) fn create_single_worker_pool() -> ThreadPool {
     ThreadPool::new(1).expect("thread pool should be created")
