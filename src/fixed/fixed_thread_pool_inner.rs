@@ -7,20 +7,35 @@
 // =============================================================================
 // qubit-style: allow inline-tests
 use std::{
-    sync::atomic::{AtomicBool, AtomicUsize, Ordering},
+    sync::atomic::{
+        AtomicBool,
+        AtomicUsize,
+        Ordering,
+    },
     time::Duration,
 };
 
-use crossbeam_deque::{Injector, Steal};
-use qubit_executor::service::{ExecutorServiceLifecycle, StopReport, SubmissionError};
+use crossbeam_deque::{
+    Injector,
+    Steal,
+};
+use qubit_clock::TimeError;
+use qubit_executor::service::{
+    ExecutorServiceLifecycle,
+    StopReport,
+    SubmissionError,
+};
 use qubit_lock::{
     ParkingLotMonitor,
-    TimeError,
     WaitTimeoutResult,
 };
 
 use super::fixed_thread_pool_state::FixedThreadPoolState;
-use crate::{PoolJob, ThreadPoolHooks, ThreadPoolStats};
+use crate::{
+    PoolJob,
+    ThreadPoolHooks,
+    ThreadPoolStats,
+};
 
 /// Submit guard that leaves in-flight accounting on drop.
 struct FixedSubmitGuard<'a> {
@@ -36,7 +51,10 @@ impl Drop for FixedSubmitGuard<'_> {
             .inflight_submissions
             .fetch_sub(1, Ordering::Release);
         debug_assert!(previous > 0, "fixed pool submit counter underflow");
-        if previous == 1 && (self.inner.has_submit_waiters() || self.inner.has_idle_waiters()) {
+        if previous == 1
+            && (self.inner.has_submit_waiters()
+                || self.inner.has_idle_waiters())
+        {
             self.inner.notify_waiters_after_atomic_change();
         }
     }
@@ -185,7 +203,8 @@ impl FixedThreadPoolInner {
         if self.accepting.load(Ordering::Acquire) {
             Ok(FixedSubmitGuard { inner: self })
         } else {
-            let previous = self.inflight_submissions.fetch_sub(1, Ordering::Release);
+            let previous =
+                self.inflight_submissions.fetch_sub(1, Ordering::Release);
             debug_assert!(previous > 0, "fixed pool submit counter underflow");
             if previous == 1 && self.has_submit_waiters() {
                 self.notify_waiters_after_atomic_change();
@@ -261,7 +280,9 @@ impl FixedThreadPoolInner {
         let requested = self.pending_worker_wakes.fetch_update(
             Ordering::AcqRel,
             Ordering::Acquire,
-            |pending_wakes| (pending_wakes < idle_workers).then_some(pending_wakes + 1),
+            |pending_wakes| {
+                (pending_wakes < idle_workers).then_some(pending_wakes + 1)
+            },
         );
         if requested.is_ok() {
             self.state.lock().notify_one();
@@ -326,7 +347,8 @@ impl FixedThreadPoolInner {
         if self.stop_now.load(Ordering::Acquire) {
             return None;
         }
-        Self::steal_one(&self.global_queue).and_then(|job| self.accept_claimed_job(job))
+        Self::steal_one(&self.global_queue)
+            .and_then(|job| self.accept_claimed_job(job))
     }
 
     /// Steals one job from a crossbeam injector with retry on contention.
@@ -433,18 +455,21 @@ impl FixedThreadPoolInner {
 
     /// Waits for termination for at most `timeout`.
     pub fn wait_for_termination_timeout(&self, timeout: Duration) -> bool {
-        let deadline = match self.state.timer().now().checked_add(timeout) {
+        let deadline = match self.state.timer().deadline_after(timeout) {
             Ok(deadline) => deadline,
             Err(TimeError::InstantOverflow) => {
                 self.wait_for_termination();
                 return true;
             }
-            Err(error) => panic!("fixed pool deadline construction failed: {error}"),
+            Err(error) => {
+                panic!("fixed pool deadline construction failed: {error}")
+            }
         };
-        match self.state.wait_until_ready_with_deadline(
-            deadline,
-            |state| self.is_terminated_locked(state),
-        ) {
+        match self
+            .state
+            .wait_until_ready_with_deadline(deadline, |state| {
+                self.is_terminated_locked(state)
+            }) {
             Ok(WaitTimeoutResult::Ready(())) => true,
             Ok(WaitTimeoutResult::TimedOut) => false,
             Err(TimeError::InstantOverflow) => {
@@ -479,7 +504,10 @@ impl FixedThreadPoolInner {
             state.wait();
         }
         let previous = self.submit_waiter_count.fetch_sub(1, Ordering::AcqRel);
-        debug_assert!(previous > 0, "fixed pool submit waiter counter underflow");
+        debug_assert!(
+            previous > 0,
+            "fixed pool submit waiter counter underflow"
+        );
         if state.lifecycle == ExecutorServiceLifecycle::Running {
             state.lifecycle = ExecutorServiceLifecycle::ShuttingDown;
         }
@@ -510,7 +538,8 @@ impl FixedThreadPoolInner {
     /// jobs drained by this stop request; the running count is only the
     /// best-effort snapshot described above.
     pub fn stop(&self) -> StopReport {
-        let cancelled_before_stop = self.cancelled_task_count.load(Ordering::Acquire);
+        let cancelled_before_stop =
+            self.cancelled_task_count.load(Ordering::Acquire);
         self.accepting.store(false, Ordering::Release);
         self.stop_now.store(true, Ordering::Release);
         let mut state = self.state.lock();
@@ -520,8 +549,12 @@ impl FixedThreadPoolInner {
             while self.inflight_count() > 0 {
                 state.wait();
             }
-            let previous = self.submit_waiter_count.fetch_sub(1, Ordering::AcqRel);
-            debug_assert!(previous > 0, "fixed pool submit waiter counter underflow");
+            let previous =
+                self.submit_waiter_count.fetch_sub(1, Ordering::AcqRel);
+            debug_assert!(
+                previous > 0,
+                "fixed pool submit waiter counter underflow"
+            );
         }
         // These snapshots are report-only. Workers may concurrently move jobs
         // between queued, running, and cancelled states, while actual
@@ -569,8 +602,9 @@ impl FixedThreadPoolInner {
     ///
     /// `true` when lifecycle is not running.
     pub fn is_not_running(&self) -> bool {
-        self.state
-            .with_read(|state| state.lifecycle != ExecutorServiceLifecycle::Running)
+        self.state.with_read(|state| {
+            state.lifecycle != ExecutorServiceLifecycle::Running
+        })
     }
 
     /// Returns the current lifecycle state.
@@ -662,13 +696,23 @@ impl FixedThreadPoolInner {
 #[cfg(test)]
 mod tests {
     use std::{
-        sync::{Arc, atomic::Ordering, mpsc},
+        sync::{
+            Arc,
+            atomic::Ordering,
+            mpsc,
+        },
         thread,
-        time::{Duration, Instant},
+        time::{
+            Duration,
+            Instant,
+        },
     };
 
     use super::FixedThreadPoolInner;
-    use crate::{PoolJob, ThreadPoolHooks};
+    use crate::{
+        PoolJob,
+        ThreadPoolHooks,
+    };
 
     fn wait_until<F>(mut condition: F)
     where
@@ -742,13 +786,14 @@ mod tests {
             inner.accept_claimed_job(job).is_none(),
             "job claimed after stop_now should be cancelled by worker path",
         );
-        cancelled_rx
-            .recv_timeout(Duration::from_secs(1))
-            .expect("worker-side cancellation should publish cancellation signal");
+        cancelled_rx.recv_timeout(Duration::from_secs(1)).expect(
+            "worker-side cancellation should publish cancellation signal",
+        );
 
         // Let `stop()` continue. The report must include the cancellation that
         // happened above, even though the global queue is already empty.
-        let previous = inner.inflight_submissions.fetch_sub(1, Ordering::Release);
+        let previous =
+            inner.inflight_submissions.fetch_sub(1, Ordering::Release);
         assert_eq!(previous, 1);
         inner.notify_waiters_after_atomic_change();
         let report = stop_thread

@@ -13,7 +13,9 @@ fn test_worker_runs_job_on_named_worker_thread() {
         .unwrap();
     let name = pool
         .submit_callable(|| {
-            Ok::<_, io::Error>(std::thread::current().name().unwrap_or_default().to_owned())
+            Ok::<_, io::Error>(
+                std::thread::current().name().unwrap_or_default().to_owned(),
+            )
         })
         .unwrap()
         .get()

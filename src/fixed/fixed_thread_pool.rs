@@ -5,20 +5,37 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use std::{sync::Arc, thread::JoinHandle, time::Duration};
+use std::{
+    sync::Arc,
+    thread::JoinHandle,
+    time::Duration,
+};
 
 use qubit_executor::service::{
-    ExecutorService, ExecutorServiceLifecycle, StopReport, SubmissionError,
+    ExecutorService,
+    ExecutorServiceLifecycle,
+    StopReport,
+    SubmissionError,
 };
 use qubit_executor::task::spi::TaskEndpointPair;
-use qubit_executor::{TaskHandle, TrackedTask};
-use qubit_function::{Callable, Runnable};
+use qubit_executor::{
+    TaskHandle,
+    TrackedTask,
+};
+use qubit_function::{
+    Callable,
+    Runnable,
+};
 
 use super::fixed_thread_pool_builder::FixedThreadPoolBuilder;
 use super::fixed_thread_pool_inner::FixedThreadPoolInner;
 use super::fixed_worker::FixedWorker;
 use super::fixed_worker_runtime::FixedWorkerRuntime;
-use crate::{ExecutorServiceBuilderError, PoolJob, ThreadPoolStats};
+use crate::{
+    ExecutorServiceBuilderError,
+    PoolJob,
+    ThreadPoolStats,
+};
 
 /// Fixed-size thread pool implementing [`ExecutorService`].
 ///
@@ -74,7 +91,9 @@ impl FixedThreadPool {
             if let Some(stack_size) = stack_size {
                 builder = builder.stack_size(stack_size);
             }
-            match builder.spawn(move || FixedWorker::run(worker_inner, worker_runtime)) {
+            match builder
+                .spawn(move || FixedWorker::run(worker_inner, worker_runtime))
+            {
                 Ok(handle) => worker_handles.push(handle),
                 Err(source) => {
                     inner.rollback_worker_slot();
@@ -234,7 +253,10 @@ impl ExecutorService for FixedThreadPool {
     ///
     /// Returns [`SubmissionError::Shutdown`] after shutdown or
     /// [`SubmissionError::Saturated`] when a bounded queue is full.
-    fn submit_callable<C, R, E>(&self, task: C) -> Result<Self::ResultHandle<R, E>, SubmissionError>
+    fn submit_callable<C, R, E>(
+        &self,
+        task: C,
+    ) -> Result<Self::ResultHandle<R, E>, SubmissionError>
     where
         C: Callable<R, E> + Send + 'static,
         R: Send + 'static,

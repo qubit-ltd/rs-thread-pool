@@ -9,10 +9,17 @@
 
 use std::thread;
 
-use qubit_argument::{ArgumentResult, NumericArgument, OptionArgument};
+use qubit_argument::{
+    ArgumentResult,
+    NumericArgument,
+    OptionArgument,
+};
 
 use super::fixed_thread_pool::FixedThreadPool;
-use crate::{ExecutorServiceBuilderError, ThreadPoolHooks};
+use crate::{
+    ExecutorServiceBuilderError,
+    ThreadPoolHooks,
+};
 
 /// Default thread name prefix used by [`FixedThreadPoolBuilder`].
 const DEFAULT_FIXED_THREAD_NAME_PREFIX: &str = "qubit-fixed-thread-pool";
@@ -210,13 +217,15 @@ impl FixedThreadPoolBuilder {
             ExecutorServiceBuilderError::ZeroPoolSize,
         )?;
         map_argument_error(
-            self.queue_capacity
-                .validate_some(|queue_capacity| queue_capacity.require_positive("queue_capacity")),
+            self.queue_capacity.validate_some(|queue_capacity| {
+                queue_capacity.require_positive("queue_capacity")
+            }),
             ExecutorServiceBuilderError::ZeroQueueCapacity,
         )?;
         map_argument_error(
-            self.stack_size
-                .validate_some(|stack_size| stack_size.require_positive("stack_size")),
+            self.stack_size.validate_some(|stack_size| {
+                stack_size.require_positive("stack_size")
+            }),
             ExecutorServiceBuilderError::ZeroStackSize,
         )?;
         Ok(())

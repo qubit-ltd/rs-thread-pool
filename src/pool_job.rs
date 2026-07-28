@@ -6,12 +6,21 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 use std::{
-    panic::{AssertUnwindSafe, catch_unwind},
+    panic::{
+        AssertUnwindSafe,
+        catch_unwind,
+    },
     sync::Mutex,
 };
 
-use qubit_executor::task::spi::{TaskRunner, TaskSlot};
-use qubit_function::{Callable, Runnable};
+use qubit_executor::task::spi::{
+    TaskRunner,
+    TaskSlot,
+};
+use qubit_function::{
+    Callable,
+    Runnable,
+};
 
 /// Type-erased callable owned by a pool queue.
 trait PoolTask: Send + 'static {
@@ -193,14 +202,20 @@ impl PoolJob {
     ///
     /// A type-erased job that runs the task on worker start and cancels the
     /// completion endpoint if the job is cancelled while queued.
-    pub(crate) fn from_task<C, R, E>(task: C, completion: TaskSlot<R, E>) -> Self
+    pub(crate) fn from_task<C, R, E>(
+        task: C,
+        completion: TaskSlot<R, E>,
+    ) -> Self
     where
         C: Callable<R, E> + Send + 'static,
         R: Send + 'static,
         E: Send + 'static,
     {
         Self {
-            inner: PoolJobInner::Completable(Box::new(CompletablePoolTask { task, completion })),
+            inner: PoolJobInner::Completable(Box::new(CompletablePoolTask {
+                task,
+                completion,
+            })),
         }
     }
 
@@ -225,7 +240,8 @@ impl PoolJob {
             inner: PoolJobInner::Detached {
                 run: Box::new(move || {
                     let mut task = task;
-                    let _ignored = catch_unwind(AssertUnwindSafe(|| task.run()));
+                    let _ignored =
+                        catch_unwind(AssertUnwindSafe(|| task.run()));
                 }),
             },
         }

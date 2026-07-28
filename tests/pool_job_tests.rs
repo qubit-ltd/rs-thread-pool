@@ -1,6 +1,9 @@
 use std::sync::{
     Arc,
-    atomic::{AtomicBool, Ordering},
+    atomic::{
+        AtomicBool,
+        Ordering,
+    },
 };
 
 use qubit_executor::service::ExecutorService;

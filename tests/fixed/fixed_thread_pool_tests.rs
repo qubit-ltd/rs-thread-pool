@@ -10,19 +10,32 @@
 use std::{
     io,
     sync::{
-        Arc, Mutex,
-        atomic::{AtomicBool, Ordering},
+        Arc,
+        Mutex,
+        atomic::{
+            AtomicBool,
+            Ordering,
+        },
         mpsc,
     },
     thread,
     time::Duration,
 };
 
-use qubit_executor::service::{ExecutorService, SubmissionError};
-use qubit_executor::{CancelResult, TaskExecutionError};
+use qubit_executor::service::{
+    ExecutorService,
+    SubmissionError,
+};
+use qubit_executor::{
+    CancelResult,
+    TaskExecutionError,
+};
 use qubit_thread_pool::FixedThreadPool;
 
-use super::mod_tests::{wait_started, wait_until};
+use super::mod_tests::{
+    wait_started,
+    wait_until,
+};
 
 fn ok_unit_task() -> Result<(), io::Error> {
     Ok(())
@@ -76,7 +89,8 @@ fn test_fixed_thread_pool_runs_configured_hooks() {
 
 #[test]
 fn test_fixed_thread_pool_submit_acceptance_is_not_task_success() {
-    let pool = FixedThreadPool::new(2).expect("fixed thread pool should be created");
+    let pool =
+        FixedThreadPool::new(2).expect("fixed thread pool should be created");
 
     pool.submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>)
         .expect("fixed thread pool should accept shared runnable")
@@ -87,9 +101,9 @@ fn test_fixed_thread_pool_submit_acceptance_is_not_task_success() {
         .submit_tracked(|| Err::<(), _>(io::Error::other("task failed")))
         .expect("fixed thread pool should accept runnable");
 
-    let err = handle
-        .get()
-        .expect_err("accepted runnable should report task failure through handle");
+    let err = handle.get().expect_err(
+        "accepted runnable should report task failure through handle",
+    );
     assert!(matches!(err, TaskExecutionError::Failed(_)));
     pool.shutdown();
     pool.wait_termination();
@@ -97,7 +111,8 @@ fn test_fixed_thread_pool_submit_acceptance_is_not_task_success() {
 
 #[test]
 fn test_fixed_thread_pool_submit_callable_returns_value() {
-    let pool = FixedThreadPool::new(2).expect("fixed thread pool should be created");
+    let pool =
+        FixedThreadPool::new(2).expect("fixed thread pool should be created");
 
     let handle = pool
         .submit_callable(ok_usize_task as fn() -> Result<usize, io::Error>)
@@ -113,7 +128,8 @@ fn test_fixed_thread_pool_submit_callable_returns_value() {
 
 #[test]
 fn test_fixed_thread_pool_join_waits_for_detached_task_without_shutdown() {
-    let pool = FixedThreadPool::new(1).expect("fixed thread pool should be created");
+    let pool =
+        FixedThreadPool::new(1).expect("fixed thread pool should be created");
     let completed = Arc::new(AtomicBool::new(false));
     let completed_for_task = Arc::clone(&completed);
 
@@ -188,7 +204,8 @@ fn test_fixed_thread_pool_join_waits_for_running_and_queued_tasks() {
 
 #[tokio::test]
 async fn test_fixed_thread_pool_handle_can_be_awaited() {
-    let pool = FixedThreadPool::new(2).expect("fixed thread pool should be created");
+    let pool =
+        FixedThreadPool::new(2).expect("fixed thread pool should be created");
 
     let handle = pool
         .submit_callable(ok_usize_task as fn() -> Result<usize, io::Error>)
@@ -201,10 +218,12 @@ async fn test_fixed_thread_pool_handle_can_be_awaited() {
 
 #[test]
 fn test_fixed_thread_pool_shutdown_rejects_new_tasks() {
-    let pool = FixedThreadPool::new(1).expect("fixed thread pool should be created");
+    let pool =
+        FixedThreadPool::new(1).expect("fixed thread pool should be created");
 
     pool.shutdown();
-    let result = pool.submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>);
+    let result =
+        pool.submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>);
 
     assert!(matches!(result, Err(SubmissionError::Shutdown)));
     pool.wait_termination();
@@ -238,7 +257,8 @@ fn test_fixed_thread_pool_bounded_queue_rejects_when_saturated() {
         .submit_callable(ok_usize_task as fn() -> Result<usize, io::Error>)
         .expect("queued task should be accepted");
 
-    let saturated = pool.submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>);
+    let saturated =
+        pool.submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>);
 
     assert!(matches!(saturated, Err(SubmissionError::Saturated)));
     release_tx
@@ -273,7 +293,8 @@ fn test_fixed_thread_pool_shutdown_drains_queued_tasks() {
         .expect("queued task should be accepted");
 
     pool.shutdown();
-    let rejected = pool.submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>);
+    let rejected =
+        pool.submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>);
     release_tx
         .send(())
         .expect("blocking task should receive release signal");
@@ -342,7 +363,9 @@ fn test_fixed_thread_pool_cancel_before_start_reports_cancelled() {
         .expect("first task should be accepted");
     wait_started(started_rx);
     let queued = pool
-        .submit_tracked_callable(ok_usize_task as fn() -> Result<usize, io::Error>)
+        .submit_tracked_callable(
+            ok_usize_task as fn() -> Result<usize, io::Error>,
+        )
         .expect("queued task should be accepted");
 
     assert_eq!(queued.cancel(), CancelResult::Cancelled);
@@ -378,7 +401,8 @@ fn test_fixed_thread_pool_wait_termination_waits_for_running_task() {
 
 #[test]
 fn test_fixed_thread_pool_multiple_workers_drain_global_queue() {
-    let pool = FixedThreadPool::new(2).expect("fixed thread pool should be created");
+    let pool =
+        FixedThreadPool::new(2).expect("fixed thread pool should be created");
     let counter = Arc::new(std::sync::atomic::AtomicUsize::new(0));
     let mut handles = Vec::new();
 
@@ -403,7 +427,8 @@ fn test_fixed_thread_pool_multiple_workers_drain_global_queue() {
 
 #[test]
 fn test_fixed_thread_pool_large_pool_uses_global_queue_stop() {
-    let pool = FixedThreadPool::new(5).expect("fixed thread pool should be created");
+    let pool =
+        FixedThreadPool::new(5).expect("fixed thread pool should be created");
     let release = Arc::new(AtomicBool::new(false));
     let (started_tx, started_rx) = mpsc::channel();
     let mut running = Vec::new();
@@ -450,7 +475,8 @@ fn test_fixed_thread_pool_large_pool_uses_global_queue_stop() {
 
 #[test]
 fn test_fixed_thread_pool_large_pool_runs_global_queue_tasks() {
-    let pool = FixedThreadPool::new(5).expect("fixed thread pool should be created");
+    let pool =
+        FixedThreadPool::new(5).expect("fixed thread pool should be created");
     let mut handles = Vec::new();
 
     for value in 0..10usize {

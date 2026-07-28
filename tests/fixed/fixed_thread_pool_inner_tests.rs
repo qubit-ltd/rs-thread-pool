@@ -5,7 +5,10 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use std::{io, sync::mpsc};
+use std::{
+    io,
+    sync::mpsc,
+};
 
 use qubit_executor::service::ExecutorService;
 use qubit_thread_pool::FixedThreadPool;

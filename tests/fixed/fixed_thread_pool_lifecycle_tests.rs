@@ -1,4 +1,7 @@
-use qubit_executor::service::{ExecutorService, ExecutorServiceLifecycle};
+use qubit_executor::service::{
+    ExecutorService,
+    ExecutorServiceLifecycle,
+};
 use qubit_thread_pool::FixedThreadPool;
 
 #[test]
