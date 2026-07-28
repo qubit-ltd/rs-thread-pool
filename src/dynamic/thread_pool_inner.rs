@@ -24,15 +24,17 @@ use crossbeam_deque::{
     Steal,
 };
 use qubit_clock::TimeError;
-use qubit_executor::service::{
-    ExecutorServiceLifecycle,
-    StopReport,
-    SubmissionError,
+use qubit_executor::{
+    service::{
+        ExecutorServiceLifecycle,
+        StopReport,
+        SubmissionError,
+    },
+    wait_until_ready_with_total_timeout,
 };
 use qubit_lock::{
     ParkingLotMonitor,
     ParkingLotMonitorGuard,
-    WaitTimeoutResult,
 };
 
 use super::thread_pool_config::ThreadPoolConfig;
@@ -959,24 +961,14 @@ impl ThreadPoolInner {
         &self,
         timeout: Duration,
     ) -> bool {
-        let deadline = match self.state_monitor.timer().deadline_after(timeout)
-        {
-            Ok(deadline) => deadline,
-            Err(TimeError::InstantOverflow) => {
-                self.wait_for_termination();
-                return true;
-            }
-            Err(error) => {
-                panic!("thread pool deadline construction failed: {error}")
-            }
-        };
-        match self
-            .state_monitor
-            .wait_until_ready_with_deadline(deadline, |state| {
+        match wait_until_ready_with_total_timeout(
+            &self.state_monitor,
+            timeout,
+            |state| {
                 self.is_terminated_locked(state)
-            }) {
-            Ok(WaitTimeoutResult::Ready(())) => true,
-            Ok(WaitTimeoutResult::TimedOut) => false,
+            },
+        ) {
+            Ok(ready) => ready,
             Err(TimeError::InstantOverflow) => {
                 self.wait_for_termination();
                 true
