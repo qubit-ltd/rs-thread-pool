@@ -24,13 +24,10 @@ use crossbeam_deque::{
     Steal,
 };
 use qubit_clock::TimeError;
-use qubit_executor::{
-    service::{
-        ExecutorServiceLifecycle,
-        StopReport,
-        SubmissionError,
-    },
-    wait_until_ready_with_total_timeout,
+use qubit_executor::service::{
+    ExecutorServiceLifecycle,
+    StopReport,
+    SubmissionError,
 };
 use qubit_lock::{
     ParkingLotMonitor,
@@ -961,14 +958,12 @@ impl ThreadPoolInner {
         &self,
         timeout: Duration,
     ) -> bool {
-        match wait_until_ready_with_total_timeout(
-            &self.state_monitor,
-            timeout,
-            |state| {
+        match self
+            .state_monitor
+            .wait_until_ready_with_total_timeout(timeout, |state| {
                 self.is_terminated_locked(state)
-            },
-        ) {
-            Ok(ready) => ready,
+            }) {
+            Ok(result) => result.is_ready(),
             Err(TimeError::InstantOverflow) => {
                 self.wait_for_termination();
                 true

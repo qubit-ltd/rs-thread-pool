@@ -20,13 +20,10 @@ use crossbeam_deque::{
     Steal,
 };
 use qubit_clock::TimeError;
-use qubit_executor::{
-    service::{
-        ExecutorServiceLifecycle,
-        StopReport,
-        SubmissionError,
-    },
-    wait_until_ready_with_total_timeout,
+use qubit_executor::service::{
+    ExecutorServiceLifecycle,
+    StopReport,
+    SubmissionError,
 };
 use qubit_lock::ParkingLotMonitor;
 
@@ -455,14 +452,12 @@ impl FixedThreadPoolInner {
 
     /// Waits for termination for at most `timeout`.
     pub fn wait_for_termination_timeout(&self, timeout: Duration) -> bool {
-        match wait_until_ready_with_total_timeout(
-            &self.state,
-            timeout,
-            |state| {
+        match self
+            .state
+            .wait_until_ready_with_total_timeout(timeout, |state| {
                 self.is_terminated_locked(state)
-            },
-        ) {
-            Ok(ready) => ready,
+            }) {
+            Ok(result) => result.is_ready(),
             Err(TimeError::InstantOverflow) => {
                 self.wait_for_termination();
                 true
