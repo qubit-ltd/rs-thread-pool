@@ -1,3 +1,11 @@
+use std::{
+    panic::{
+        AssertUnwindSafe,
+        catch_unwind,
+    },
+    time::Duration,
+};
+
 use qubit_executor::service::{
     ExecutorService,
     ExecutorServiceLifecycle,
@@ -46,4 +54,17 @@ fn test_thread_pool_lifecycle_reports_shutting_down_with_running_work() {
     handle.get().expect("running task should complete");
     pool.wait_termination();
     assert_eq!(pool.lifecycle(), ExecutorServiceLifecycle::Terminated);
+}
+
+#[test]
+fn test_thread_pool_wait_termination_timeout_rejects_overflow() {
+    let pool = ThreadPool::new(1).expect("thread pool should be created");
+    pool.shutdown();
+    pool.wait_termination();
+
+    let result = catch_unwind(AssertUnwindSafe(|| {
+        pool.wait_termination_timeout(Duration::MAX)
+    }));
+
+    assert!(result.is_err());
 }

@@ -19,7 +19,6 @@ use crossbeam_deque::{
     Injector,
     Steal,
 };
-use qubit_clock::TimeError;
 use qubit_executor::service::{
     ExecutorServiceLifecycle,
     StopReport,
@@ -447,7 +446,7 @@ impl FixedThreadPoolInner {
     /// Blocks until the pool is fully terminated.
     pub fn wait_for_termination(&self) {
         self.state
-            .wait_until(|state| self.is_terminated_locked(state), |_| ());
+            .wait_until_ready(|state| self.is_terminated_locked(state));
     }
 
     /// Waits for termination for at most `timeout`.
@@ -458,10 +457,6 @@ impl FixedThreadPoolInner {
                 self.is_terminated_locked(state)
             }) {
             Ok(result) => result.is_ready(),
-            Err(TimeError::InstantOverflow) => {
-                self.wait_for_termination();
-                true
-            }
             Err(error) => panic!("fixed pool termination wait failed: {error}"),
         }
     }
