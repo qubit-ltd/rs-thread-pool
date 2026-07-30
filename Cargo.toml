@@ -38,7 +38,6 @@ qubit-argument = "0.4"
 qubit-executor = { version = "0.8", path = "../rs-executor" }
 qubit-function = "0.16"
 qubit-lock = { default-features = false, features = ["monitor", "parking-lot"], version = "0.12" }
-qubit-clock = { version = "0.12", path = "../rs-clock" }
 
 [dev-dependencies]
 criterion = "0.8"
