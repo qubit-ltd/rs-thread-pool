@@ -5,14 +5,10 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use std::{
-    fmt,
-    panic::{
-        AssertUnwindSafe,
-        catch_unwind,
-    },
-    sync::Arc,
-};
+use std::fmt;
+use std::panic::AssertUnwindSafe;
+use std::panic::catch_unwind;
+use std::sync::Arc;
 
 /// Shared callback type used by worker and task hooks.
 type HookCallback = Arc<dyn Fn(usize) + Send + Sync + 'static>;

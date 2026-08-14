@@ -1,10 +1,6 @@
-use std::sync::{
-    Arc,
-    atomic::{
-        AtomicBool,
-        Ordering,
-    },
-};
+use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
 
 use qubit_executor::service::ExecutorService;
 use qubit_thread_pool::ThreadPool;

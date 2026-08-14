@@ -5,22 +5,14 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use std::{
-    panic::{
-        AssertUnwindSafe,
-        catch_unwind,
-    },
-    sync::Mutex,
-};
+use std::panic::AssertUnwindSafe;
+use std::panic::catch_unwind;
+use std::sync::Mutex;
 
-use qubit_executor::task::spi::{
-    TaskRunner,
-    TaskSlot,
-};
-use qubit_function::{
-    Callable,
-    Runnable,
-};
+use qubit_executor::task::spi::TaskRunner;
+use qubit_executor::task::spi::TaskSlot;
+use qubit_function::Callable;
+use qubit_function::Runnable;
 
 /// Type-erased callable owned by a pool queue.
 trait PoolTask: Send + 'static {

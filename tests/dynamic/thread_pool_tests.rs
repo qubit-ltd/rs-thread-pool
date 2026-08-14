@@ -7,39 +7,25 @@
 // =============================================================================
 //! Tests for [`qubit_thread_pool::ThreadPool`].
 
-use std::{
-    io,
-    panic::PanicHookInfo,
-    sync::{
-        Arc,
-        Mutex,
-        atomic::{
-            AtomicBool,
-            Ordering,
-        },
-        mpsc,
-    },
-    time::Duration,
-};
+use std::io;
+use std::panic::PanicHookInfo;
+use std::sync::Arc;
+use std::sync::Mutex;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
+use std::sync::mpsc;
+use std::time::Duration;
 
-use qubit_executor::service::{
-    ExecutorService,
-    ExecutorServiceBuilderError,
-    SubmissionError,
-};
-use qubit_executor::{
-    CancelResult,
-    TaskExecutionError,
-};
-use qubit_thread_pool::{
-    PoolJob,
-    ThreadPool,
-};
+use qubit_executor::CancelResult;
+use qubit_executor::TaskExecutionError;
+use qubit_executor::service::ExecutorService;
+use qubit_executor::service::ExecutorServiceBuilderError;
+use qubit_executor::service::SubmissionError;
+use qubit_thread_pool::PoolJob;
+use qubit_thread_pool::ThreadPool;
 
-use super::mod_tests::{
-    create_single_worker_pool,
-    wait_started,
-};
+use super::mod_tests::create_single_worker_pool;
+use super::mod_tests::wait_started;
 
 static PANIC_HOOK_LOCK: Mutex<()> = Mutex::new(());
 

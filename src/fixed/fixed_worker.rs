@@ -5,23 +5,17 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use std::{
-    hint::spin_loop,
-    sync::{
-        Arc,
-        atomic::Ordering,
-    },
-};
+use std::hint::spin_loop;
+use std::sync::Arc;
+use std::sync::atomic::Ordering;
 
 use qubit_executor::service::ExecutorServiceLifecycle;
 
 use super::fixed_thread_pool_inner::FixedThreadPoolInner;
 use super::fixed_thread_pool_state::FixedThreadPoolState;
 use super::fixed_worker_runtime::FixedWorkerRuntime;
-use crate::{
-    PoolJob,
-    ThreadPoolHooks,
-};
+use crate::PoolJob;
+use crate::ThreadPoolHooks;
 
 /// Number of short queue probes before a fixed worker parks.
 const IDLE_SPIN_LIMIT: usize = 256;

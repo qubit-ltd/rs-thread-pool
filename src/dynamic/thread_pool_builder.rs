@@ -5,26 +5,20 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use std::{
-    sync::Arc,
-    thread,
-    time::Duration,
-};
+use std::sync::Arc;
+use std::thread;
+use std::time::Duration;
 
-use qubit_argument::{
-    ArgumentResult,
-    DurationArgument,
-    NumericArgument,
-    OptionArgument,
-};
+use qubit_argument::ArgumentResult;
+use qubit_argument::DurationArgument;
+use qubit_argument::NumericArgument;
+use qubit_argument::OptionArgument;
 
 use super::thread_pool::ThreadPool;
 use super::thread_pool_config::ThreadPoolConfig;
 use super::thread_pool_inner::ThreadPoolInner;
-use crate::{
-    ExecutorServiceBuilderError,
-    ThreadPoolHooks,
-};
+use crate::ExecutorServiceBuilderError;
+use crate::ThreadPoolHooks;
 
 /// Default thread name prefix used by [`ThreadPoolBuilder`].
 const DEFAULT_THREAD_NAME_PREFIX: &str = "qubit-thread-pool";

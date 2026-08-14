@@ -5,37 +5,27 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use std::{
-    sync::Arc,
-    thread::JoinHandle,
-    time::Duration,
-};
+use std::sync::Arc;
+use std::thread::JoinHandle;
+use std::time::Duration;
 
-use qubit_executor::service::{
-    ExecutorService,
-    ExecutorServiceLifecycle,
-    StopReport,
-    SubmissionError,
-};
+use qubit_executor::TaskHandle;
+use qubit_executor::TrackedTask;
+use qubit_executor::service::ExecutorService;
+use qubit_executor::service::ExecutorServiceLifecycle;
+use qubit_executor::service::StopReport;
+use qubit_executor::service::SubmissionError;
 use qubit_executor::task::spi::TaskEndpointPair;
-use qubit_executor::{
-    TaskHandle,
-    TrackedTask,
-};
-use qubit_function::{
-    Callable,
-    Runnable,
-};
+use qubit_function::Callable;
+use qubit_function::Runnable;
 
 use super::fixed_thread_pool_builder::FixedThreadPoolBuilder;
 use super::fixed_thread_pool_inner::FixedThreadPoolInner;
 use super::fixed_worker::FixedWorker;
 use super::fixed_worker_runtime::FixedWorkerRuntime;
-use crate::{
-    ExecutorServiceBuilderError,
-    PoolJob,
-    ThreadPoolStats,
-};
+use crate::ExecutorServiceBuilderError;
+use crate::PoolJob;
+use crate::ThreadPoolStats;
 
 /// Fixed-size thread pool implementing [`ExecutorService`].
 ///

@@ -5,23 +5,17 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use std::{
-    panic::{
-        AssertUnwindSafe,
-        catch_unwind,
-    },
-    sync::Arc,
-};
+use std::panic::AssertUnwindSafe;
+use std::panic::catch_unwind;
+use std::sync::Arc;
 
 use qubit_executor::service::ExecutorServiceLifecycle;
 use qubit_lock::WaitTimeoutStatus;
 
 use super::thread_pool_inner::ThreadPoolInner;
 use super::thread_pool_state::ThreadPoolState;
-use crate::{
-    PoolJob,
-    ThreadPoolHooks,
-};
+use crate::PoolJob;
+use crate::ThreadPoolHooks;
 
 /// Worker loop entry point for dynamic thread pools.
 pub(crate) struct ThreadPoolWorker;

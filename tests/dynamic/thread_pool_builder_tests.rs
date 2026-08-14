@@ -7,23 +7,17 @@
 // =============================================================================
 //! Tests for [`qubit_thread_pool::ThreadPoolBuilder`].
 
-use std::{
-    io,
-    sync::mpsc,
-    time::Duration,
-};
+use std::io;
+use std::sync::mpsc;
+use std::time::Duration;
 
-use qubit_executor::service::{
-    ExecutorService,
-    ExecutorServiceBuilderError,
-    SubmissionError,
-};
+use qubit_executor::service::ExecutorService;
+use qubit_executor::service::ExecutorServiceBuilderError;
+use qubit_executor::service::SubmissionError;
 use qubit_thread_pool::ThreadPool;
 
-use super::mod_tests::{
-    wait_started,
-    wait_until,
-};
+use super::mod_tests::wait_started;
+use super::mod_tests::wait_until;
 
 fn ok_unit_task() -> Result<(), io::Error> {
     Ok(())

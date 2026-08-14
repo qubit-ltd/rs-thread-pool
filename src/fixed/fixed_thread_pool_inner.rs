@@ -6,32 +6,22 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 // qubit-style: allow inline-tests
-use std::{
-    sync::atomic::{
-        AtomicBool,
-        AtomicUsize,
-        Ordering,
-    },
-    time::Duration,
-};
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
+use std::time::Duration;
 
-use crossbeam_deque::{
-    Injector,
-    Steal,
-};
-use qubit_executor::service::{
-    ExecutorServiceLifecycle,
-    StopReport,
-    SubmissionError,
-};
+use crossbeam_deque::Injector;
+use crossbeam_deque::Steal;
+use qubit_executor::service::ExecutorServiceLifecycle;
+use qubit_executor::service::StopReport;
+use qubit_executor::service::SubmissionError;
 use qubit_lock::ParkingLotMonitor;
 
 use super::fixed_thread_pool_state::FixedThreadPoolState;
-use crate::{
-    PoolJob,
-    ThreadPoolHooks,
-    ThreadPoolStats,
-};
+use crate::PoolJob;
+use crate::ThreadPoolHooks;
+use crate::ThreadPoolStats;
 
 /// Submit guard that leaves in-flight accounting on drop.
 struct FixedSubmitGuard<'a> {
@@ -676,24 +666,16 @@ impl FixedThreadPoolInner {
 
 #[cfg(test)]
 mod tests {
-    use std::{
-        sync::{
-            Arc,
-            atomic::Ordering,
-            mpsc,
-        },
-        thread,
-        time::{
-            Duration,
-            Instant,
-        },
-    };
+    use std::sync::Arc;
+    use std::sync::atomic::Ordering;
+    use std::sync::mpsc;
+    use std::thread;
+    use std::time::Duration;
+    use std::time::Instant;
 
     use super::FixedThreadPoolInner;
-    use crate::{
-        PoolJob,
-        ThreadPoolHooks,
-    };
+    use crate::PoolJob;
+    use crate::ThreadPoolHooks;
 
     fn wait_until<F>(mut condition: F)
     where

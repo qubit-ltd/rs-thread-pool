@@ -7,10 +7,8 @@
 // =============================================================================
 //! Tests for [`qubit_thread_pool::ExecutorServiceBuilderError`].
 
-use qubit_executor::service::{
-    ExecutorServiceBuilderError,
-    SubmissionError,
-};
+use qubit_executor::service::ExecutorServiceBuilderError;
+use qubit_executor::service::SubmissionError;
 
 #[test]
 fn test_executor_build_error_from_submission_error_shutdown() {

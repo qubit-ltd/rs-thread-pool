@@ -5,43 +5,29 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use std::{
-    sync::{
-        Arc,
-        atomic::{
-            AtomicBool,
-            AtomicUsize,
-            Ordering,
-        },
-        mpsc,
-    },
-    thread,
-    time::Duration,
-};
+use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
+use std::sync::mpsc;
+use std::thread;
+use std::time::Duration;
 
-use crossbeam_deque::{
-    Injector,
-    Steal,
-};
-use qubit_executor::service::{
-    ExecutorServiceLifecycle,
-    StopReport,
-    SubmissionError,
-};
-use qubit_lock::{
-    ParkingLotMonitor,
-    ParkingLotMonitorGuard,
-};
+use crossbeam_deque::Injector;
+use crossbeam_deque::Steal;
+use qubit_executor::service::ExecutorServiceLifecycle;
+use qubit_executor::service::StopReport;
+use qubit_executor::service::SubmissionError;
+use qubit_lock::ParkingLotMonitor;
+use qubit_lock::ParkingLotMonitorGuard;
 
 use super::thread_pool_config::ThreadPoolConfig;
 use super::thread_pool_state::ThreadPoolState;
 use super::thread_pool_worker::ThreadPoolWorker;
-use crate::{
-    ExecutorServiceBuilderError,
-    PoolJob,
-    ThreadPoolHooks,
-    ThreadPoolStats,
-};
+use crate::ExecutorServiceBuilderError;
+use crate::PoolJob;
+use crate::ThreadPoolHooks;
+use crate::ThreadPoolStats;
 
 /// Submit guard that leaves in-flight accounting on drop.
 struct ThreadPoolSubmitGuard<'a> {

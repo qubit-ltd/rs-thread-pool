@@ -9,17 +9,13 @@
 
 use std::thread;
 
-use qubit_argument::{
-    ArgumentResult,
-    NumericArgument,
-    OptionArgument,
-};
+use qubit_argument::ArgumentResult;
+use qubit_argument::NumericArgument;
+use qubit_argument::OptionArgument;
 
 use super::fixed_thread_pool::FixedThreadPool;
-use crate::{
-    ExecutorServiceBuilderError,
-    ThreadPoolHooks,
-};
+use crate::ExecutorServiceBuilderError;
+use crate::ThreadPoolHooks;
 
 /// Default thread name prefix used by [`FixedThreadPoolBuilder`].
 const DEFAULT_FIXED_THREAD_NAME_PREFIX: &str = "qubit-fixed-thread-pool";

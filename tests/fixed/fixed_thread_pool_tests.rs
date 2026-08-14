@@ -7,35 +7,23 @@
 // =============================================================================
 //! Tests for [`FixedThreadPool`](qubit_thread_pool::FixedThreadPool).
 
-use std::{
-    io,
-    sync::{
-        Arc,
-        Mutex,
-        atomic::{
-            AtomicBool,
-            Ordering,
-        },
-        mpsc,
-    },
-    thread,
-    time::Duration,
-};
+use std::io;
+use std::sync::Arc;
+use std::sync::Mutex;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
+use std::sync::mpsc;
+use std::thread;
+use std::time::Duration;
 
-use qubit_executor::service::{
-    ExecutorService,
-    SubmissionError,
-};
-use qubit_executor::{
-    CancelResult,
-    TaskExecutionError,
-};
+use qubit_executor::CancelResult;
+use qubit_executor::TaskExecutionError;
+use qubit_executor::service::ExecutorService;
+use qubit_executor::service::SubmissionError;
 use qubit_thread_pool::FixedThreadPool;
 
-use super::mod_tests::{
-    wait_started,
-    wait_until,
-};
+use super::mod_tests::wait_started;
+use super::mod_tests::wait_until;
 
 fn ok_unit_task() -> Result<(), io::Error> {
     Ok(())

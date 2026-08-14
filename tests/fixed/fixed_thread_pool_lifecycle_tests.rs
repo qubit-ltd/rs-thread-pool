@@ -1,15 +1,9 @@
-use std::{
-    panic::{
-        AssertUnwindSafe,
-        catch_unwind,
-    },
-    time::Duration,
-};
+use std::panic::AssertUnwindSafe;
+use std::panic::catch_unwind;
+use std::time::Duration;
 
-use qubit_executor::service::{
-    ExecutorService,
-    ExecutorServiceLifecycle,
-};
+use qubit_executor::service::ExecutorService;
+use qubit_executor::service::ExecutorServiceLifecycle;
 use qubit_thread_pool::FixedThreadPool;
 
 #[test]

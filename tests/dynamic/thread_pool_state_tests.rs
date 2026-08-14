@@ -1,14 +1,10 @@
-use std::{
-    io,
-    sync::mpsc,
-};
+use std::io;
+use std::sync::mpsc;
 
 use qubit_executor::service::ExecutorService;
 
-use super::mod_tests::{
-    create_single_worker_pool,
-    wait_started,
-};
+use super::mod_tests::create_single_worker_pool;
+use super::mod_tests::wait_started;
 
 #[test]
 fn test_thread_pool_state_reports_queue_saturation_and_shutdown_cancellation() {

@@ -15,16 +15,11 @@ mod pool_job;
 mod thread_pool_hooks;
 mod thread_pool_stats;
 
-use qubit_executor::service::ExecutorServiceBuilderError;
-
-pub use dynamic::{
-    ThreadPool,
-    ThreadPoolBuilder,
-};
-pub use fixed::{
-    FixedThreadPool,
-    FixedThreadPoolBuilder,
-};
+pub use dynamic::ThreadPool;
+pub use dynamic::ThreadPoolBuilder;
+pub use fixed::FixedThreadPool;
+pub use fixed::FixedThreadPoolBuilder;
 pub use pool_job::PoolJob;
+use qubit_executor::service::ExecutorServiceBuilderError;
 pub use thread_pool_hooks::ThreadPoolHooks;
 pub use thread_pool_stats::ThreadPoolStats;

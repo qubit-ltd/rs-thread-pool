@@ -15,20 +15,16 @@ use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 
-use criterion::{
-    BenchmarkId,
-    Criterion,
-    Throughput,
-    criterion_group,
-    criterion_main,
-};
+use criterion::BenchmarkId;
+use criterion::Criterion;
+use criterion::Throughput;
+use criterion::criterion_group;
+use criterion::criterion_main;
 use qubit_executor::ExecutorService;
 use qubit_thread_pool::FixedThreadPool;
 use qubit_thread_pool::ThreadPool;
-use rayon::{
-    ThreadPoolBuilder,
-    prelude::*,
-};
+use rayon::ThreadPoolBuilder;
+use rayon::prelude::*;
 use threadpool::ThreadPool as ExternalThreadPool;
 
 /// Workload kind used by cross-implementation submission benchmarks.
