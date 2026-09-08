@@ -309,14 +309,10 @@ impl ThreadPoolBuilder {
             },
             self.hooks,
         ));
-        if prestart_core_threads
-            && let Err(error) = inner.prestart_all_core_threads()
-        {
+        if prestart_core_threads && let Err(error) = inner.prestart_all_core_threads() {
             inner.stop();
             inner.wait_for_termination();
-            return Err(ExecutorServiceBuilderError::from_submission_error(
-                error,
-            ));
+            return Err(ExecutorServiceBuilderError::from_submission_error(error));
         }
         Ok(ThreadPool::from_inner(inner))
     }
@@ -346,15 +342,13 @@ impl ThreadPoolBuilder {
             },
         )?;
         map_argument_error(
-            self.queue_capacity.validate_some(|queue_capacity| {
-                queue_capacity.require_positive("queue_capacity")
-            }),
+            self.queue_capacity
+                .validate_some(|queue_capacity| queue_capacity.require_positive("queue_capacity")),
             ExecutorServiceBuilderError::ZeroQueueCapacity,
         )?;
         map_argument_error(
-            self.stack_size.validate_some(|stack_size| {
-                stack_size.require_positive("stack_size")
-            }),
+            self.stack_size
+                .validate_some(|stack_size| stack_size.require_positive("stack_size")),
             ExecutorServiceBuilderError::ZeroStackSize,
         )?;
         map_argument_error(
@@ -411,7 +405,5 @@ impl Default for ThreadPoolBuilder {
 ///
 /// The available CPU parallelism, or `1` if it cannot be detected.
 fn default_pool_size() -> usize {
-    thread::available_parallelism()
-        .map(usize::from)
-        .unwrap_or(1)
+    thread::available_parallelism().map(usize::from).unwrap_or(1)
 }

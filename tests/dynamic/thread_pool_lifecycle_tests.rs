@@ -7,8 +7,7 @@ use qubit_executor::service::ExecutorServiceLifecycle;
 use qubit_thread_pool::ThreadPool;
 
 #[test]
-fn test_thread_pool_lifecycle_accessors_report_running_shutdown_and_terminated()
-{
+fn test_thread_pool_lifecycle_accessors_report_running_shutdown_and_terminated() {
     let pool = ThreadPool::new(1).unwrap();
     assert!(!pool.is_not_running());
     assert!(!pool.is_terminated());
@@ -27,9 +26,7 @@ fn test_thread_pool_lifecycle_reports_shutting_down_with_running_work() {
     let (release_tx, release_rx) = std::sync::mpsc::channel::<()>();
     let handle = pool
         .submit_tracked(move || {
-            started_tx
-                .send(())
-                .expect("test should receive task start signal");
+            started_tx.send(()).expect("test should receive task start signal");
             release_rx
                 .recv()
                 .map_err(|err| std::io::Error::other(err.to_string()))?;
@@ -56,9 +53,7 @@ fn test_thread_pool_wait_termination_timeout_rejects_overflow() {
     pool.shutdown();
     pool.wait_termination();
 
-    let result = catch_unwind(AssertUnwindSafe(|| {
-        pool.wait_termination_timeout(Duration::MAX)
-    }));
+    let result = catch_unwind(AssertUnwindSafe(|| pool.wait_termination_timeout(Duration::MAX)));
 
     assert!(result.is_err());
 }

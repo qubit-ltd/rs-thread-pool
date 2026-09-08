@@ -213,15 +213,13 @@ impl FixedThreadPoolBuilder {
             ExecutorServiceBuilderError::ZeroPoolSize,
         )?;
         map_argument_error(
-            self.queue_capacity.validate_some(|queue_capacity| {
-                queue_capacity.require_positive("queue_capacity")
-            }),
+            self.queue_capacity
+                .validate_some(|queue_capacity| queue_capacity.require_positive("queue_capacity")),
             ExecutorServiceBuilderError::ZeroQueueCapacity,
         )?;
         map_argument_error(
-            self.stack_size.validate_some(|stack_size| {
-                stack_size.require_positive("stack_size")
-            }),
+            self.stack_size
+                .validate_some(|stack_size| stack_size.require_positive("stack_size")),
             ExecutorServiceBuilderError::ZeroStackSize,
         )?;
         Ok(())
@@ -268,7 +266,5 @@ impl Default for FixedThreadPoolBuilder {
 ///
 /// Available CPU parallelism, or `1` if it cannot be detected.
 fn default_fixed_pool_size() -> usize {
-    thread::available_parallelism()
-        .map(usize::from)
-        .unwrap_or(1)
+    thread::available_parallelism().map(usize::from).unwrap_or(1)
 }

@@ -35,12 +35,8 @@ fn test_thread_pool_bounded_queue_rejects_when_saturated() {
 
     let first = pool
         .submit_tracked(move || {
-            started_tx
-                .send(())
-                .expect("test should receive task start signal");
-            release_rx
-                .recv()
-                .map_err(|err| io::Error::other(err.to_string()))?;
+            started_tx.send(()).expect("test should receive task start signal");
+            release_rx.recv().map_err(|err| io::Error::other(err.to_string()))?;
             Ok::<(), io::Error>(())
         })
         .expect("first task should be accepted");
@@ -49,19 +45,14 @@ fn test_thread_pool_bounded_queue_rejects_when_saturated() {
     let second = pool
         .submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>)
         .expect("second task should fill the queue");
-    let third =
-        pool.submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>);
+    let third = pool.submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>);
 
     assert!(matches!(third, Err(SubmissionError::Saturated)));
     release_tx
         .send(())
         .expect("blocking task should receive release signal");
-    first
-        .get()
-        .expect("first task should complete successfully");
-    second
-        .get()
-        .expect("queued task should complete successfully");
+    first.get().expect("first task should complete successfully");
+    second.get().expect("queued task should complete successfully");
     pool.shutdown();
     pool.wait_termination();
 }
@@ -109,27 +100,20 @@ fn test_thread_pool_grows_above_core_when_queue_is_full() {
         .expect("third task should create a non-core worker");
     wait_started(third_started_rx);
 
-    let fourth =
-        pool.submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>);
+    let fourth = pool.submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>);
 
     assert!(matches!(fourth, Err(SubmissionError::Saturated)));
     assert_eq!(pool.stats().live_workers, 2);
     release_third_tx
         .send(())
         .expect("third task should receive release signal");
-    third
-        .get()
-        .expect("third task should complete successfully");
+    third.get().expect("third task should complete successfully");
     wait_until(|| pool.stats().live_workers == 1);
     release_first_tx
         .send(())
         .expect("first task should receive release signal");
-    first
-        .get()
-        .expect("first task should complete successfully");
-    second
-        .get()
-        .expect("queued task should complete successfully");
+    first.get().expect("first task should complete successfully");
+    second.get().expect("queued task should complete successfully");
     pool.shutdown();
     pool.wait_termination();
 }
@@ -184,19 +168,13 @@ fn test_thread_pool_excess_workers_retire_after_maximum_size_decreases() {
         .send(())
         .expect("third task should receive release signal");
 
-    third
-        .get()
-        .expect("third task should complete successfully");
+    third.get().expect("third task should complete successfully");
     wait_until(|| pool.live_worker_count() == 1);
     release_first_tx
         .send(())
         .expect("first task should receive release signal");
-    first
-        .get()
-        .expect("first task should complete successfully");
-    second
-        .get()
-        .expect("queued task should complete successfully");
+    first.get().expect("first task should complete successfully");
+    second.get().expect("queued task should complete successfully");
     pool.shutdown();
     pool.wait_termination();
 }
@@ -223,16 +201,9 @@ fn test_thread_pool_prestart_core_thread_reports_state() {
         .expect("thread pool should be created");
 
     assert!(pool.prestart_core_thread().expect("worker should start"));
-    assert!(
-        !pool
-            .prestart_core_thread()
-            .expect("no worker should be needed")
-    );
+    assert!(!pool.prestart_core_thread().expect("no worker should be needed"));
     pool.shutdown();
-    assert!(matches!(
-        pool.prestart_core_thread(),
-        Err(SubmissionError::Shutdown),
-    ));
+    assert!(matches!(pool.prestart_core_thread(), Err(SubmissionError::Shutdown),));
     pool.wait_termination();
 }
 
@@ -244,8 +215,7 @@ fn test_thread_pool_prestart_all_core_threads_reports_state() {
         .expect("thread pool should be created");
 
     assert_eq!(
-        pool.prestart_all_core_threads()
-            .expect("all core workers should start"),
+        pool.prestart_all_core_threads().expect("all core workers should start"),
         2,
     );
     assert_eq!(
@@ -321,10 +291,7 @@ fn test_thread_pool_prestart_reports_build_spawn_failure() {
         .prestart_core_threads()
         .build();
 
-    assert!(matches!(
-        result,
-        Err(ExecutorServiceBuilderError::SpawnWorker { .. })
-    ));
+    assert!(matches!(result, Err(ExecutorServiceBuilderError::SpawnWorker { .. })));
 }
 
 #[test]
@@ -342,10 +309,7 @@ fn test_thread_pool_builder_rejects_invalid_configuration() {
         Err(ExecutorServiceBuilderError::ZeroStackSize),
     ));
     assert!(matches!(
-        ThreadPool::builder()
-            .core_pool_size(2)
-            .maximum_pool_size(1)
-            .build(),
+        ThreadPool::builder().core_pool_size(2).maximum_pool_size(1).build(),
         Err(ExecutorServiceBuilderError::CorePoolSizeExceedsMaximum { .. }),
     ));
     assert!(matches!(

@@ -233,10 +233,7 @@ impl ThreadPool {
     ///
     /// Returns [`ExecutorServiceBuilderError::CorePoolSizeExceedsMaximum`] when
     /// the new core size would exceed the current maximum size.
-    pub fn set_core_pool_size(
-        &self,
-        core_pool_size: usize,
-    ) -> Result<(), ExecutorServiceBuilderError> {
+    pub fn set_core_pool_size(&self, core_pool_size: usize) -> Result<(), ExecutorServiceBuilderError> {
         self.inner.set_core_pool_size(core_pool_size)
     }
 
@@ -259,10 +256,7 @@ impl ThreadPool {
     /// maximum size is zero, or
     /// [`ExecutorServiceBuilderError::CorePoolSizeExceedsMaximum`]
     /// when it would be smaller than the current core size.
-    pub fn set_maximum_pool_size(
-        &self,
-        maximum_pool_size: usize,
-    ) -> Result<(), ExecutorServiceBuilderError> {
+    pub fn set_maximum_pool_size(&self, maximum_pool_size: usize) -> Result<(), ExecutorServiceBuilderError> {
         self.inner.set_maximum_pool_size(maximum_pool_size)
     }
 
@@ -280,10 +274,7 @@ impl ThreadPool {
     ///
     /// Returns [`ExecutorServiceBuilderError::ZeroKeepAlive`] when `keep_alive`
     /// is zero.
-    pub fn set_keep_alive(
-        &self,
-        keep_alive: Duration,
-    ) -> Result<(), ExecutorServiceBuilderError> {
+    pub fn set_keep_alive(&self, keep_alive: Duration) -> Result<(), ExecutorServiceBuilderError> {
         self.inner.set_keep_alive(keep_alive)
     }
 
@@ -342,10 +333,7 @@ impl ExecutorService for ThreadPool {
     /// [`SubmissionError::Saturated`] when the bounded pool cannot accept
     /// more work, or returns [`SubmissionError::WorkerSpawnFailed`] when a
     /// required worker cannot be created.
-    fn submit_callable<C, R, E>(
-        &self,
-        task: C,
-    ) -> Result<Self::ResultHandle<R, E>, SubmissionError>
+    fn submit_callable<C, R, E>(&self, task: C) -> Result<Self::ResultHandle<R, E>, SubmissionError>
     where
         C: Callable<R, E> + Send + 'static,
         R: Send + 'static,
@@ -358,10 +346,7 @@ impl ExecutorService for ThreadPool {
     }
 
     /// Accepts a callable and queues it with a tracked handle.
-    fn submit_tracked_callable<C, R, E>(
-        &self,
-        task: C,
-    ) -> Result<Self::TrackedHandle<R, E>, SubmissionError>
+    fn submit_tracked_callable<C, R, E>(&self, task: C) -> Result<Self::TrackedHandle<R, E>, SubmissionError>
     where
         C: Callable<R, E> + Send + 'static,
         R: Send + 'static,

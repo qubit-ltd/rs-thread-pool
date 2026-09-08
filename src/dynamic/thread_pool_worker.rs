@@ -27,11 +27,7 @@ impl ThreadPoolWorker {
     ///
     /// * `inner` - Shared pool state used for queue access and counters.
     /// * `worker_index` - Stable worker index assigned by the pool.
-    pub(crate) fn run(
-        inner: Arc<ThreadPoolInner>,
-        worker_index: usize,
-        initial_job: Option<PoolJob>,
-    ) {
+    pub(crate) fn run(inner: Arc<ThreadPoolInner>, worker_index: usize, initial_job: Option<PoolJob>) {
         inner.hooks().run_before_worker_start(worker_index);
         let has_task_hooks = inner.hooks().has_task_hooks();
         if let Some(job) = initial_job {
@@ -69,12 +65,7 @@ impl ThreadPoolWorker {
 /// * `job` - Initial job assigned to this worker.
 /// * `has_task_hooks` - Whether per-task hooks are configured.
 /// * `worker_index` - Stable index of the worker running the job.
-fn run_initial_job(
-    inner: &ThreadPoolInner,
-    job: PoolJob,
-    has_task_hooks: bool,
-    worker_index: usize,
-) {
+fn run_initial_job(inner: &ThreadPoolInner, job: PoolJob, has_task_hooks: bool, worker_index: usize) {
     if job.accept() {
         if has_task_hooks {
             run_with_task_hooks(job, inner.hooks(), worker_index);
@@ -101,11 +92,7 @@ fn run_without_hooks(job: PoolJob) {
 /// * `job` - Claimed job to execute.
 /// * `hooks` - Hook set configured for the pool.
 /// * `worker_index` - Stable index of the worker running the job.
-fn run_with_task_hooks(
-    job: PoolJob,
-    hooks: &ThreadPoolHooks,
-    worker_index: usize,
-) {
+fn run_with_task_hooks(job: PoolJob, hooks: &ThreadPoolHooks, worker_index: usize) {
     hooks.run_before_task(worker_index);
     let _ignored = catch_unwind(AssertUnwindSafe(|| job.run()));
     hooks.run_after_task(worker_index);
@@ -121,10 +108,7 @@ fn run_with_task_hooks(
 /// # Returns
 ///
 /// `Some(job)` when work is available, or `None` when the worker should exit.
-fn wait_for_job(
-    inner: &ThreadPoolInner,
-    worker_index: usize,
-) -> Option<PoolJob> {
+fn wait_for_job(inner: &ThreadPoolInner, worker_index: usize) -> Option<PoolJob> {
     loop {
         if let Some(job) = inner.try_take_queued_job() {
             return Some(job);
@@ -132,27 +116,18 @@ fn wait_for_job(
         let mut state = inner.lock_state();
         match state.lifecycle {
             ExecutorServiceLifecycle::Running => {
-                if inner.queued_count() == 0
-                    && state.live_workers > state.maximum_pool_size
-                    && state.live_workers > 0
-                {
+                if inner.queued_count() == 0 && state.live_workers > state.maximum_pool_size && state.live_workers > 0 {
                     unregister_exiting_worker(inner, &mut state, worker_index);
                     return None;
                 }
                 drop(state);
                 state = inner.lock_state();
-                if state.lifecycle == ExecutorServiceLifecycle::Running
-                    && state.worker_wait_is_timed()
-                {
+                if state.lifecycle == ExecutorServiceLifecycle::Running && state.worker_wait_is_timed() {
                     let keep_alive = state.keep_alive;
                     mark_thread_pool_worker_idle(inner, &mut state);
                     let mut timed_out = false;
-                    if inner.queued_count() == 0
-                        && !inner.has_pending_worker_wake()
-                    {
-                        let status = state
-                            .wait_for(keep_alive)
-                            .expect("standard Timer should register");
+                    if inner.queued_count() == 0 && !inner.has_pending_worker_wake() {
+                        let status = state.wait_for(keep_alive).expect("standard Timer should register");
                         timed_out = status == WaitTimeoutStatus::TimedOut;
                     }
                     let should_retire = timed_out
@@ -161,18 +136,12 @@ fn wait_for_job(
                         && state.idle_worker_can_retire();
                     unmark_thread_pool_worker_idle(inner, &mut state);
                     if should_retire {
-                        unregister_exiting_worker(
-                            inner,
-                            &mut state,
-                            worker_index,
-                        );
+                        unregister_exiting_worker(inner, &mut state, worker_index);
                         return None;
                     }
                 } else if state.lifecycle == ExecutorServiceLifecycle::Running {
                     mark_thread_pool_worker_idle(inner, &mut state);
-                    if inner.queued_count() == 0
-                        && !inner.has_pending_worker_wake()
-                    {
+                    if inner.queued_count() == 0 && !inner.has_pending_worker_wake() {
                         state.wait();
                     }
                     unmark_thread_pool_worker_idle(inner, &mut state);
@@ -184,8 +153,7 @@ fn wait_for_job(
                     return None;
                 }
             }
-            ExecutorServiceLifecycle::Stopping
-            | ExecutorServiceLifecycle::Terminated => {
+            ExecutorServiceLifecycle::Stopping | ExecutorServiceLifecycle::Terminated => {
                 unregister_exiting_worker(inner, &mut state, worker_index);
                 return None;
             }
@@ -199,10 +167,7 @@ fn wait_for_job(
 ///
 /// * `inner` - Pool whose idle counter is updated.
 /// * `state` - Locked mutable state containing authoritative idle workers.
-fn mark_thread_pool_worker_idle(
-    inner: &ThreadPoolInner,
-    state: &mut ThreadPoolState,
-) {
+fn mark_thread_pool_worker_idle(inner: &ThreadPoolInner, state: &mut ThreadPoolState) {
     state.idle_workers += 1;
     inner.mark_worker_idle();
 }
@@ -213,10 +178,7 @@ fn mark_thread_pool_worker_idle(
 ///
 /// * `inner` - Pool whose idle counter is updated.
 /// * `state` - Locked mutable state containing authoritative idle workers.
-fn unmark_thread_pool_worker_idle(
-    inner: &ThreadPoolInner,
-    state: &mut ThreadPoolState,
-) {
+fn unmark_thread_pool_worker_idle(inner: &ThreadPoolInner, state: &mut ThreadPoolState) {
     state.idle_workers = state
         .idle_workers
         .checked_sub(1)
@@ -232,10 +194,6 @@ fn unmark_thread_pool_worker_idle(
 ///   notification.
 /// * `state` - Locked mutable state whose live worker count is decremented.
 /// * `worker_index` - Stable index of the exiting worker.
-fn unregister_exiting_worker(
-    inner: &ThreadPoolInner,
-    state: &mut ThreadPoolState,
-    _worker_index: usize,
-) {
+fn unregister_exiting_worker(inner: &ThreadPoolInner, state: &mut ThreadPoolState, _worker_index: usize) {
     inner.unregister_worker_locked(state);
 }

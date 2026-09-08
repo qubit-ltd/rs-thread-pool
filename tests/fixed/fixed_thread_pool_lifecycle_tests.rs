@@ -26,9 +26,7 @@ fn test_fixed_thread_pool_wait_termination_timeout_rejects_overflow() {
     pool.shutdown();
     pool.wait_termination();
 
-    let result = catch_unwind(AssertUnwindSafe(|| {
-        pool.wait_termination_timeout(Duration::MAX)
-    }));
+    let result = catch_unwind(AssertUnwindSafe(|| pool.wait_termination_timeout(Duration::MAX)));
 
     assert!(result.is_err());
 }

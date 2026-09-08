@@ -30,10 +30,7 @@ impl FixedWorker {
     ///
     /// * `inner` - Shared fixed-pool state.
     /// * `worker_runtime` - Queue runtime owned by this worker.
-    pub fn run(
-        inner: Arc<FixedThreadPoolInner>,
-        worker_runtime: FixedWorkerRuntime,
-    ) {
+    pub fn run(inner: Arc<FixedThreadPoolInner>, worker_runtime: FixedWorkerRuntime) {
         let worker_index = worker_runtime.worker_index();
         inner.hooks().run_before_worker_start(worker_index);
         let has_task_hooks = inner.hooks().has_task_hooks();
@@ -72,11 +69,7 @@ fn run_without_hooks(job: PoolJob) {
 /// * `job` - Claimed job to execute.
 /// * `hooks` - Hook set configured for the pool.
 /// * `worker_index` - Stable index of the worker running the job.
-fn run_with_task_hooks(
-    job: PoolJob,
-    hooks: &ThreadPoolHooks,
-    worker_index: usize,
-) {
+fn run_with_task_hooks(job: PoolJob, hooks: &ThreadPoolHooks, worker_index: usize) {
     hooks.run_before_task(worker_index);
     job.run();
     hooks.run_after_task(worker_index);
@@ -122,8 +115,7 @@ pub fn wait_for_fixed_pool_work(inner: &FixedThreadPoolInner) -> bool {
                 }
                 return false;
             }
-            ExecutorServiceLifecycle::Stopping
-            | ExecutorServiceLifecycle::Terminated => {
+            ExecutorServiceLifecycle::Stopping | ExecutorServiceLifecycle::Terminated => {
                 return false;
             }
         }
@@ -161,10 +153,7 @@ fn spin_for_fixed_pool_work(inner: &FixedThreadPoolInner) -> bool {
 ///
 /// * `inner` - Fixed pool whose idle counter is updated.
 /// * `state` - Locked mutable state containing authoritative idle workers.
-fn mark_fixed_worker_idle(
-    inner: &FixedThreadPoolInner,
-    state: &mut FixedThreadPoolState,
-) {
+fn mark_fixed_worker_idle(inner: &FixedThreadPoolInner, state: &mut FixedThreadPoolState) {
     state.idle_workers += 1;
     inner.idle_worker_count.fetch_add(1, Ordering::AcqRel);
 }
@@ -175,10 +164,7 @@ fn mark_fixed_worker_idle(
 ///
 /// * `inner` - Fixed pool whose idle counter is updated.
 /// * `state` - Locked mutable state containing authoritative idle workers.
-fn unmark_fixed_worker_idle(
-    inner: &FixedThreadPoolInner,
-    state: &mut FixedThreadPoolState,
-) {
+fn unmark_fixed_worker_idle(inner: &FixedThreadPoolInner, state: &mut FixedThreadPoolState) {
     state.idle_workers = state
         .idle_workers
         .checked_sub(1)
