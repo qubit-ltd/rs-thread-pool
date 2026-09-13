@@ -35,8 +35,8 @@ crossbeam-deque = "0.8"
 thiserror = "2.0"
 
 qubit-argument = "0.4"
-qubit-executor = { version = "0.8", path = "../rs-executor" }
-qubit-function = "0.16"
+qubit-executor = { path = "../rs-executor" }
+qubit-function = "0.18"
 qubit-lock = { default-features = false, features = ["monitor", "parking-lot"], version = "0.14" }
 
 [dev-dependencies]
