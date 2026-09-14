@@ -43,7 +43,7 @@ qubit-lock = { default-features = false, features = ["monitor", "parking-lot"], 
 criterion = "0.8"
 rayon = "1.12"
 threadpool = "1.8"
-tokio = { version = "1.52", features = ["macros", "rt-multi-thread", "time"] }
+tokio = { version = "^1.53", features = ["macros", "rt-multi-thread", "time"] }
 
 [[bench]]
 name = "thread_pool_bench"
