@@ -9,6 +9,7 @@ use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
+use std::time::Instant;
 
 use crossbeam_deque::Injector;
 use crossbeam_deque::Steal;
@@ -423,12 +424,21 @@ impl FixedThreadPoolInner {
 
     /// Waits for termination for at most `timeout`.
     pub fn wait_for_termination_timeout(&self, timeout: Duration) -> bool {
-        match self
-            .state
-            .wait_until_ready_with_total_timeout(timeout, |state| self.is_terminated_locked(state))
-        {
-            Ok(result) => result.is_ready(),
-            Err(error) => panic!("fixed pool termination wait failed: {error}"),
+        let started = Instant::now();
+        loop {
+            let remaining = timeout.saturating_sub(started.elapsed());
+            if remaining.is_zero() {
+                return self.is_terminated();
+            }
+            match self
+                .state
+                .wait_until_ready_with_total_timeout(remaining.min(Duration::from_secs(3600)), |state| {
+                    self.is_terminated_locked(state)
+                }) {
+                Ok(result) if result.is_ready() => return true,
+                Ok(_) => {}
+                Err(_) => return self.is_terminated(),
+            }
         }
     }
 
