@@ -24,7 +24,8 @@ use qubit_executor::ExecutorService;
 use qubit_thread_pool::FixedThreadPool;
 use qubit_thread_pool::ThreadPool;
 use rayon::ThreadPoolBuilder;
-use rayon::prelude::*;
+use rayon::iter::IntoParallelIterator;
+use rayon::iter::ParallelIterator;
 use threadpool::ThreadPool as ExternalThreadPool;
 
 /// Workload kind used by cross-implementation submission benchmarks.
@@ -72,7 +73,6 @@ fn benchmark_workloads() -> [Workload; 3] {
     [Workload::Light, Workload::Medium, Workload::Heavy]
 }
 
-/// Runs one batch of no-op tasks and waits until the pool terminates.
 /// Runs one batch of light CPU tasks and waits until the pool terminates.
 fn run_cpu_light_batch(pool_size: usize, task_count: usize) {
     run_cpu_work_batch(pool_size, task_count, 128);
