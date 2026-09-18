@@ -31,18 +31,18 @@ name = "qubit_thread_pool"
 doctest = true
 
 [dependencies]
-crossbeam-deque = "0.8"
-thiserror = "2.0"
+crossbeam-deque = "^0.8"
+thiserror = "^2.0"
 
 qubit-argument = "0.4"
-qubit-executor = { path = "../rs-executor" }
+qubit-executor = { path = "../rs-executor", version = "0.8" }
 qubit-function = "0.18"
 qubit-lock = { default-features = false, features = ["monitor", "parking-lot"], version = "0.14" }
 
 [dev-dependencies]
-criterion = "0.8"
-rayon = "1.12"
-threadpool = "1.8"
+criterion = "^0.8"
+rayon = "^1.12"
+threadpool = "^1.8"
 tokio = { version = "^1.53", features = ["macros", "rt-multi-thread", "time"] }
 
 [[bench]]
