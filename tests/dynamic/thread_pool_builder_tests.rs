@@ -58,6 +58,42 @@ fn test_thread_pool_bounded_queue_rejects_when_saturated() {
 }
 
 #[test]
+fn test_thread_pool_unbounded_queue_keeps_core_limit() {
+    let pool = ThreadPool::builder()
+        .core_pool_size(1)
+        .maximum_pool_size(2)
+        .unbounded_queue()
+        .build()
+        .expect("thread pool should be created");
+    let (started_tx, started_rx) = mpsc::channel();
+    let (release_tx, release_rx) = mpsc::channel();
+
+    let first = pool
+        .submit_tracked(move || {
+            started_tx.send(()).expect("first task should start");
+            release_rx.recv().map_err(|error| io::Error::other(error.to_string()))?;
+            Ok::<(), io::Error>(())
+        })
+        .expect("first task should be accepted");
+    wait_started(started_rx);
+    let second = pool
+        .submit_callable(|| Ok::<usize, io::Error>(1))
+        .expect("second task should be queued");
+    let third = pool
+        .submit_callable(|| Ok::<usize, io::Error>(2))
+        .expect("third task should be queued");
+
+    assert_eq!(pool.live_worker_count(), 1);
+    assert!(pool.queued_count() >= 2);
+    release_tx.send(()).expect("first task should be released");
+    first.get().expect("first task should complete");
+    assert_eq!(second.get().expect("second task should complete"), 1);
+    assert_eq!(third.get().expect("third task should complete"), 2);
+    pool.shutdown();
+    pool.wait_termination();
+}
+
+#[test]
 fn test_thread_pool_grows_above_core_when_queue_is_full() {
     let pool = ThreadPool::builder()
         .core_pool_size(1)

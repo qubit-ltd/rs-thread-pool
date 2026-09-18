@@ -91,7 +91,9 @@ impl ThreadPoolBuilder {
     /// Sets the maximum pool size.
     ///
     /// The pool grows above the core size only when the queue cannot accept a
-    /// submitted task.
+    /// submitted task. With an unbounded queue, submissions continue to queue
+    /// after the core size is reached, so a larger maximum does not by itself
+    /// create burst workers; use [`Self::queue_capacity`] to enable that path.
     ///
     /// # Parameters
     ///
@@ -125,6 +127,11 @@ impl ThreadPoolBuilder {
     }
 
     /// Uses an unbounded queue.
+    ///
+    /// With an unbounded queue, tasks continue to queue after the core size is
+    /// reached and the maximum size is not used for ordinary burst expansion.
+    /// Use [`Self::queue_capacity`] when bounded back pressure and growth
+    /// toward the maximum size are desired.
     ///
     /// # Returns
     ///

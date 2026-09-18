@@ -47,11 +47,9 @@ predictable scheduling is more important than dynamic growth.
 
 `FixedThreadPool::default()` is equivalent to `FixedThreadPoolBuilder::default().build()` except that build errors become a panic; prefer the builder's `build()` when you must handle `ExecutorServiceBuilderError`.
 
-Internally, the dynamic pool keeps accepted waiting work in a monitor-protected
-global FIFO queue. FIFO describes the waiting queue; it is not a strict task
-start or completion ordering guarantee. The fixed pool uses a lock-free global
-injector with targeted idle-worker wakeups, which keeps the fire-and-forget
-submit path small and predictable.
+Internally, both pool types use a lock-free global `Injector` with targeted
+idle-worker wakeups. Queue consumption is FIFO-ish but neither pool promises
+strict task start or completion ordering.
 
 Runtime size setters on `ThreadPool` are intended for explicit control-plane
 adjustments, such as operator-driven throttling or short-lived incident
@@ -65,6 +63,23 @@ queued work.
 A pool can use either an unbounded queue or a bounded queue. Bounded queues make
 back pressure explicit: when the pool cannot accept a task, submission returns
 `SubmissionError::Saturated` instead of silently growing memory use.
+
+An unbounded queue keeps submissions at the core worker count once the core is
+full; setting a larger maximum does not by itself create burst workers. Choose a
+bounded queue when the pool should grow toward its maximum under a burst:
+
+```rust
+let steady = ThreadPool::builder()
+    .core_pool_size(4)
+    .maximum_pool_size(4)
+    .unbounded_queue()
+    .build()?;
+let elastic = ThreadPool::builder()
+    .core_pool_size(4)
+    .maximum_pool_size(8)
+    .queue_capacity(128)
+    .build()?;
+```
 
 A successful `submit` means only that the pool accepted a fire-and-forget
 runnable. Use `submit_callable` when you need a `TaskHandle` for the final
@@ -113,6 +128,8 @@ finish according to their own code.
 
 `wait_termination` blocks the current thread after shutdown has been requested
 until all accepted work has completed or been cancelled.
+Idle and termination waits also include cancellation callbacks, so they return
+only after queued jobs have finished their cancellation handling.
 
 ## Quick Start
 

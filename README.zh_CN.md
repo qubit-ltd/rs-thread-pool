@@ -37,13 +37,28 @@ Qubit Thread Pool 为同步工作提供基于 OS 线程的 `ExecutorService` 实
 
 `FixedThreadPool::default()` 与 `FixedThreadPoolBuilder::default().build()` 等价，但构建失败会转为 panic；若需要处理错误，请使用 builder 的 `build()` 并处理 `ExecutorServiceBuilderError`。
 
-内部实现上，动态池把已接受但尚未开始的任务放入由 monitor 保护的全局 FIFO 队列。FIFO 描述的是等待队列，不表示任务启动或完成顺序具有严格 FIFO 保证。固定池使用 lock-free 全局 injector，并只唤醒有需要的 idle worker，使 fire-and-forget submit 路径更短且更可预测。
+内部实现上，两种线程池都使用 lock-free 全局 `Injector`，并通过定向唤醒处理 idle worker。队列消费大致保持 FIFO，但两种线程池都不承诺任务启动或完成的严格顺序。
 
 `ThreadPool` 的运行时尺寸调整接口主要面向显式控制面操作，例如运维限流、临时扩容或故障处置。普通业务代码应优先在构造时确定线程池大小。运行时调整 core size 会影响后续提交和预启动行为，但不会主动为已经排队的任务创建 worker。
 
 ## 排队与拒绝
 
 线程池可以使用无界队列或有界队列。有界队列能明确表达背压：当线程池无法接收任务时，提交会返回 `SubmissionError::Saturated`，而不是静默增加内存使用。
+
+无界队列在 core worker 达到上限后会继续排队；仅增加 maximum size 不会让突发任务创建额外 worker。如果希望突发时扩展到 maximum，应使用有界队列：
+
+```rust
+let steady = ThreadPool::builder()
+    .core_pool_size(4)
+    .maximum_pool_size(4)
+    .unbounded_queue()
+    .build()?;
+let elastic = ThreadPool::builder()
+    .core_pool_size(4)
+    .maximum_pool_size(8)
+    .queue_capacity(128)
+    .build()?;
+```
 
 `submit` 成功只表示线程池接受了一个 fire-and-forget runnable。需要最终结果时使用 `submit_callable` 获取 `TaskHandle`；还需要状态和启动前取消时，使用 `submit_tracked` 或 `submit_tracked_callable`。
 
@@ -81,6 +96,7 @@ pool.shutdown();
 `shutdown` 会停止接受新任务，并允许已接受的任务完成。`stop` 会停止接受新任务，并取消仍在队列中或尚未开始的工作。已经运行在 OS 线程上的任务不会被强制杀死，而是由任务自身代码决定何时结束。
 
 `wait_termination` 会阻塞当前线程，直到已请求 shutdown 且所有已接受工作完成或取消。
+空闲和终止等待也会包含取消回调，只有队列任务完成取消处理后才会返回。
 
 ## 快速开始
 
