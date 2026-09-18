@@ -70,6 +70,8 @@ pub struct FixedThreadPoolInner {
     pub queued_task_count: AtomicUsize,
     /// Number of jobs currently running.
     pub running_task_count: AtomicUsize,
+    /// Number of queued-job cancellation callbacks currently running.
+    pub cancelling_task_count: AtomicUsize,
     /// Total number of accepted jobs.
     pub submitted_task_count: AtomicUsize,
     /// Total number of finished worker-held jobs.
@@ -108,6 +110,7 @@ impl FixedThreadPoolInner {
             queue_slot_count: AtomicUsize::new(0),
             queued_task_count: AtomicUsize::new(0),
             running_task_count: AtomicUsize::new(0),
+            cancelling_task_count: AtomicUsize::new(0),
             submitted_task_count: AtomicUsize::new(0),
             completed_task_count: AtomicUsize::new(0),
             cancelled_task_count: AtomicUsize::new(0),
@@ -206,6 +209,12 @@ impl FixedThreadPoolInner {
         true
     }
 
+    /// Releases one reserved queue slot that never became runnable.
+    fn release_queue_slot(&self) {
+        let previous = self.queue_slot_count.fetch_sub(1, Ordering::Release);
+        debug_assert!(previous > 0, "fixed pool queue slot counter underflow");
+    }
+
     /// Submits one job to this fixed pool.
     ///
     /// # Parameters
@@ -225,8 +234,13 @@ impl FixedThreadPoolInner {
         if !self.reserve_queue_slot() {
             return Err(SubmissionError::Saturated);
         }
-        job.accept();
         self.submitted_task_count.fetch_add(1, Ordering::Release);
+        if !job.accept() {
+            self.release_queue_slot();
+            self.completed_task_count.fetch_add(1, Ordering::Release);
+            self.notify_waiters_after_atomic_change();
+            return Ok(());
+        }
         self.enqueue_job(job);
         Ok(())
     }
@@ -372,12 +386,25 @@ impl FixedThreadPoolInner {
     ///
     /// * `job` - Queued job that must not be run.
     pub(crate) fn cancel_claimed_job(&self, job: PoolJob) {
+        self.begin_cancel_queued_job();
+        job.cancel();
+        self.finish_cancelled_job();
+    }
+
+    /// Moves one claimed queued job into cancellation callback execution.
+    fn begin_cancel_queued_job(&self) {
         let previous = self.queued_task_count.fetch_sub(1, Ordering::Release);
         debug_assert!(previous > 0, "fixed pool queued counter underflow");
+        self.cancelling_task_count.fetch_add(1, Ordering::Release);
+    }
+
+    /// Completes one queued-job cancellation callback and releases its slot.
+    fn finish_cancelled_job(&self) {
+        let previous = self.cancelling_task_count.fetch_sub(1, Ordering::Release);
+        debug_assert!(previous > 0, "fixed pool cancelling task counter underflow");
         let previous = self.queue_slot_count.fetch_sub(1, Ordering::Release);
         debug_assert!(previous > 0, "fixed pool queue slot counter underflow");
         self.cancelled_task_count.fetch_add(1, Ordering::Release);
-        job.cancel();
         self.notify_waiters_after_atomic_change();
     }
 
@@ -498,31 +525,51 @@ impl FixedThreadPoolInner {
     /// best-effort snapshot described above.
     pub fn stop(&self) -> StopReport {
         let cancelled_before_stop = self.cancelled_task_count.load(Ordering::Acquire);
+        let cancelling_before_stop = self.cancelling_task_count.load(Ordering::Acquire);
         self.accepting.store(false, Ordering::Release);
         self.stop_now.store(true, Ordering::Release);
-        let mut state = self.state.lock();
-        state.lifecycle = ExecutorServiceLifecycle::Stopping;
-        if self.inflight_count() > 0 {
-            self.submit_waiter_count.fetch_add(1, Ordering::AcqRel);
-            while self.inflight_count() > 0 {
-                state.wait();
+        let (jobs, queued, running) = {
+            let mut state = self.state.lock();
+            let is_new_stop = matches!(
+                state.lifecycle,
+                ExecutorServiceLifecycle::Running | ExecutorServiceLifecycle::ShuttingDown
+            );
+            if is_new_stop {
+                state.lifecycle = ExecutorServiceLifecycle::Stopping;
             }
-            let previous = self.submit_waiter_count.fetch_sub(1, Ordering::AcqRel);
-            debug_assert!(previous > 0, "fixed pool submit waiter counter underflow");
-        }
-        // These snapshots are report-only. Workers may concurrently move jobs
-        // between queued, running, and cancelled states, while actual
-        // cancellation/termination relies on stop_now plus the live counters.
-        let running = self.running_count();
-        let worker_cancelled = self
-            .cancelled_task_count
-            .load(Ordering::Acquire)
-            .saturating_sub(cancelled_before_stop);
-        let queued = self.queued_count() + worker_cancelled;
-        drop(state);
-        let jobs = self.drain_visible_queued_jobs();
+            if self.inflight_count() > 0 {
+                self.submit_waiter_count.fetch_add(1, Ordering::AcqRel);
+                while self.inflight_count() > 0 {
+                    state.wait();
+                }
+                let previous = self.submit_waiter_count.fetch_sub(1, Ordering::AcqRel);
+                debug_assert!(previous > 0, "fixed pool submit waiter counter underflow");
+            }
+            let running = self.running_count();
+            let jobs = self.drain_visible_queued_jobs();
+            let drained = jobs.len();
+            for _ in 0..drained {
+                self.begin_cancel_queued_job();
+            }
+            let cancelling_since_stop = self
+                .cancelling_task_count
+                .load(Ordering::Acquire)
+                .saturating_sub(cancelling_before_stop);
+            let cancelled_since_stop = self
+                .cancelled_task_count
+                .load(Ordering::Acquire)
+                .saturating_sub(cancelled_before_stop);
+            let queued = if is_new_stop {
+                drained + cancelling_since_stop.saturating_sub(drained) + cancelled_since_stop
+            } else {
+                drained
+            };
+            state.notify_all();
+            (jobs, queued, running)
+        };
         for job in jobs {
-            self.cancel_claimed_job(job);
+            job.cancel();
+            self.finish_cancelled_job();
         }
         self.state.lock().notify_all();
         StopReport::new(queued, running, queued)
@@ -599,6 +646,7 @@ impl FixedThreadPoolInner {
             && state.live_workers == 0
             && self.queue_slot_count.load(Ordering::Acquire) == 0
             && self.running_count() == 0
+            && self.cancelling_task_count.load(Ordering::Acquire) == 0
             && self.inflight_count() == 0
     }
 
@@ -609,7 +657,10 @@ impl FixedThreadPoolInner {
     /// `true` when no submitter is still admitting work, no queued slot
     /// remains, and no worker-held task is running.
     fn is_idle_locked(&self) -> bool {
-        self.queue_slot_count.load(Ordering::Acquire) == 0 && self.running_count() == 0 && self.inflight_count() == 0
+        self.queue_slot_count.load(Ordering::Acquire) == 0
+            && self.running_count() == 0
+            && self.cancelling_task_count.load(Ordering::Acquire) == 0
+            && self.inflight_count() == 0
     }
 
     /// Returns a point-in-time stats snapshot.
@@ -646,6 +697,7 @@ impl FixedThreadPoolInner {
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
+    use std::sync::atomic::AtomicUsize;
     use std::sync::atomic::Ordering;
     use std::sync::mpsc;
     use std::thread;
@@ -736,5 +788,85 @@ mod tests {
         assert_eq!(report.running, 0);
         assert_eq!(report.cancelled, 1);
         assert_eq!(inner.cancelled_task_count.load(Ordering::Acquire), 1);
+    }
+
+    #[test]
+    fn test_fixed_stop_waits_for_cancel_callback() {
+        let inner = Arc::new(FixedThreadPoolInner::with_hooks(1, None, ThreadPoolHooks::new()));
+        let (entered_tx, entered_rx) = mpsc::channel();
+        let (release_tx, release_rx) = mpsc::channel();
+        inner
+            .submit(PoolJob::new(
+                Box::new(|| panic!("cancelled job must not run")),
+                Box::new(move || {
+                    entered_tx.send(()).expect("cancel callback should start");
+                    release_rx.recv().expect("cancel callback should be released");
+                }),
+            ))
+            .expect("job should be accepted");
+
+        let stop_inner = Arc::clone(&inner);
+        let stop_thread = thread::spawn(move || stop_inner.stop());
+        entered_rx
+            .recv_timeout(Duration::from_secs(1))
+            .expect("stop should enter the cancellation callback");
+
+        assert!(!inner.is_terminated());
+        let idle_inner = Arc::clone(&inner);
+        let (idle_done_tx, idle_done_rx) = mpsc::channel();
+        let idle_thread = thread::spawn(move || {
+            idle_inner.wait_until_idle();
+            idle_done_tx.send(()).expect("idle wait result should be reported");
+        });
+        let termination_inner = Arc::clone(&inner);
+        let (termination_done_tx, termination_done_rx) = mpsc::channel();
+        let termination_thread = thread::spawn(move || {
+            termination_inner.wait_for_termination();
+            termination_done_tx
+                .send(())
+                .expect("termination wait result should be reported");
+        });
+        assert!(idle_done_rx.recv_timeout(Duration::from_millis(50)).is_err());
+        assert!(termination_done_rx.recv_timeout(Duration::from_millis(50)).is_err());
+        assert!(!inner.is_terminated());
+
+        release_tx.send(()).expect("cancel callback should be released");
+        let report = stop_thread.join().expect("stop should finish");
+        idle_thread.join().expect("idle wait should finish after cancellation");
+        termination_thread
+            .join()
+            .expect("termination wait should finish after cancellation");
+        assert_eq!(report.cancelled, 1);
+        assert_eq!(inner.cancelled_task_count.load(Ordering::Acquire), 1);
+        assert!(inner.is_terminated());
+    }
+
+    #[test]
+    fn test_fixed_accept_panic_drops_job_without_leaking_state() {
+        let inner = FixedThreadPoolInner::with_hooks(1, None, ThreadPoolHooks::new());
+        let ran = Arc::new(AtomicUsize::new(0));
+        let cancelled = Arc::new(AtomicUsize::new(0));
+        let ran_for_job = Arc::clone(&ran);
+        let cancelled_for_job = Arc::clone(&cancelled);
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            inner.submit(PoolJob::with_accept(
+                Box::new(|| panic!("accept callback should be contained")),
+                Box::new(move || {
+                    ran_for_job.fetch_add(1, Ordering::Relaxed);
+                }),
+                Box::new(move || {
+                    cancelled_for_job.fetch_add(1, Ordering::Relaxed);
+                }),
+            ))
+        }));
+
+        assert!(result.is_ok(), "accept callback panic must not escape submit");
+        assert!(result.expect("submit result should exist").is_ok());
+        assert_eq!(inner.queued_count(), 0);
+        assert_eq!(inner.queue_slot_count.load(Ordering::Acquire), 0);
+        assert_eq!(inner.submitted_task_count.load(Ordering::Acquire), 1);
+        assert_eq!(inner.completed_task_count.load(Ordering::Acquire), 1);
+        assert_eq!(ran.load(Ordering::Relaxed), 0);
+        assert_eq!(cancelled.load(Ordering::Relaxed), 0);
     }
 }
