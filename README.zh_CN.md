@@ -43,6 +43,10 @@ Qubit Thread Pool 为同步工作提供基于 OS 线程的 `ExecutorService` 实
 
 ## 排队与拒绝
 
+底层 `submit_job` API 返回 `PoolJobSubmissionError`。其中
+`AcceptancePanicked` 表示自定义接纳回调发生 panic，任务不会发布；标准
+`ExecutorService` 方法仍返回 `SubmissionError`。
+
 线程池可以使用无界队列或有界队列。有界队列能明确表达背压：当线程池无法接收任务时，提交会返回 `SubmissionError::Saturated`，而不是静默增加内存使用。
 
 无界队列在 core worker 达到上限后会继续排队；仅增加 maximum size 不会让突发任务创建额外 worker。如果希望突发时扩展到 maximum，应使用有界队列：
@@ -74,7 +78,8 @@ let elastic = ThreadPool::builder()
 每个 hook 都会收到稳定的 worker index，并在 worker 线程上执行。hook 发生 panic 时会被捕获并忽略，因此观测代码不会杀死 worker，也不会破坏 executor 计数。hook 位于执行热路径上，应该保持短小。
 
 ```rust
-use qubit_thread_pool::{ExecutorService, FixedThreadPool};
+use qubit_executor::service::ExecutorService;
+use qubit_thread_pool::FixedThreadPool;
 
 let pool = FixedThreadPool::builder()
     .pool_size(4)
@@ -105,7 +110,8 @@ pool.shutdown();
 ```rust
 use std::io;
 
-use qubit_thread_pool::{ExecutorService, ThreadPool};
+use qubit_executor::service::ExecutorService;
+use qubit_thread_pool::ThreadPool;
 
 let pool = ThreadPool::builder()
     .core_pool_size(2)
@@ -125,7 +131,8 @@ pool.shutdown();
 ```rust
 use std::io;
 
-use qubit_thread_pool::{ExecutorService, FixedThreadPool};
+use qubit_executor::service::ExecutorService;
+use qubit_thread_pool::FixedThreadPool;
 
 let pool = FixedThreadPool::builder()
     .pool_size(4)

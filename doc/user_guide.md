@@ -53,7 +53,8 @@ result. The result below is observable as `42`.
 ```rust
 use std::io;
 
-use qubit_thread_pool::{ExecutorService, ThreadPool};
+use qubit_executor::service::ExecutorService;
+use qubit_thread_pool::ThreadPool;
 
 let pool = ThreadPool::builder()
     .core_pool_size(2)
@@ -77,7 +78,8 @@ does not request shutdown, so later submissions are still possible.
 ## Advanced Usage
 
 Choose `FixedThreadPool` when capacity is stable; it prestarts its configured
-workers. Use `prestart_core_threads()` on a dynamic pool when startup latency is
+workers. Configure `prestart_core_threads()` on the builder, or call
+`prestart_all_core_threads()` on an existing dynamic pool, when startup latency is
 more important than lazy worker creation. Both builders accept worker and task
 hooks. Hooks run on worker threads, receive a stable worker index, and ignore
 their own panics; keep them short because task hooks are on the execution path.
@@ -87,6 +89,11 @@ size, so a larger maximum alone does not create burst workers. Choose an
 unbounded queue only when that memory-growth tradeoff is acceptable.
 
 ## Errors and Diagnostics
+
+Low-level custom jobs return `PoolJobSubmissionError`; an
+`AcceptancePanicked` error means the acceptance callback panicked before the
+job was published. Standard executor-service methods return the shared
+`SubmissionError` type.
 
 Builder validation reports `ExecutorServiceBuilderError`; for example, zero
 queue capacity and a core size larger than the maximum are invalid. Submission

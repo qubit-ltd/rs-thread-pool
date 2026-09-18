@@ -20,6 +20,7 @@ include = [
     "/RUST_CODING_STYLE.md",
     "/RUST_CODING_STYLE.zh_CN.md",
     "/doc/**/user_guide*.md",
+    "/benches/**",
     "/examples/**",
     "/resources/**",
     "/src/**",

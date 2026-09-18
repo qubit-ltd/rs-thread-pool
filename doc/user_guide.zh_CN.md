@@ -39,7 +39,8 @@ qubit-thread-pool = "0.10"
 ```rust
 use std::io;
 
-use qubit_thread_pool::{ExecutorService, ThreadPool};
+use qubit_executor::service::ExecutorService;
+use qubit_thread_pool::ThreadPool;
 
 let pool = ThreadPool::builder()
     .core_pool_size(2)
@@ -60,11 +61,15 @@ pool.wait_termination();
 
 ## 进阶用法
 
-worker 数量长期稳定时选择 `FixedThreadPool`；它会预启动配置数量的 worker。若动态线程池更看重启动延迟，可使用 `prestart_core_threads()`。两个 builder 都支持 worker 和 task hook：hook 在 worker 线程中运行，收到稳定的 worker index；其自身 panic 会被忽略。task hook 位于执行路径上，应保持短小。
+worker 数量长期稳定时选择 `FixedThreadPool`；它会预启动配置数量的 worker。若动态线程池更看重启动延迟，可在 builder 中配置 `prestart_core_threads()`，或对已创建的池调用 `prestart_all_core_threads()`。两个 builder 都支持 worker 和 task hook：hook 在 worker 线程中运行，收到稳定的 worker index；其自身 panic 会被忽略。task hook 位于执行路径上，应保持短小。
 
 动态线程池使用无界队列时，达到 core size 后仍会排队；仅把 maximum size 调大不会带来突发扩容。只有在可以接受队列内存持续增长时，才应选择无界队列。
 
 ## 错误与诊断
+
+底层自定义任务返回 `PoolJobSubmissionError`；`AcceptancePanicked` 表示接纳
+回调发生 panic，任务尚未发布。标准执行器服务方法仍返回通用的
+`SubmissionError`。
 
 builder 的非法配置会返回 `ExecutorServiceBuilderError`，例如 queue capacity 为零，或 core size 大于 maximum size。提交时，有界队列满会得到 `SubmissionError::Saturated`；接纳入口关闭后会得到 `SubmissionError::Shutdown`。callable 被接纳后，其自身执行错误仍会通过 `TaskHandle::get()` 返回。
 

@@ -62,6 +62,11 @@ queued work.
 
 ## Queueing and Rejection
 
+The low-level `submit_job` API returns `PoolJobSubmissionError`. Its
+`AcceptancePanicked` variant means the custom acceptance callback panicked and
+the job was not published. Standard `ExecutorService` methods continue to
+return `SubmissionError`.
+
 A pool can use either an unbounded queue or a bounded queue. Bounded queues make
 back pressure explicit: when the pool cannot accept a task, submission returns
 `SubmissionError::Saturated` instead of silently growing memory use.
@@ -104,7 +109,8 @@ corrupt executor accounting. Keep hooks short; they are part of the execution
 hot path.
 
 ```rust
-use qubit_thread_pool::{ExecutorService, FixedThreadPool};
+use qubit_executor::service::ExecutorService;
+use qubit_thread_pool::FixedThreadPool;
 
 let pool = FixedThreadPool::builder()
     .pool_size(4)
@@ -140,7 +146,8 @@ only after queued jobs have finished their cancellation handling.
 ```rust
 use std::io;
 
-use qubit_thread_pool::{ExecutorService, ThreadPool};
+use qubit_executor::service::ExecutorService;
+use qubit_thread_pool::ThreadPool;
 
 let pool = ThreadPool::builder()
     .core_pool_size(2)
@@ -160,7 +167,8 @@ pool.shutdown();
 ```rust
 use std::io;
 
-use qubit_thread_pool::{ExecutorService, FixedThreadPool};
+use qubit_executor::service::ExecutorService;
+use qubit_thread_pool::FixedThreadPool;
 
 let pool = FixedThreadPool::builder()
     .pool_size(4)
