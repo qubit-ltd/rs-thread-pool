@@ -107,6 +107,14 @@ impl PoolTask for CustomPoolTask {
 }
 
 /// Type-erased pool job with separate detached and cancellable forms.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_thread_pool::PoolJob;
+///
+/// let _job = PoolJob::new(Box::new(|| {}), Box::new(|| {}));
+/// ```
 pub struct PoolJob {
     /// Internal job representation hidden behind method-only access.
     inner: PoolJobInner,

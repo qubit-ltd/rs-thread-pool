@@ -19,6 +19,15 @@ type HookCallback = Arc<dyn Fn(usize) + Send + Sync + 'static>;
 /// receive the stable worker index that triggered the event. Panics raised by a
 /// hook are caught and ignored so instrumentation cannot kill a worker thread
 /// or corrupt executor accounting.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_thread_pool::ThreadPoolHooks;
+///
+/// let hooks = ThreadPoolHooks::new().before_worker_start(|_worker_index| {});
+/// assert!(format!("{hooks:?}").contains("before_worker_start: true"));
+/// ```
 #[derive(Clone, Default)]
 pub struct ThreadPoolHooks {
     /// Callback invoked when a worker thread starts.

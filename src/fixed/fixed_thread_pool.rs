@@ -32,6 +32,18 @@ use crate::ThreadPoolStats;
 /// `FixedThreadPool` prestarts a fixed number of worker threads and does not
 /// support runtime pool-size changes. Use [`crate::ThreadPool`] when dynamic
 /// core/maximum sizes or keep-alive policies are required.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_executor::service::ExecutorService;
+/// use qubit_thread_pool::FixedThreadPool;
+///
+/// let pool = FixedThreadPool::new(1)?;
+/// pool.shutdown();
+/// pool.wait_termination();
+/// # Ok::<(), qubit_executor::service::ExecutorServiceBuilderError>(())
+/// ```
 pub struct FixedThreadPool {
     /// Shared fixed pool state.
     inner: Arc<FixedThreadPoolInner>,
@@ -123,6 +135,8 @@ impl FixedThreadPool {
     /// # Returns
     ///
     /// Number of workers in this pool.
+    #[must_use]
+    #[inline]
     pub fn pool_size(&self) -> usize {
         self.inner.pool_size()
     }
@@ -132,6 +146,8 @@ impl FixedThreadPool {
     /// # Returns
     ///
     /// Number of accepted tasks waiting to run.
+    #[must_use]
+    #[inline]
     pub fn queued_count(&self) -> usize {
         self.inner.queued_count()
     }
@@ -141,6 +157,8 @@ impl FixedThreadPool {
     /// # Returns
     ///
     /// Number of tasks currently held by workers.
+    #[must_use]
+    #[inline]
     pub fn running_count(&self) -> usize {
         self.inner.running_count()
     }
@@ -150,6 +168,8 @@ impl FixedThreadPool {
     /// # Returns
     ///
     /// Number of worker loops that have not exited.
+    #[must_use]
+    #[inline]
     pub fn live_worker_count(&self) -> usize {
         self.inner.state.with_read(|state| state.live_workers)
     }
@@ -159,6 +179,8 @@ impl FixedThreadPool {
     /// # Returns
     ///
     /// Snapshot containing queue, worker, and lifecycle counters.
+    #[must_use]
+    #[inline]
     pub fn stats(&self) -> ThreadPoolStats {
         self.inner.stats()
     }

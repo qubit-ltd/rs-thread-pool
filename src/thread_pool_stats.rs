@@ -12,6 +12,15 @@ use qubit_executor::service::ExecutorServiceLifecycle;
 /// The snapshot is intended for monitoring and tests. It is not a stable
 /// synchronization primitive; concurrent submissions and completions may make
 /// the next snapshot different immediately after this one is returned.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_thread_pool::ThreadPoolStats;
+///
+/// let stats = ThreadPoolStats::default();
+/// assert_eq!(stats.queued_tasks, 0);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ThreadPoolStats {
     /// Observed lifecycle state.

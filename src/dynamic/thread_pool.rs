@@ -37,6 +37,18 @@ use crate::ThreadPoolStats;
 /// `shutdown` is graceful: already accepted queued tasks are allowed to run.
 /// `stop` is abrupt: queued tasks that have not started are completed
 /// with [`TaskExecutionError::Cancelled`](qubit_executor::TaskExecutionError::Cancelled).
+///
+/// # Examples
+///
+/// ```
+/// use qubit_executor::service::ExecutorService;
+/// use qubit_thread_pool::ThreadPool;
+///
+/// let pool = ThreadPool::new(1)?;
+/// pool.shutdown();
+/// pool.wait_termination();
+/// # Ok::<(), qubit_executor::service::ExecutorServiceBuilderError>(())
+/// ```
 pub struct ThreadPool {
     /// Shared pool state and worker coordination primitives.
     inner: Arc<ThreadPoolInner>,
@@ -82,6 +94,7 @@ impl ThreadPool {
     /// # Returns
     ///
     /// The number of accepted tasks that have not started yet.
+    #[must_use]
     #[inline]
     pub fn queued_count(&self) -> usize {
         self.inner.queued_count()
@@ -93,6 +106,7 @@ impl ThreadPool {
     ///
     /// The number of tasks that workers have taken from the queue and have not
     /// yet finished processing.
+    #[must_use]
     #[inline]
     pub fn running_count(&self) -> usize {
         self.inner.running_count()
@@ -105,6 +119,7 @@ impl ThreadPool {
     /// The number of live worker loops still owned by this pool. This is a
     /// runtime count and is not required to match configured
     /// [`Self::core_pool_size`] or [`Self::maximum_pool_size`].
+    #[must_use]
     #[inline]
     pub fn live_worker_count(&self) -> usize {
         self.inner.read_state(|state| state.live_workers)
@@ -115,6 +130,7 @@ impl ThreadPool {
     /// # Returns
     ///
     /// The number of workers kept for normal load before tasks are queued.
+    #[must_use]
     #[inline]
     pub fn core_pool_size(&self) -> usize {
         self.inner.read_state(|state| state.core_pool_size)
@@ -125,6 +141,7 @@ impl ThreadPool {
     /// # Returns
     ///
     /// The maximum number of worker threads this pool may create.
+    #[must_use]
     #[inline]
     pub fn maximum_pool_size(&self) -> usize {
         self.inner.read_state(|state| state.maximum_pool_size)
@@ -136,6 +153,7 @@ impl ThreadPool {
     ///
     /// A snapshot containing worker, queue, and task counters observed under
     /// the pool state lock.
+    #[must_use]
     #[inline]
     pub fn stats(&self) -> ThreadPoolStats {
         self.inner.stats()

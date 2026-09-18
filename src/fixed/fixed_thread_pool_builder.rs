@@ -24,6 +24,18 @@ const DEFAULT_FIXED_THREAD_NAME_PREFIX: &str = "qubit-fixed-thread-pool";
 ///
 /// The fixed pool prestarts exactly `pool_size` workers and never changes that
 /// count during runtime.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_executor::service::ExecutorService;
+/// use qubit_thread_pool::FixedThreadPool;
+///
+/// let pool = FixedThreadPool::builder().pool_size(1).build()?;
+/// pool.shutdown();
+/// pool.wait_termination();
+/// # Ok::<(), qubit_executor::service::ExecutorServiceBuilderError>(())
+/// ```
 #[derive(Debug, Clone)]
 pub struct FixedThreadPoolBuilder {
     /// Number of workers to prestart.

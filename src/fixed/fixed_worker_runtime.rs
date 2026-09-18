@@ -32,6 +32,7 @@ impl FixedWorkerRuntime {
     /// # Returns
     ///
     /// Stable worker index for this runtime.
+    #[must_use]
     #[inline]
     pub fn worker_index(&self) -> usize {
         self.worker_index

@@ -30,6 +30,18 @@ const DEFAULT_KEEP_ALIVE: Duration = Duration::from_secs(60);
 ///
 /// The default builder uses the available CPU parallelism as both core and
 /// maximum pool size, with an unbounded FIFO queue.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_executor::service::ExecutorService;
+/// use qubit_thread_pool::ThreadPool;
+///
+/// let pool = ThreadPool::builder().pool_size(1).build()?;
+/// pool.shutdown();
+/// pool.wait_termination();
+/// # Ok::<(), qubit_executor::service::ExecutorServiceBuilderError>(())
+/// ```
 #[derive(Debug, Clone)]
 pub struct ThreadPoolBuilder {
     /// Configured core pool size.
