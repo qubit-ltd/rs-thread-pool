@@ -25,6 +25,7 @@ use super::fixed_worker::FixedWorker;
 use super::fixed_worker_runtime::FixedWorkerRuntime;
 use crate::ExecutorServiceBuilderError;
 use crate::PoolJob;
+use crate::PoolJobSubmissionError;
 use crate::ThreadPoolStats;
 
 /// Fixed-size thread pool implementing [`ExecutorService`].
@@ -240,7 +241,9 @@ impl ExecutorService for FixedThreadPool {
         T: Runnable<E> + Send + 'static,
         E: Send + 'static,
     {
-        self.inner.submit(PoolJob::detached(task))
+        self.inner
+            .submit(PoolJob::detached(task))
+            .map_err(PoolJobSubmissionError::into_submission_error)
     }
 
     /// Accepts a callable and queues it for fixed pool workers.
@@ -265,7 +268,9 @@ impl ExecutorService for FixedThreadPool {
     {
         let (handle, completion) = TaskEndpointPair::new().into_parts();
         let job = PoolJob::from_task(task, completion);
-        self.inner.submit(job)?;
+        self.inner
+            .submit(job)
+            .map_err(PoolJobSubmissionError::into_submission_error)?;
         Ok(handle)
     }
 
@@ -292,7 +297,9 @@ impl ExecutorService for FixedThreadPool {
     {
         let (handle, completion) = TaskEndpointPair::new().into_tracked_parts();
         let job = PoolJob::from_task(task, completion);
-        self.inner.submit(job)?;
+        self.inner
+            .submit(job)
+            .map_err(PoolJobSubmissionError::into_submission_error)?;
         Ok(handle)
     }
 

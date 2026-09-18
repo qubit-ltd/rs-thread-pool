@@ -22,6 +22,7 @@ use super::thread_pool_builder::ThreadPoolBuilder;
 use super::thread_pool_inner::ThreadPoolInner;
 use crate::ExecutorServiceBuilderError;
 use crate::PoolJob;
+use crate::PoolJobSubmissionError;
 use crate::ThreadPoolStats;
 
 /// OS thread pool implementing [`ExecutorService`].
@@ -185,7 +186,7 @@ impl ThreadPool {
     /// more work, or returns [`SubmissionError::WorkerSpawnFailed`] when a
     /// required worker cannot be created.
     #[inline]
-    pub fn submit_job(&self, job: PoolJob) -> Result<(), SubmissionError> {
+    pub fn submit_job(&self, job: PoolJob) -> Result<(), PoolJobSubmissionError> {
         self.inner.submit(job)
     }
 
@@ -332,7 +333,9 @@ impl ExecutorService for ThreadPool {
         T: Runnable<E> + Send + 'static,
         E: Send + 'static,
     {
-        self.inner.submit(PoolJob::detached(task))
+        self.inner
+            .submit(PoolJob::detached(task))
+            .map_err(PoolJobSubmissionError::into_submission_error)
     }
 
     /// Accepts a callable and queues it for pool workers.
@@ -359,7 +362,9 @@ impl ExecutorService for ThreadPool {
     {
         let (handle, completion) = TaskEndpointPair::new().into_parts();
         let job = PoolJob::from_task(task, completion);
-        self.inner.submit(job)?;
+        self.inner
+            .submit(job)
+            .map_err(PoolJobSubmissionError::into_submission_error)?;
         Ok(handle)
     }
 
@@ -372,7 +377,9 @@ impl ExecutorService for ThreadPool {
     {
         let (handle, completion) = TaskEndpointPair::new().into_tracked_parts();
         let job = PoolJob::from_task(task, completion);
-        self.inner.submit(job)?;
+        self.inner
+            .submit(job)
+            .map_err(PoolJobSubmissionError::into_submission_error)?;
         Ok(handle)
     }
 

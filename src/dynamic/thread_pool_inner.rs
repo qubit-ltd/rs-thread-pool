@@ -27,6 +27,7 @@ use super::thread_pool_state::ThreadPoolState;
 use super::thread_pool_worker::ThreadPoolWorker;
 use crate::ExecutorServiceBuilderError;
 use crate::PoolJob;
+use crate::PoolJobSubmissionError;
 use crate::ThreadPoolHooks;
 use crate::ThreadPoolStats;
 
@@ -308,12 +309,14 @@ impl ThreadPoolInner {
     ///
     /// `Ok(())` when the job was handled, or `Err(job)` when the caller must
     /// use the locked slow path.
-    fn try_submit_to_queue_without_state_lock(&self, job: PoolJob) -> Result<(), PoolJob> {
+    fn try_submit_to_queue_without_state_lock(
+        &self,
+        job: PoolJob,
+    ) -> Result<Result<(), PoolJobSubmissionError>, PoolJob> {
         if !self.can_submit_to_queue_without_state_lock() || !self.reserve_queue_slot() {
             return Err(job);
         }
-        self.accept_and_enqueue_reserved_job(job);
-        Ok(())
+        Ok(self.accept_and_enqueue_reserved_job(job))
     }
 
     /// Accepts a job whose queue slot has already been reserved and publishes
@@ -325,17 +328,17 @@ impl ThreadPoolInner {
     /// # Parameters
     ///
     /// * `job` - Job with one reserved queue slot.
-    fn accept_and_enqueue_reserved_job(&self, job: PoolJob) {
-        self.submitted_task_count.fetch_add(1, Ordering::Release);
-        if !job.accept() {
+    fn accept_and_enqueue_reserved_job(&self, job: PoolJob) -> Result<(), PoolJobSubmissionError> {
+        if job.accept().is_err() {
             self.release_queue_slot();
-            self.completed_task_count.fetch_add(1, Ordering::Release);
             self.notify_waiters_after_atomic_change();
-            return;
+            return Err(PoolJobSubmissionError::AcceptancePanicked);
         }
+        self.submitted_task_count.fetch_add(1, Ordering::Release);
         self.queued_task_count.fetch_add(1, Ordering::Release);
         self.global_queue.push(job);
         self.wake_one_idle_worker();
+        Ok(())
     }
 
     /// Submits a job into the queue.
@@ -373,10 +376,10 @@ impl ThreadPoolInner {
     /// [`SubmissionError::Saturated`] when the queue and worker capacity are
     /// full, or returns [`SubmissionError::WorkerSpawnFailed`] if a required
     /// worker cannot be created.
-    pub(crate) fn submit(self: &Arc<Self>, job: PoolJob) -> Result<(), SubmissionError> {
+    pub(crate) fn submit(self: &Arc<Self>, job: PoolJob) -> Result<(), PoolJobSubmissionError> {
         let _guard = self.begin_submit()?;
         let job = match self.try_submit_to_queue_without_state_lock(job) {
-            Ok(()) => return Ok(()),
+            Ok(result) => return result,
             Err(job) => job,
         };
         self.submit_with_state_lock(job)
@@ -397,7 +400,7 @@ impl ThreadPoolInner {
     /// Returns [`SubmissionError::Shutdown`], [`SubmissionError::Saturated`],
     /// or [`SubmissionError::WorkerSpawnFailed`] according to the dynamic
     /// admission state observed under the monitor.
-    fn submit_with_state_lock(self: &Arc<Self>, job: PoolJob) -> Result<(), SubmissionError> {
+    fn submit_with_state_lock(self: &Arc<Self>, job: PoolJob) -> Result<(), PoolJobSubmissionError> {
         let mut state = self.lock_state();
         debug_assert_eq!(state.lifecycle, ExecutorServiceLifecycle::Running);
         if state.live_workers < state.core_pool_size {
@@ -412,15 +415,14 @@ impl ThreadPoolInner {
         }
         if self.reserve_queue_slot() {
             drop(state);
-            self.accept_and_enqueue_reserved_job(job);
-            return Ok(());
+            return self.accept_and_enqueue_reserved_job(job);
         }
         if state.live_workers < state.maximum_pool_size {
             let worker = self.reserve_worker_locked(&mut state);
             self.spawn_reserved_worker_with_initial_job_locked(&mut state, worker, job)?;
             Ok(())
         } else {
-            Err(SubmissionError::Saturated)
+            Err(PoolJobSubmissionError::Rejected(SubmissionError::Saturated))
         }
     }
 
@@ -557,8 +559,16 @@ impl ThreadPoolInner {
         state: &mut ThreadPoolState,
         worker: ReservedWorker,
         job: PoolJob,
-    ) -> Result<(), SubmissionError> {
+    ) -> Result<(), PoolJobSubmissionError> {
         let ReservedWorker { index } = worker;
+        if job.accept().is_err() {
+            state.live_workers = state
+                .live_workers
+                .checked_sub(1)
+                .expect("thread pool live worker counter underflow");
+            self.notify_if_idle_or_terminated(state);
+            return Err(PoolJobSubmissionError::AcceptancePanicked);
+        }
         let (start_sender, start_receiver) = mpsc::sync_channel(1);
         let worker_inner = Arc::clone(self);
         let mut builder = thread::Builder::new().name(format!("{}-{index}", self.thread_name_prefix));
@@ -583,9 +593,9 @@ impl ThreadPoolInner {
                     .checked_sub(1)
                     .expect("thread pool live worker counter underflow");
                 self.notify_if_idle_or_terminated(state);
-                Err(SubmissionError::WorkerSpawnFailed {
+                Err(PoolJobSubmissionError::Rejected(SubmissionError::WorkerSpawnFailed {
                     source: Arc::new(source),
-                })
+                }))
             }
         }
     }

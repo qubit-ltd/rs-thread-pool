@@ -20,6 +20,7 @@ use qubit_lock::ParkingLotMonitor;
 
 use super::fixed_thread_pool_state::FixedThreadPoolState;
 use crate::PoolJob;
+use crate::PoolJobSubmissionError;
 use crate::ThreadPoolHooks;
 use crate::ThreadPoolStats;
 
@@ -229,18 +230,17 @@ impl FixedThreadPoolInner {
     ///
     /// Returns [`SubmissionError::Shutdown`] after shutdown or
     /// [`SubmissionError::Saturated`] when the bounded queue is full.
-    pub(crate) fn submit(&self, job: PoolJob) -> Result<(), SubmissionError> {
+    pub(crate) fn submit(&self, job: PoolJob) -> Result<(), PoolJobSubmissionError> {
         let _guard = self.begin_submit()?;
         if !self.reserve_queue_slot() {
-            return Err(SubmissionError::Saturated);
+            return Err(PoolJobSubmissionError::Rejected(SubmissionError::Saturated));
+        }
+        if job.accept().is_err() {
+            self.release_queue_slot();
+            self.notify_waiters_after_atomic_change();
+            return Err(PoolJobSubmissionError::AcceptancePanicked);
         }
         self.submitted_task_count.fetch_add(1, Ordering::Release);
-        if !job.accept() {
-            self.release_queue_slot();
-            self.completed_task_count.fetch_add(1, Ordering::Release);
-            self.notify_waiters_after_atomic_change();
-            return Ok(());
-        }
         self.enqueue_job(job);
         Ok(())
     }
@@ -861,11 +861,14 @@ mod tests {
         }));
 
         assert!(result.is_ok(), "accept callback panic must not escape submit");
-        assert!(result.expect("submit result should exist").is_ok());
+        assert!(matches!(
+            result.expect("submit result should exist"),
+            Err(crate::PoolJobSubmissionError::AcceptancePanicked)
+        ));
         assert_eq!(inner.queued_count(), 0);
         assert_eq!(inner.queue_slot_count.load(Ordering::Acquire), 0);
-        assert_eq!(inner.submitted_task_count.load(Ordering::Acquire), 1);
-        assert_eq!(inner.completed_task_count.load(Ordering::Acquire), 1);
+        assert_eq!(inner.submitted_task_count.load(Ordering::Acquire), 0);
+        assert_eq!(inner.completed_task_count.load(Ordering::Acquire), 0);
         assert_eq!(ran.load(Ordering::Relaxed), 0);
         assert_eq!(cancelled.load(Ordering::Relaxed), 0);
     }

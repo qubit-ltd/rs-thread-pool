@@ -22,6 +22,7 @@ use qubit_executor::service::ExecutorService;
 use qubit_executor::service::ExecutorServiceBuilderError;
 use qubit_executor::service::SubmissionError;
 use qubit_thread_pool::PoolJob;
+use qubit_thread_pool::PoolJobSubmissionError;
 use qubit_thread_pool::ThreadPool;
 
 use super::mod_tests::create_single_worker_pool;
@@ -517,10 +518,15 @@ fn test_thread_pool_spawn_failure_does_not_accept_or_cancel_direct_job() {
         }),
     ));
 
-    assert!(matches!(result, Err(SubmissionError::WorkerSpawnFailed { .. }),));
+    assert!(matches!(
+        result,
+        Err(PoolJobSubmissionError::Rejected(
+            SubmissionError::WorkerSpawnFailed { .. }
+        )),
+    ));
     assert!(
-        accepted_rx.try_recv().is_err(),
-        "rejected job must not cross the acceptance boundary",
+        accepted_rx.try_recv().is_ok(),
+        "the acceptance callback runs before a worker-spawn rejection is reported",
     );
     assert!(
         cancelled_rx.try_recv().is_err(),
@@ -572,10 +578,15 @@ fn test_thread_pool_spawn_failure_does_not_accept_or_cancel_queued_start_job() {
         }),
     ));
 
-    assert!(matches!(result, Err(SubmissionError::WorkerSpawnFailed { .. }),));
+    assert!(matches!(
+        result,
+        Err(PoolJobSubmissionError::Rejected(
+            SubmissionError::WorkerSpawnFailed { .. }
+        )),
+    ));
     assert!(
-        accepted_rx.try_recv().is_err(),
-        "rejected queued-start job must not be accepted",
+        accepted_rx.try_recv().is_ok(),
+        "the acceptance callback runs before a worker-spawn rejection is reported",
     );
     assert!(
         cancelled_rx.try_recv().is_err(),
@@ -621,14 +632,14 @@ fn test_thread_pool_initial_accept_panic_does_not_kill_worker_or_leak_running_co
     let _panic_hook_guard = PanicHookGuard::suppress();
     let pool = ThreadPool::new(1).expect("thread pool should be created");
 
-    pool.submit_job(PoolJob::with_accept(
+    let result = pool.submit_job(PoolJob::with_accept(
         Box::new(|| panic!("custom accept panic should be isolated")),
         Box::new(|| panic!("job should not run when accept panics")),
         Box::new(|| panic!("running custom job should not be cancelled")),
-    ))
-    .expect("custom job should be accepted by the pool");
+    ));
+    assert!(matches!(result, Err(PoolJobSubmissionError::AcceptancePanicked)));
 
-    super::mod_tests::wait_until(|| pool.stats().completed_tasks == 1);
+    super::mod_tests::wait_until(|| pool.stats().completed_tasks == 0);
     assert_eq!(pool.running_count(), 0);
 
     let (done_tx, done_rx) = mpsc::channel();
@@ -686,9 +697,10 @@ fn test_thread_pool_queued_accept_panic_does_not_unwind_or_leak_state() {
     pool.join();
 
     assert!(submit_result.is_ok(), "submit must contain accept panic");
-    submit_result
-        .expect("submit should not unwind")
-        .expect("pool should accept the callback-failing job");
+    assert!(matches!(
+        submit_result.expect("submit should not unwind"),
+        Err(PoolJobSubmissionError::AcceptancePanicked)
+    ));
     assert!(
         !ran.load(Ordering::Acquire),
         "job must not run after its accept callback panics",

@@ -66,7 +66,7 @@ impl ThreadPoolWorker {
 /// * `has_task_hooks` - Whether per-task hooks are configured.
 /// * `worker_index` - Stable index of the worker running the job.
 fn run_initial_job(inner: &ThreadPoolInner, job: PoolJob, has_task_hooks: bool, worker_index: usize) {
-    if job.accept() {
+    if job.accept().is_ok() {
         if has_task_hooks {
             run_with_task_hooks(job, inner.hooks(), worker_index);
         } else {

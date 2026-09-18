@@ -22,7 +22,7 @@ trait PoolTask: Send + 'static {
     ///
     /// `true` when the acceptance callback completed, or `false` when a custom
     /// callback panicked and was contained.
-    fn accept(&self) -> bool;
+    fn accept(&self) -> Result<(), ()>;
 
     /// Runs this task and publishes its result if it was not cancelled first.
     fn run(self: Box<Self>);
@@ -46,9 +46,9 @@ where
     E: Send + 'static,
 {
     /// Marks this task as accepted by an executor service.
-    fn accept(&self) -> bool {
+    fn accept(&self) -> Result<(), ()> {
         self.completion.accept();
-        true
+        Ok(())
     }
 
     /// Runs this task and publishes its result if it was not cancelled first.
@@ -81,16 +81,16 @@ struct CustomPoolTask {
 
 impl PoolTask for CustomPoolTask {
     /// Runs the acceptance callback once.
-    fn accept(&self) -> bool {
+    fn accept(&self) -> Result<(), ()> {
         if let Some(accept) = self
             .accept
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .take()
         {
-            return catch_unwind(AssertUnwindSafe(accept)).is_ok();
+            return catch_unwind(AssertUnwindSafe(accept)).map_err(|_| ());
         }
-        true
+        Ok(())
     }
 
     /// Runs this custom job.
@@ -246,11 +246,11 @@ impl PoolJob {
     ///
     /// `true` when the job can continue to execution or queueing, or `false`
     /// when a custom acceptance callback panicked and was contained.
-    pub(crate) fn accept(&self) -> bool {
+    pub(crate) fn accept(&self) -> Result<(), ()> {
         if let PoolJobInner::Completable(task) = &self.inner {
             return task.accept();
         }
-        true
+        Ok(())
     }
 
     /// Runs this job if it has not been cancelled first.
