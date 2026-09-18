@@ -5,9 +5,9 @@
 [![Crates.io](https://img.shields.io/crates/v/qubit-thread-pool.svg?color=blue)](https://crates.io/crates/qubit-thread-pool)
 [![Rust](https://img.shields.io/badge/rust-1.94+-blue.svg?logo=rust)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![English Documentation](https://img.shields.io/badge/docs-English-blue.svg)](README.md)
+[![English Document](https://img.shields.io/badge/Document-English-blue.svg)](README.md)
 
-面向 Rust 的线程池 executor service。
+当服务需要把同步 Rust 工作移出调用线程，同时保留有界接纳、可观测的完成结果和可控的关闭过程时，可使用本 crate，而无需引入异步运行时或数据并行调度器。
 
 ## 概览
 
@@ -146,6 +146,10 @@ pool.shutdown();
 
 CPU 密集型、适合 divide-and-conquer 的工作，优先使用 `qubit-rayon-executor`。Tokio 应用中的 Tokio blocking 任务或 async IO future，优先使用 `qubit-tokio-executor`。应用层需要统一路由这些执行域时，使用 `qubit-execution-services`。
 
+## 延伸阅读
+
+需要从配置到关闭流程的完整说明时，请阅读[英文用户手册](doc/user_guide.md)或[中文版用户手册](doc/user_guide.zh_CN.md)，其中包含队列策略、生命周期处理和诊断方法。API 细节见 [docs.rs](https://docs.rs/qubit-thread-pool)。
+
 ## Benchmark
 
 本 crate 包含随线程池代码从原 concurrent 模块迁移出来的 Criterion benchmark。这些 benchmark 用代表性的提交模式，对比 Qubit 线程池实现与 `threadpool`、Rayon 等常见开源实现。
@@ -199,39 +203,34 @@ channel completion 等待方式，避免把 handle wait 成本混入提交模式
 
 ## 测试
 
-快速在本地跑一遍：
-
 ```bash
+# 使用默认 feature 集运行测试
 cargo test
-cargo clippy --all-targets --all-features -- -D warnings
+
+# 使用项目声明的全部 feature 运行测试
+cargo test --all-features
+
+# 运行项目 CI 检查
+./ci-check.sh
+
+# 检查代码覆盖率
+./coverage.sh
 ```
 
-若要与持续集成（CI）保持一致，请在仓库根目录依次执行：`./align-ci.sh` 将本地工具链与配置对齐到 CI 规则，再执行 `./ci-check.sh` 复现流水线中的检查。需要查看或生成测试覆盖率时，使用 `./coverage.sh`。
+## 许可证
 
-## 参与贡献
+Copyright (c) 2025 - 2026. Haixing Hu. All rights reserved.
 
-欢迎通过 Issue 与 Pull Request 参与本仓库。建议：
+本项目基于 Apache License 2.0 授权。完整许可证文本请参阅
+[LICENSE](LICENSE)。
 
-- 报告缺陷、讨论设计或较大能力扩展时，可先开 Issue 对齐方向再投入实现。
-- 单次 PR 尽量聚焦单一主题，便于代码审查与合并历史。
-- 提交 PR 前请先运行 `./align-ci.sh`，再运行 `./ci-check.sh`，确保本地与 CI 使用同一套规则且能通过流水线等价检查。
-- 若修改运行期行为，请补充或更新相应测试；若影响对外 API 或用户可见行为，请同步更新本文档或相关 rustdoc。
-- 如果修改调度、排队或关闭行为，且该行为同时适用于 `ThreadPool` 和 `FixedThreadPool`，请覆盖两者的测试。
+## 贡献
 
-向本仓库贡献内容即表示您同意以 [Apache License, Version 2.0](LICENSE)（与本项目相同）授权您的贡献。
+欢迎贡献。请遵循 Rust API 指南，及时更新公共 API 文档与测试，并在提交
+Pull Request 前运行 `./align-ci.sh`格式化代码，运行`./ci-check.sh`对齐CI要求。
 
-## 许可证与版权
+## 作者
 
-Copyright (c) 2026. Haixing Hu.
+**Haixing Hu** - *Qubit Co. Ltd.*
 
-本软件依据 [Apache License, Version 2.0](LICENSE) 授权；完整许可文本见仓库根目录的 `LICENSE` 文件。
-
-## 作者与维护
-
-**Haixing Hu** — Qubit Co. Ltd.
-
-| | |
-| --- | --- |
-| **源码仓库** | [github.com/qubit-ltd/rs-thread-pool](https://github.com/qubit-ltd/rs-thread-pool) |
-| **API 文档** | [docs.rs/qubit-thread-pool](https://docs.rs/qubit-thread-pool) |
-| **Crate 发布** | [crates.io/crates/qubit-thread-pool](https://crates.io/crates/qubit-thread-pool) |
+仓库地址：[https://github.com/qubit-ltd/rs-thread-pool](https://github.com/qubit-ltd/rs-thread-pool)

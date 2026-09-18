@@ -7,7 +7,9 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![中文文档](https://img.shields.io/badge/文档-中文版-blue.svg)](README.zh_CN.md)
 
-Thread-pool executor services for Rust.
+Run synchronous Rust work off the caller thread when a service needs bounded
+admission, observable completion, and a deliberate shutdown path without
+adopting an async runtime or a data-parallel scheduler.
 
 ## Overview
 
@@ -185,6 +187,13 @@ applications, prefer `qubit-tokio-executor` for Tokio blocking tasks or async IO
 futures. For application-level routing across all of these domains, use
 `qubit-execution-services`.
 
+## Learn More
+
+Read the [English user guide](doc/user_guide.md) or
+[中文版用户手册](doc/user_guide.zh_CN.md) for a scenario-led setup guide,
+queueing decisions, lifecycle handling, and diagnostics. API details are on
+[docs.rs](https://docs.rs/qubit-thread-pool).
+
 ## Benchmarks
 
 This crate includes Criterion benchmarks migrated with the thread-pool code from
@@ -249,42 +258,35 @@ submission modes without mixing in handle wait costs.
 
 ## Testing
 
-A minimal local run:
-
 ```bash
+# Run tests with the default feature set
 cargo test
-cargo clippy --all-targets --all-features -- -D warnings
+
+# Run tests with all declared features
+cargo test --all-features
+
+# Project CI checks
+./ci-check.sh
+
+# Check code coverage
+./coverage.sh
 ```
-
-To mirror what continuous integration enforces, run the repository scripts from
-the project root: `./align-ci.sh` brings local tooling and configuration in line
-with CI, then `./ci-check.sh` runs the same checks the pipeline uses. For test
-coverage, use `./coverage.sh` to generate or open reports.
-
-## Contributing
-
-Issues and pull requests are welcome.
-
-- Open an issue for bug reports, design questions, or larger feature proposals when it helps align on direction.
-- Keep pull requests scoped to one behavior change, fix, or documentation update when practical.
-- Before submitting, run `./align-ci.sh` and then `./ci-check.sh` so your branch matches CI rules and passes the same checks as the pipeline.
-- Add or update tests when you change runtime behavior, and update this README or public rustdoc when user-visible API behavior changes.
-- If you change scheduling, queueing, or shutdown behavior, include tests that cover both `ThreadPool` and `FixedThreadPool` when the behavior applies to both.
-
-By contributing, you agree to license your contributions under the [Apache License, Version 2.0](LICENSE), the same license as this project.
 
 ## License
 
-Copyright (c) 2026. Haixing Hu.
+Copyright (c) 2025 - 2026. Haixing Hu. All rights reserved.
 
-This project is licensed under the [Apache License, Version 2.0](LICENSE). See the `LICENSE` file in the repository for the full text.
+Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for the
+full license text.
+
+## Contributing
+
+Contributions are welcome. Please follow the Rust API guidelines, keep public
+API documentation and tests current, and run `./align-ci.sh` to format code and
+`./ci-check.sh` to satisfy CI requirements before submitting a pull request.
 
 ## Author
 
-**Haixing Hu** — Qubit Co. Ltd.
+**Haixing Hu** - *Qubit Co. Ltd.*
 
-| | |
-| --- | --- |
-| **Repository** | [github.com/qubit-ltd/rs-thread-pool](https://github.com/qubit-ltd/rs-thread-pool) |
-| **Documentation** | [docs.rs/qubit-thread-pool](https://docs.rs/qubit-thread-pool) |
-| **Crate** | [crates.io/crates/qubit-thread-pool](https://crates.io/crates/qubit-thread-pool) |
+Repository: [https://github.com/qubit-ltd/rs-thread-pool](https://github.com/qubit-ltd/rs-thread-pool)
