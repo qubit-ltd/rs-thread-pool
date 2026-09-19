@@ -56,6 +56,9 @@ pub struct ThreadPool {
 }
 
 impl ThreadPool {
+    /// Wraps initialized shared state in the public pool handle.
+    ///
+    /// This constructor is restricted to the validated builder path.
     pub(super) fn from_inner(inner: Arc<ThreadPoolInner>) -> Self {
         Self { inner }
     }

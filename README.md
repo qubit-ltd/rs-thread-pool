@@ -142,8 +142,17 @@ pool.shutdown();
 
 `shutdown` stops accepting new tasks and lets already accepted tasks finish.
 `stop` stops accepting new tasks and cancels work that is still queued or
-not yet started. Already running OS-thread tasks are not forcefully killed; they
-finish according to their own code.
+not yet claimed by a worker. A task accepted through direct initial-worker
+dispatch can race with `stop`: once acceptance succeeds, submission returns
+`Ok(())`, and the task is then either run or cancelled at the worker's claim
+boundary. Already claimed or running OS-thread tasks are not forcefully killed;
+they finish according to their own code. `StopReport` is a point-in-time
+observation of queued, running, and cancelled work, not an exact synchronization
+barrier.
+
+For low-level `submit_job`, `Ok(())` means only that the job crossed the
+acceptance boundary. It does not mean that the run callback has started or will
+finish successfully.
 
 `wait_termination` blocks the current thread after shutdown has been requested
 until all accepted work has completed or been cancelled.

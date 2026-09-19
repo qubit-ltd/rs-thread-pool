@@ -75,6 +75,12 @@ pool.wait_termination();
 Use `submit` for fire-and-forget runnables. Use `submit_callable` when a value
 or task error must be observed. `join()` waits for accepted work to drain but
 does not request shutdown, so later submissions are still possible.
+`stop()` cancels work that has not crossed the worker claim boundary. A directly
+assigned initial job may be accepted while `stop()` is waiting; submission then
+returns `Ok(())`, and the worker makes the final run-or-cancel decision. The
+`StopReport` counts are a point-in-time snapshot rather than a synchronization
+barrier. For `submit_job`, `Ok(())` reports acceptance only, not task start or
+task success.
 Do not call `join()` or `wait_termination()` from a task running on the same
 pool unless another worker can always make progress; otherwise the task can
 self-wait.

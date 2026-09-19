@@ -9,6 +9,8 @@
 //!
 //! Dynamic and fixed-size thread pool executor services.
 
+use qubit_executor::service::ExecutorServiceBuilderError;
+
 pub mod dynamic;
 pub mod fixed;
 mod pool_job;
@@ -22,6 +24,5 @@ pub use fixed::FixedThreadPool;
 pub use fixed::FixedThreadPoolBuilder;
 pub use pool_job::PoolJob;
 pub use pool_job_submission_error::PoolJobSubmissionError;
-use qubit_executor::service::ExecutorServiceBuilderError;
 pub use thread_pool_hooks::ThreadPoolHooks;
 pub use thread_pool_stats::ThreadPoolStats;

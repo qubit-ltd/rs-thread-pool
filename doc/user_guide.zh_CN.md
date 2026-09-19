@@ -58,7 +58,7 @@ pool.wait_termination();
 # Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
-不关心返回值的 runnable 使用 `submit`；需要观察返回值或任务错误时使用 `submit_callable`。`join()` 只等待已接纳任务处理完毕，不会发起关闭请求，因此之后仍可继续提交。
+不关心返回值的 runnable 使用 `submit`；需要观察返回值或任务错误时使用 `submit_callable`。`join()` 只等待已接纳任务处理完毕，不会发起关闭请求，因此之后仍可继续提交。`stop()` 会取消尚未跨过 worker 领取边界的工作。直接派发给新 worker 的任务可能在 `stop()` 等待期间完成接纳；此时提交返回 `Ok(())`，worker 再做最终的执行或取消决定。`StopReport` 的数量是时间点快照，不是同步屏障。对 `submit_job` 来说，`Ok(())` 只表示接纳成功，不表示任务已开始或执行成功。
 不要在同一个线程池的任务中调用 `join()` 或 `wait_termination()`，除非有其它 worker 能持续推进任务，否则可能发生任务等待自身的死锁。
 
 ## 进阶用法

@@ -19,6 +19,9 @@ qubit-executor = "0.8"
   `Rejected(SubmissionError)`，接纳回调 panic 匹配 `AcceptancePanicked`。
 - 动态线程池会先创建直接执行任务所需的 worker，再执行接纳回调；接纳回调在
   线程池监视器锁之外运行。因此 worker 创建失败时不会调用接纳、执行或取消回调。
+- `stop()` 的取消边界现在是 worker 领取任务的时刻。直接派发任务可能在并发
+  stop 等待期间完成接纳，随后在 run 回调前被取消。`StopReport` 应视为时间点
+  快照；不要把 `submit_job` 返回 `Ok(())` 当作 run 回调已经开始的证明。
 
 普通 `ExecutorService` 提交方法仍使用原有的 `SubmissionError` 契约。检查在
 worker 任务中调用 `join()` 或 `wait_termination()` 的代码，避免任务等待自身

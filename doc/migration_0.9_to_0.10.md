@@ -21,6 +21,11 @@ qubit-executor = "0.8"
 - Dynamic workers are created before a directly assigned job is accepted, and
   acceptance runs outside the pool monitor. A worker-spawn rejection therefore
   does not invoke acceptance, run, or cancellation callbacks.
+- `stop()` now defines cancellation at the worker claim boundary. A directly
+  assigned job may return from acceptance successfully while a concurrent stop
+  is waiting; it is then cancelled before its run callback. Treat
+  `StopReport` as a snapshot, and do not use `submit_job` returning `Ok(())` as
+  proof that the run callback started.
 
 The ordinary `ExecutorService` submission methods keep their existing
 `SubmissionError` contract. Review calls to `join()` and
