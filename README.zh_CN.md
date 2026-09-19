@@ -58,6 +58,10 @@ qubit-executor = "0.8" # 直接导入 ExecutorService 时需要
 `AcceptancePanicked` 表示自定义接纳回调发生 panic，任务不会发布；标准
 `ExecutorService` 方法仍返回 `SubmissionError`。
 
+接纳回调会在提交路径上同步执行，应保持短小。回调不能同步对同一个线程池
+调用 `shutdown`、`stop`、`join` 或 `wait_termination`，因为这些操作可能等待
+当前提交完成并造成死锁；读取 `stats` 等非阻塞观测是安全的。
+
 线程池可以使用无界队列或有界队列。有界队列能明确表达背压：当线程池无法接收任务时，提交会返回 `SubmissionError::Saturated`，而不是静默增加内存使用。
 
 无界队列在 core worker 达到上限后会继续排队；仅增加 maximum size 不会让突发任务创建额外 worker。如果希望突发时扩展到 maximum，应使用有界队列：
@@ -89,6 +93,7 @@ let elastic = ThreadPool::builder()
 每个 hook 都会收到稳定的 worker index，并在 worker 线程上执行。hook 发生 panic 时会被捕获并忽略，因此观测代码不会杀死 worker，也不会破坏 executor 计数。hook 位于执行热路径上，应该保持短小。
 
 ```rust
+fn main() -> Result<(), Box<dyn std::error::Error>> {
 use qubit_executor::service::ExecutorService;
 use qubit_thread_pool::FixedThreadPool;
 
@@ -104,7 +109,8 @@ let pool = FixedThreadPool::builder()
 
 pool.submit(|| Ok::<(), std::io::Error>(()))?;
 pool.shutdown();
-# Ok::<(), Box<dyn std::error::Error>>(())
+Ok(())
+}
 ```
 
 ## 关闭行为
@@ -122,6 +128,7 @@ pool.shutdown();
 ### 动态线程池
 
 ```rust
+fn main() -> Result<(), Box<dyn std::error::Error>> {
 use std::io;
 
 use qubit_executor::service::ExecutorService;
@@ -137,12 +144,14 @@ let pool = ThreadPool::builder()
 let handle = pool.submit_callable(|| Ok::<usize, io::Error>(40 + 2))?;
 assert_eq!(handle.get()?, 42);
 pool.shutdown();
-# Ok::<(), Box<dyn std::error::Error>>(())
+Ok(())
+}
 ```
 
 ### 固定大小线程池
 
 ```rust
+fn main() -> Result<(), Box<dyn std::error::Error>> {
 use std::io;
 
 use qubit_executor::service::ExecutorService;
@@ -156,7 +165,8 @@ let pool = FixedThreadPool::builder()
 let handle = pool.submit_callable(|| Ok::<usize, io::Error>(6 * 7))?;
 assert_eq!(handle.get()?, 42);
 pool.shutdown();
-# Ok::<(), Box<dyn std::error::Error>>(())
+Ok(())
+}
 ```
 
 若使用与 `FixedThreadPoolBuilder::default()` 相同的默认配置，也可写 `let pool = FixedThreadPool::default();`，等价于 `FixedThreadPoolBuilder::default().build()`，但若 worker 线程无法创建则会 panic。

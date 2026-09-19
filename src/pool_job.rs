@@ -58,9 +58,13 @@ impl PoolJob {
     ///
     /// The pool invokes `accept` exactly once after the submission crosses the
     /// acceptance boundary. If submission is rejected before acceptance,
-    /// neither `accept`, `run`, nor `cancel` is invoked. Custom callbacks
-    /// run synchronously and should not block. Panics raised by these
-    /// callbacks are caught and ignored by the pool job wrapper; an
+    /// neither `accept`, `run`, nor `cancel` is invoked. Custom callbacks run
+    /// synchronously and should not block. The acceptance callback must not
+    /// synchronously call `shutdown`, `stop`, `join`, or `wait_termination` on
+    /// the same pool, because those operations may wait for the in-flight
+    /// submission and deadlock. Non-blocking observation such as `stats` is
+    /// safe. Panics raised by these callbacks are caught and ignored by the
+    /// pool job wrapper; an
     /// `accept` panic is reported to the pool as a failed acceptance
     /// callback.
     ///
@@ -145,8 +149,8 @@ impl PoolJob {
     ///
     /// # Returns
     ///
-    /// `true` when the job can continue to execution or queueing, or `false`
-    /// when a custom acceptance callback panicked and was contained.
+    /// `Ok(())` when the acceptance callback completed, or `Err(())` when a
+    /// custom acceptance callback panicked and was contained.
     pub(crate) fn accept(&self) -> Result<(), ()> {
         if let PoolJobInner::Completable(task) = &self.inner {
             return task.accept();

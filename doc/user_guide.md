@@ -52,6 +52,7 @@ Build the elastic pool with a bounded queue, submit a callable, and wait for its
 result. The result below is observable as `42`.
 
 ```rust
+fn main() -> Result<(), Box<dyn std::error::Error>> {
 use std::io;
 
 use qubit_executor::service::ExecutorService;
@@ -69,7 +70,8 @@ assert_eq!(handle.get()?, 42);
 
 pool.shutdown();
 pool.wait_termination();
-# Ok::<(), Box<dyn std::error::Error>>(())
+Ok(())
+}
 ```
 
 Use `submit` for fire-and-forget runnables. Use `submit_callable` when a value
@@ -81,6 +83,9 @@ returns `Ok(())`, and the worker makes the final run-or-cancel decision. The
 `StopReport` counts are a point-in-time snapshot rather than a synchronization
 barrier. For `submit_job`, `Ok(())` reports acceptance only, not task start or
 task success.
+Acceptance callbacks run synchronously during submission. Keep them short and
+never synchronously call `shutdown`, `stop`, `join`, or `wait_termination` on
+the same pool; those waits can deadlock behind the in-flight submission.
 Do not call `join()` or `wait_termination()` from a task running on the same
 pool unless another worker can always make progress; otherwise the task can
 self-wait.

@@ -26,6 +26,9 @@ qubit-executor = "0.8"
   is waiting; it is then cancelled before its run callback. Treat
   `StopReport` as a snapshot, and do not use `submit_job` returning `Ok(())` as
   proof that the run callback started.
+- Acceptance callbacks run synchronously during submission. They must not call
+  `shutdown`, `stop`, `join`, or `wait_termination` on the same pool; such a
+  wait can deadlock behind the in-flight submission.
 
 The ordinary `ExecutorService` submission methods keep their existing
 `SubmissionError` contract. Review calls to `join()` and

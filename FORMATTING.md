@@ -2,11 +2,11 @@
 
 ## Overview
 
-This project uses **nightly Rust's `rustfmt`** for code formatting to support advanced formatting features, specifically the `imports_layout = "Vertical"` option.
+This project uses the pinned Rust toolchain and the repository's `rustfmt` configuration.
 
 ## Why Nightly?
 
-The `imports_layout` configuration option is an **unstable feature** that requires nightly Rust. This allows us to format imports with each item on its own line:
+Imports use item granularity and standard library/external crate grouping:
 
 ```rust
 pub use module::{
@@ -38,8 +38,8 @@ repository formatting configuration.
 # Install nightly toolchain (if not already installed)
 rustup toolchain install nightly-2026-06-05
 
-# Format code
-cargo +nightly-2026-06-05 fmt --all -- --check
+# Check formatting
+./style-check.sh
 ```
 
 ## CI/CD Integration
@@ -54,11 +54,18 @@ The local checks use `./ci-check.sh`; style-only checks use `./style-check.sh`.
 The formatting configuration is defined in `.infra/style/rustfmt.toml`:
 
 ```toml
-# Format imports with vertical layout (each item on its own line within braces)
-imports_layout = "Vertical"
+# Import and comment formatting settings
+edition = "2024"
+style_edition = "2024"
+max_width = 120
+wrap_comments = true
+comment_width = 80
+imports_granularity = "Item"
+group_imports = "StdExternalCrate"
+reorder_imports = true
 ```
 
-This is the **only configuration option** needed to achieve our desired formatting style.
+The project scripts select the configured toolchain and apply these settings.
 
 ## Important Notes
 

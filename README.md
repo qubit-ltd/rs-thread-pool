@@ -104,6 +104,12 @@ runnable. Use `submit_callable` when you need a `TaskHandle` for the final
 result, or `submit_tracked` / `submit_tracked_callable` when you also need
 status and pre-start cancellation.
 
+Acceptance callbacks run synchronously on the submission path. They must stay
+short and must not synchronously call `shutdown`, `stop`, `join`, or
+`wait_termination` on the same pool, because those operations can wait for the
+in-flight submission and deadlock. Non-blocking observation such as `stats` is
+safe.
+
 ## Lifecycle Hooks
 
 Both `ThreadPoolBuilder` and `FixedThreadPoolBuilder` support optional hooks for
@@ -120,6 +126,7 @@ corrupt executor accounting. Keep hooks short; they are part of the execution
 hot path.
 
 ```rust
+fn main() -> Result<(), Box<dyn std::error::Error>> {
 use qubit_executor::service::ExecutorService;
 use qubit_thread_pool::FixedThreadPool;
 
@@ -135,7 +142,8 @@ let pool = FixedThreadPool::builder()
 
 pool.submit(|| Ok::<(), std::io::Error>(()))?;
 pool.shutdown();
-# Ok::<(), Box<dyn std::error::Error>>(())
+Ok(())
+}
 ```
 
 ## Shutdown Behavior
@@ -167,6 +175,7 @@ self-wait.
 ### Dynamic thread pool
 
 ```rust
+fn main() -> Result<(), Box<dyn std::error::Error>> {
 use std::io;
 
 use qubit_executor::service::ExecutorService;
@@ -182,12 +191,14 @@ let pool = ThreadPool::builder()
 let handle = pool.submit_callable(|| Ok::<usize, io::Error>(40 + 2))?;
 assert_eq!(handle.get()?, 42);
 pool.shutdown();
-# Ok::<(), Box<dyn std::error::Error>>(())
+Ok(())
+}
 ```
 
 ### Fixed thread pool
 
 ```rust
+fn main() -> Result<(), Box<dyn std::error::Error>> {
 use std::io;
 
 use qubit_executor::service::ExecutorService;
@@ -201,7 +212,8 @@ let pool = FixedThreadPool::builder()
 let handle = pool.submit_callable(|| Ok::<usize, io::Error>(6 * 7))?;
 assert_eq!(handle.get()?, 42);
 pool.shutdown();
-# Ok::<(), Box<dyn std::error::Error>>(())
+Ok(())
+}
 ```
 
 With default builder settings you can also write `let pool = FixedThreadPool::default();`—same as `FixedThreadPoolBuilder::default().build()` but panics if worker threads cannot be spawned.

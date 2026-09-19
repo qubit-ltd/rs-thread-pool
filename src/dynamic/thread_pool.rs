@@ -174,7 +174,10 @@ impl ThreadPool {
     /// run synchronously on the thread that reaches the corresponding lifecycle
     /// event and should stay short and non-blocking. Callback panics are
     /// contained; if an acceptance callback panics, the job is not queued,
-    /// run, or cancelled.
+    /// run, or cancelled. The acceptance callback must not synchronously call
+    /// `shutdown`, `stop`, `join`, or `wait_termination` on this pool, because
+    /// those operations may wait for the in-flight submission and deadlock.
+    /// Non-blocking observation such as [`Self::stats`] is safe.
     ///
     /// # Parameters
     ///

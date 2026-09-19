@@ -12,7 +12,7 @@ use crate::PoolJob;
 
 /// Initial job and decision channels exchanged with a newly spawned worker.
 pub(crate) struct InitialWorkerJob {
-    /// Job accepted by the submitting thread.
+    /// Job whose acceptance callback is run by the newly spawned worker.
     pub(crate) job: PoolJob,
     /// Reports whether the acceptance callback completed.
     pub(crate) acceptance_sender: mpsc::SyncSender<Result<(), ()>>,

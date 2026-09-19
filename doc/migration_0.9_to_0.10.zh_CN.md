@@ -21,7 +21,10 @@ qubit-executor = "0.8"
   线程池监视器锁之外运行。因此 worker 创建失败时不会调用接纳、执行或取消回调。
 - `stop()` 的取消边界现在是 worker 领取任务的时刻。直接派发任务可能在并发
   stop 等待期间完成接纳，随后在 run 回调前被取消。`StopReport` 应视为时间点
-  快照；不要把 `submit_job` 返回 `Ok(())` 当作 run 回调已经开始的证明。
+快照；不要把 `submit_job` 返回 `Ok(())` 当作 run 回调已经开始的证明。
+- 接纳回调会在提交路径上同步执行，不得对同一个线程池同步调用
+  `shutdown`、`stop`、`join` 或 `wait_termination`，否则等待可能与当前提交
+  互相阻塞。
 
 普通 `ExecutorService` 提交方法仍使用原有的 `SubmissionError` 契约。检查在
 worker 任务中调用 `join()` 或 `wait_termination()` 的代码，避免任务等待自身
