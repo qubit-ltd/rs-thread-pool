@@ -20,6 +20,7 @@ use qubit_executor::CancelResult;
 use qubit_executor::TaskExecutionError;
 use qubit_executor::service::ExecutorService;
 use qubit_executor::service::ExecutorServiceBuilderError;
+use qubit_executor::service::ExecutorServiceLifecycle;
 use qubit_executor::service::SubmissionError;
 use qubit_thread_pool::PoolJob;
 use qubit_thread_pool::PoolJobSubmissionError;
@@ -864,6 +865,75 @@ fn test_thread_pool_stop_waits_for_inflight_accept_then_cancels() {
     );
     pool.wait_termination();
     assert!(pool.is_terminated());
+}
+
+#[test]
+fn test_stop_cancels_direct_initial_job_while_acceptance_is_inflight() {
+    let pool = Arc::new(
+        ThreadPool::builder()
+            .pool_size(1)
+            .build()
+            .expect("thread pool should be created"),
+    );
+    let (accept_started_tx, accept_started_rx) = mpsc::channel();
+    let (release_accept_tx, release_accept_rx) = mpsc::channel();
+    let (ran_tx, ran_rx) = mpsc::channel();
+    let (cancelled_tx, cancelled_rx) = mpsc::channel();
+    let submit_pool = Arc::clone(&pool);
+    let submit_thread = std::thread::spawn(move || {
+        submit_pool.submit_job(PoolJob::with_accept(
+            Box::new(move || {
+                accept_started_tx
+                    .send(())
+                    .expect("test should receive accept start signal");
+                release_accept_rx
+                    .recv_timeout(Duration::from_secs(2))
+                    .expect("test should release accept callback");
+            }),
+            Box::new(move || {
+                ran_tx.send(()).expect("run callback should be observable");
+            }),
+            Box::new(move || {
+                cancelled_tx.send(()).expect("cancel callback should be observable");
+            }),
+        ))
+    });
+
+    accept_started_rx
+        .recv_timeout(Duration::from_secs(1))
+        .expect("accept callback should start");
+    let stop_pool = Arc::clone(&pool);
+    let stop_thread = std::thread::spawn(move || stop_pool.stop());
+    let stop_started = (0..100).any(|_| {
+        if pool.lifecycle() == ExecutorServiceLifecycle::Stopping {
+            true
+        } else {
+            std::thread::sleep(Duration::from_millis(1));
+            false
+        }
+    });
+    assert!(stop_started, "stop should enter stopping state");
+    release_accept_tx
+        .send(())
+        .expect("accept callback should receive release signal");
+
+    submit_thread
+        .join()
+        .expect("submit thread should not panic")
+        .expect("accepted direct job should report success");
+    let report = stop_thread.join().expect("stop thread should not panic");
+    assert_eq!(report.cancelled, 1);
+    assert!(
+        cancelled_rx.recv_timeout(Duration::from_secs(1)).is_ok(),
+        "accepted direct job should be cancelled after stop"
+    );
+    assert!(
+        ran_rx.recv_timeout(Duration::from_millis(100)).is_err(),
+        "cancelled direct job must not run"
+    );
+    pool.wait_termination();
+    assert_eq!(pool.running_count(), 0);
+    assert_eq!(pool.queued_count(), 0);
 }
 
 #[test]

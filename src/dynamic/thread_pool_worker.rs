@@ -63,16 +63,33 @@ impl ThreadPoolWorker {
             run_loop(inner, worker_index, has_task_hooks);
             return;
         }
-        let should_run = matches!(initial.decision_receiver.recv(), Ok(InitialWorkerDecision::Run));
-        if should_run {
-            run_initial_accepted_job(&inner, initial.job, has_task_hooks, worker_index);
-        } else {
-            let mut state = inner.lock_state();
-            inner.unregister_worker_locked(&mut state);
-            inner.hooks().run_after_worker_stop(worker_index);
-            return;
+        match initial.decision_receiver.recv() {
+            Ok(InitialWorkerDecision::Run) => {
+                if inner.is_stopping_now() {
+                    inner.begin_cancel_initial_job();
+                    initial.job.cancel();
+                    inner.finish_cancelled_initial_job();
+                    let mut state = inner.lock_state();
+                    inner.unregister_worker_locked(&mut state);
+                    drop(state);
+                    inner.hooks().run_after_worker_stop(worker_index);
+                } else {
+                    run_initial_accepted_job(&inner, initial.job, has_task_hooks, worker_index);
+                    run_loop(inner, worker_index, has_task_hooks);
+                }
+            }
+            Ok(InitialWorkerDecision::Cancel) => {
+                initial.job.cancel();
+                inner.finish_cancelled_initial_job();
+                let mut state = inner.lock_state();
+                inner.unregister_worker_locked(&mut state);
+                drop(state);
+                inner.hooks().run_after_worker_stop(worker_index);
+            }
+            Ok(InitialWorkerDecision::Abort) | Err(_) => {
+                run_loop(inner, worker_index, has_task_hooks);
+            }
         }
-        run_loop(inner, worker_index, has_task_hooks);
     }
 }
 

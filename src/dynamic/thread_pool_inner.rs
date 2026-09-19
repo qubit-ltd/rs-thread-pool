@@ -14,6 +14,8 @@ use std::thread;
 use std::time::Duration;
 use std::time::Instant;
 
+mod internal;
+
 use crossbeam_deque::Injector;
 use crossbeam_deque::Steal;
 use qubit_executor::service::ExecutorServiceLifecycle;
@@ -22,6 +24,11 @@ use qubit_executor::service::SubmissionError;
 use qubit_lock::ParkingLotMonitor;
 use qubit_lock::ParkingLotMonitorGuard;
 
+pub(super) use self::internal::InitialWorkerDecision;
+pub(super) use self::internal::InitialWorkerJob;
+pub(super) use self::internal::InitialWorkerStartup;
+pub(super) use self::internal::ReservedWorker;
+pub(super) use self::internal::ThreadPoolSubmitGuard;
 use super::thread_pool_config::ThreadPoolConfig;
 use super::thread_pool_state::ThreadPoolState;
 use super::thread_pool_worker::ThreadPoolWorker;
@@ -30,24 +37,6 @@ use crate::PoolJob;
 use crate::PoolJobSubmissionError;
 use crate::ThreadPoolHooks;
 use crate::ThreadPoolStats;
-
-/// Submit guard that leaves in-flight accounting on drop.
-struct ThreadPoolSubmitGuard<'a> {
-    /// Pool whose in-flight counter was entered.
-    inner: &'a ThreadPoolInner,
-}
-
-impl Drop for ThreadPoolSubmitGuard<'_> {
-    /// Leaves submit accounting and wakes waiters if this was the last
-    /// submitter.
-    fn drop(&mut self) {
-        let previous = self.inner.inflight_submissions.fetch_sub(1, Ordering::Release);
-        debug_assert!(previous > 0, "thread pool submit counter underflow");
-        if previous == 1 && (self.inner.has_submit_waiters() || self.inner.has_idle_waiters()) {
-            self.inner.notify_waiters_after_atomic_change();
-        }
-    }
-}
 
 /// Shared state for a thread pool.
 pub(crate) struct ThreadPoolInner {
@@ -402,7 +391,9 @@ impl ThreadPoolInner {
     /// admission state observed under the monitor.
     fn submit_with_state_lock(self: &Arc<Self>, job: PoolJob) -> Result<(), PoolJobSubmissionError> {
         let mut state = self.lock_state();
-        debug_assert_eq!(state.lifecycle, ExecutorServiceLifecycle::Running);
+        if state.lifecycle != ExecutorServiceLifecycle::Running {
+            return Err(PoolJobSubmissionError::Rejected(SubmissionError::Shutdown));
+        }
         if state.live_workers < state.core_pool_size {
             let worker = self.reserve_worker_locked(&mut state);
             let startup = self.spawn_reserved_worker_with_initial_job_locked(&mut state, worker)?;
@@ -606,10 +597,19 @@ impl ThreadPoolInner {
 
         match acceptance_receiver.recv() {
             Ok(Ok(())) => {
-                self.submitted_task_count.fetch_add(1, Ordering::Release);
-                self.running_task_count.fetch_add(1, Ordering::Release);
+                let decision = {
+                    let state = self.lock_state();
+                    self.submitted_task_count.fetch_add(1, Ordering::Release);
+                    if state.lifecycle == ExecutorServiceLifecycle::Running {
+                        self.running_task_count.fetch_add(1, Ordering::Release);
+                        InitialWorkerDecision::Run
+                    } else {
+                        self.cancelling_task_count.fetch_add(1, Ordering::Release);
+                        InitialWorkerDecision::Cancel
+                    }
+                };
                 decision_sender
-                    .send(InitialWorkerDecision::Run)
+                    .send(decision)
                     .map_err(|_| PoolJobSubmissionError::Rejected(worker_spawn_failed()))?;
                 Ok(())
             }
@@ -618,6 +618,24 @@ impl ThreadPoolInner {
                 Err(PoolJobSubmissionError::AcceptancePanicked)
             }
             Err(_) => Err(PoolJobSubmissionError::Rejected(worker_spawn_failed())),
+        }
+    }
+
+    /// Moves a directly assigned task from running to cancellation after a
+    /// stop races with the worker's final pre-start check.
+    pub(crate) fn begin_cancel_initial_job(&self) {
+        let previous = self.running_task_count.fetch_sub(1, Ordering::Release);
+        debug_assert!(previous > 0, "thread pool running task counter underflow");
+        self.cancelling_task_count.fetch_add(1, Ordering::Release);
+    }
+
+    /// Completes cancellation of a directly assigned task.
+    pub(crate) fn finish_cancelled_initial_job(&self) {
+        let previous = self.cancelling_task_count.fetch_sub(1, Ordering::Release);
+        debug_assert!(previous > 0, "thread pool cancelling task counter underflow");
+        self.cancelled_task_count.fetch_add(1, Ordering::Release);
+        if self.is_idle_snapshot() {
+            self.notify_waiters_after_atomic_change();
         }
     }
 
@@ -684,6 +702,11 @@ impl ThreadPoolInner {
     /// Marks a worker as idle in lock-free wake-up state.
     pub(crate) fn mark_worker_idle(&self) {
         self.idle_worker_count.fetch_add(1, Ordering::AcqRel);
+    }
+
+    /// Returns whether immediate stop has been requested.
+    pub(crate) fn is_stopping_now(&self) -> bool {
+        self.stop_now.load(Ordering::Acquire)
     }
 
     /// Marks a worker as no longer idle and consumes one pending wake token.
@@ -789,6 +812,7 @@ impl ThreadPoolInner {
         self.stop_now.store(true, Ordering::Release);
         let (jobs, queued, running) = {
             let mut state = self.lock_state();
+            self.stop_now.store(true, Ordering::Release);
             let is_new_stop = matches!(
                 state.lifecycle,
                 ExecutorServiceLifecycle::Running | ExecutorServiceLifecycle::ShuttingDown
@@ -1147,24 +1171,41 @@ fn worker_spawn_failed() -> SubmissionError {
     }
 }
 
-/// Worker reservation created under the pool state lock before thread spawn.
-struct ReservedWorker {
-    /// Stable worker index assigned in pool state.
-    index: usize,
-}
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
 
-pub(crate) struct InitialWorkerStartup {
-    pub(crate) start_sender: mpsc::SyncSender<InitialWorkerJob>,
-}
+    use qubit_executor::service::ExecutorServiceLifecycle;
+    use qubit_executor::service::SubmissionError;
 
-pub(crate) struct InitialWorkerJob {
-    pub(crate) job: PoolJob,
-    pub(crate) acceptance_sender: mpsc::SyncSender<Result<(), ()>>,
-    pub(crate) decision_receiver: mpsc::Receiver<InitialWorkerDecision>,
-}
+    use super::ThreadPoolConfig;
+    use super::ThreadPoolHooks;
+    use super::ThreadPoolInner;
+    use crate::PoolJob;
+    use crate::PoolJobSubmissionError;
 
-#[derive(Clone, Copy)]
-pub(crate) enum InitialWorkerDecision {
-    Run,
-    Abort,
+    #[test]
+    fn test_submit_with_state_lock_rejects_stopping_state() {
+        let inner = std::sync::Arc::new(ThreadPoolInner::new(
+            ThreadPoolConfig {
+                core_pool_size: 1,
+                maximum_pool_size: 1,
+                queue_capacity: Some(1),
+                thread_name_prefix: String::from("test"),
+                stack_size: None,
+                keep_alive: Duration::from_secs(1),
+                allow_core_thread_timeout: false,
+            },
+            ThreadPoolHooks::default(),
+        ));
+        inner.lock_state().lifecycle = ExecutorServiceLifecycle::Stopping;
+        let result = inner.submit_with_state_lock(PoolJob::new(
+            Box::new(|| panic!("rejected job must not run")),
+            Box::new(|| panic!("rejected job must not be cancelled")),
+        ));
+        assert!(matches!(
+            result,
+            Err(PoolJobSubmissionError::Rejected(SubmissionError::Shutdown))
+        ));
+    }
 }
