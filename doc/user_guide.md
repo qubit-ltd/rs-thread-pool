@@ -40,6 +40,7 @@ Add the crate with the version selected for your project:
 ```toml
 [dependencies]
 qubit-thread-pool = "0.10"
+qubit-executor = "0.8"
 ```
 
 The examples import `ExecutorService` because its submission and lifecycle
@@ -74,6 +75,9 @@ pool.wait_termination();
 Use `submit` for fire-and-forget runnables. Use `submit_callable` when a value
 or task error must be observed. `join()` waits for accepted work to drain but
 does not request shutdown, so later submissions are still possible.
+Do not call `join()` or `wait_termination()` from a task running on the same
+pool unless another worker can always make progress; otherwise the task can
+self-wait.
 
 ## Advanced Usage
 
@@ -106,6 +110,8 @@ when diagnosing pressure. These are observations, not a promise of strict task
 ordering; neither pool guarantees strict start or completion order.
 
 ## Troubleshooting
+
+When upgrading, see the [0.9 to 0.10 migration guide](migration_0.9_to_0.10.md).
 
 - **The dynamic pool never grows above its core size.** Check whether the queue
   is unbounded. Configure `queue_capacity(...)` to enable growth under pressure.

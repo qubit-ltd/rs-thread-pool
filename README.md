@@ -21,6 +21,17 @@ The crate is built on `qubit-executor`, so it shares the same task acceptance,
 shutdown, cancellation, and `TaskHandle` semantics as other Qubit executor
 implementations. It does not require Tokio or Rayon for normal use.
 
+## Installation
+
+```toml
+[dependencies]
+qubit-thread-pool = "0.10"
+qubit-executor = "0.8" # required when importing ExecutorService directly
+```
+
+Declare `qubit-executor` directly when application code imports its traits or
+types; Rust does not expose transitive dependencies for imports.
+
 ## Features
 
 - Dynamic `ThreadPool` with separate core and maximum worker limits.
@@ -138,6 +149,9 @@ finish according to their own code.
 until all accepted work has completed or been cancelled.
 Idle and termination waits also include cancellation callbacks, so they return
 only after queued jobs have finished their cancellation handling.
+Do not call `join()` or `wait_termination()` from a task running on the same
+pool unless another worker can always make progress; otherwise the task can
+self-wait.
 
 ## Quick Start
 
@@ -201,6 +215,8 @@ Read the [English user guide](doc/user_guide.md) or
 [中文版用户手册](doc/user_guide.zh_CN.md) for a scenario-led setup guide,
 queueing decisions, lifecycle handling, and diagnostics. API details are on
 [docs.rs](https://docs.rs/qubit-thread-pool).
+
+For upgrades, see the [0.9 to 0.10 migration guide](doc/migration_0.9_to_0.10.md).
 
 ## Benchmarks
 

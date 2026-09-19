@@ -22,37 +22,36 @@ pub use module::{
 
 ## How to Format Code
 
-### Option 1: Using the Format Script (Recommended)
+### Recommended command
 
 ```bash
-./format.sh
+./align-ci.sh
 ```
 
 This script will:
-1. Check if nightly toolchain is installed
-2. Install it automatically if needed
-3. Run `cargo +nightly fmt`
+The script uses the pinned `nightly-2026-06-05` toolchain and checks the
+repository formatting configuration.
 
 ### Option 2: Manual Command
 
 ```bash
 # Install nightly toolchain (if not already installed)
-rustup toolchain install nightly
+rustup toolchain install nightly-2026-06-05
 
 # Format code
-cargo +nightly fmt
+cargo +nightly-2026-06-05 fmt --all -- --check
 ```
 
 ## CI/CD Integration
 
-Both the local CI check script (`ci-check.sh`) and CircleCI configuration (`.circleci/config.yml`) have been configured to use nightly Rust:
+The local checks use `./ci-check.sh`; style-only checks use `./style-check.sh`.
 
-- **Local checks**: Run `./ci-check.sh` before committing (automatically installs nightly if needed)
-- **CircleCI**: Uses `rustlang/rust:nightly` Docker image for all jobs
+- **Local checks**: Run `./ci-check.sh` before release validation.
+- **CI**: The repository workflow invokes the same project scripts.
 
 ## Configuration
 
-The formatting configuration is defined in `rustfmt.toml`:
+The formatting configuration is defined in `.infra/style/rustfmt.toml`:
 
 ```toml
 # Format imports with vertical layout (each item on its own line within braces)
@@ -63,11 +62,10 @@ This is the **only configuration option** needed to achieve our desired formatti
 
 ## Important Notes
 
-1. **All CI jobs use nightly Rust**: The entire CI pipeline uses nightly Rust toolchain for consistency
+1. **Formatting uses the pinned nightly Rust toolchain**.
 2. **Local development**: Can use either stable or nightly; formatting requires nightly
 3. **Automatic installation**: The `ci-check.sh` script automatically installs nightly toolchain if needed
-4. **Docker image**: CircleCI uses the official `rustlang/rust:nightly` Docker image
-5. **No manual intervention**: Developers don't need to manually switch toolchains
+4. **No manual intervention**: `align-ci.sh` selects the configured toolchain.
 
 ## Troubleshooting
 
@@ -76,7 +74,7 @@ This is the **only configuration option** needed to achieve our desired formatti
 Make sure your code is formatted before committing:
 
 ```bash
-./format.sh
+./align-ci.sh
 ```
 
 ### Nightly toolchain issues
@@ -92,4 +90,3 @@ rustup toolchain install nightly --component rustfmt
 
 - [Rustfmt Documentation](https://rust-lang.github.io/rustfmt/)
 - [Rustup Documentation](https://rust-lang.github.io/rustup/)
-

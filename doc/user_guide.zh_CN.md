@@ -28,6 +28,7 @@
 ```toml
 [dependencies]
 qubit-thread-pool = "0.10"
+qubit-executor = "0.8"
 ```
 
 示例中需要导入 `ExecutorService`，因为提交和生命周期方法由该 trait 提供。
@@ -58,6 +59,7 @@ pool.wait_termination();
 ```
 
 不关心返回值的 runnable 使用 `submit`；需要观察返回值或任务错误时使用 `submit_callable`。`join()` 只等待已接纳任务处理完毕，不会发起关闭请求，因此之后仍可继续提交。
+不要在同一个线程池的任务中调用 `join()` 或 `wait_termination()`，除非有其它 worker 能持续推进任务，否则可能发生任务等待自身的死锁。
 
 ## 进阶用法
 
@@ -76,6 +78,8 @@ builder 的非法配置会返回 `ExecutorServiceBuilderError`，例如 queue ca
 排查压力时可查看 `queued_count()`、`running_count()`、`live_worker_count()` 或 `stats()`。这些值用于观测，不代表严格的任务顺序；两种线程池都不保证任务启动或完成顺序严格一致。
 
 ## 排障
+
+升级时请先阅读[0.9 到 0.10 迁移指南](migration_0.9_to_0.10.zh_CN.md)。
 
 - **动态线程池始终不超过 core size。** 检查队列是否为无界队列；需要在压力下扩容时配置 `queue_capacity(...)`。
 - **提交被拒绝。** 先区分 `Saturated` 与 `Shutdown`：前者意味着应降低需求或调整有界容量，后者说明线程池已停止接纳。

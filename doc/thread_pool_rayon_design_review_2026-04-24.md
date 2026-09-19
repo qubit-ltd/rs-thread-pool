@@ -1,5 +1,10 @@
 # ThreadPool vs Rayon Design Review (2026-04-24)
 
+> Historical note: this review predates the 0.10 implementation. The current
+> pool already uses a global `crossbeam_deque::Injector`; the old paths and
+> lock descriptions below are retained for historical context and are not a
+> current architecture specification.
+
 ## Scope
 
 This note compares the current `ThreadPool` implementation with Rayon source
@@ -289,4 +294,3 @@ chunk-level jobs. They should not be mixed into the executor-style
 6. Revisit sleep/wakeup counters after the queue lock removal; do not copy
    Rayon's full sleep protocol until measurements show `state_monitor` idle
    transitions are still hot.
-

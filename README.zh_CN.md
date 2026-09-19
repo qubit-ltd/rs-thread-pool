@@ -15,6 +15,17 @@ Qubit Thread Pool 为同步工作提供基于 OS 线程的 `ExecutorService` 实
 
 本 crate 基于 `qubit-executor` 构建，因此与其它 Qubit executor 实现共享任务接受、关闭、取消和 `TaskHandle` 语义。普通使用不需要依赖 Tokio 或 Rayon。
 
+## 安装
+
+```toml
+[dependencies]
+qubit-thread-pool = "0.10"
+qubit-executor = "0.8" # 直接导入 ExecutorService 时需要
+```
+
+当业务代码直接导入 trait 或类型时，必须声明 `qubit-executor` 直接依赖；Rust
+不会把传递依赖自动开放为可导入的 crate。
+
 ## 功能
 
 - 提供动态 `ThreadPool`，支持分离的 core worker 与 maximum worker 限制。
@@ -101,6 +112,7 @@ pool.shutdown();
 `shutdown` 会停止接受新任务，并允许已接受的任务完成。`stop` 会停止接受新任务，并取消仍在队列中或尚未开始的工作。已经运行在 OS 线程上的任务不会被强制杀死，而是由任务自身代码决定何时结束。
 
 `wait_termination` 会阻塞当前线程，直到已请求 shutdown 且所有已接受工作完成或取消。
+不要在同一个线程池正在执行的任务中调用 `join()` 或 `wait_termination()`，除非能够确保有其它 worker 持续推进任务；否则任务可能等待自身完成。
 空闲和终止等待也会包含取消回调，只有队列任务完成取消处理后才会返回。
 
 ## 快速开始
@@ -154,6 +166,8 @@ pool.shutdown();
 CPU 密集型、适合 divide-and-conquer 的工作，优先使用 `qubit-rayon-executor`。Tokio 应用中的 Tokio blocking 任务或 async IO future，优先使用 `qubit-tokio-executor`。应用层需要统一路由这些执行域时，使用 `qubit-execution-services`。
 
 ## 延伸阅读
+
+升级时请阅读 [0.9 到 0.10 迁移指南](doc/migration_0.9_to_0.10.zh_CN.md)。
 
 需要从配置到关闭流程的完整说明时，请阅读[英文用户手册](doc/user_guide.md)或[中文版用户手册](doc/user_guide.zh_CN.md)，其中包含队列策略、生命周期处理和诊断方法。API 细节见 [docs.rs](https://docs.rs/qubit-thread-pool)。
 
