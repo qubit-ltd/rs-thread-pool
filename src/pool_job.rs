@@ -9,102 +9,14 @@ use std::panic::AssertUnwindSafe;
 use std::panic::catch_unwind;
 use std::sync::Mutex;
 
-use qubit_executor::task::spi::TaskRunner;
 use qubit_executor::task::spi::TaskSlot;
 use qubit_function::Callable;
 use qubit_function::Runnable;
 
-/// Type-erased callable owned by a pool queue.
-trait PoolTask: Send + 'static {
-    /// Marks this task as accepted by an executor service.
-    ///
-    /// # Returns
-    ///
-    /// `true` when the acceptance callback completed, or `false` when a custom
-    /// callback panicked and was contained.
-    fn accept(&self) -> Result<(), ()>;
-
-    /// Runs this task and publishes its result if it was not cancelled first.
-    fn run(self: Box<Self>);
-
-    /// Cancels this task before it starts.
-    fn cancel(self: Box<Self>);
-}
-
-/// Callable task paired with its runner-side completion endpoint.
-struct CompletablePoolTask<C, R, E> {
-    /// Callable task to execute once a worker starts this job.
-    task: C,
-    /// Completion endpoint used to publish the task result.
-    completion: TaskSlot<R, E>,
-}
-
-impl<C, R, E> PoolTask for CompletablePoolTask<C, R, E>
-where
-    C: Callable<R, E> + Send + 'static,
-    R: Send + 'static,
-    E: Send + 'static,
-{
-    /// Marks this task as accepted by an executor service.
-    fn accept(&self) -> Result<(), ()> {
-        self.completion.accept();
-        Ok(())
-    }
-
-    /// Runs this task and publishes its result if it was not cancelled first.
-    fn run(self: Box<Self>) {
-        let Self { task, completion } = *self;
-        TaskRunner::new(task).run(completion);
-    }
-
-    /// Publishes cancellation for an unstarted accepted task.
-    fn cancel(self: Box<Self>) {
-        let Self { completion, .. } = *self;
-        let _cancelled = completion.cancel_unstarted();
-    }
-}
-
-/// Custom job callbacks supplied by higher-level services.
-///
-/// The callbacks are executed synchronously by the pool path that reaches the
-/// corresponding lifecycle event, so they must stay short and non-blocking.
-/// Panics from custom callbacks are contained before they can escape into pool
-/// worker or shutdown accounting.
-struct CustomPoolTask {
-    /// Callback invoked once the pool accepts the job.
-    accept: Mutex<Option<Box<dyn FnOnce() + Send + 'static>>>,
-    /// Callback executed once a worker starts this job.
-    run: Box<dyn FnOnce() + Send + 'static>,
-    /// Callback executed if the job is cancelled before it starts.
-    cancel: Box<dyn FnOnce() + Send + 'static>,
-}
-
-impl PoolTask for CustomPoolTask {
-    /// Runs the acceptance callback once.
-    fn accept(&self) -> Result<(), ()> {
-        if let Some(accept) = self
-            .accept
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .take()
-        {
-            return catch_unwind(AssertUnwindSafe(accept)).map_err(|_| ());
-        }
-        Ok(())
-    }
-
-    /// Runs this custom job.
-    fn run(self: Box<Self>) {
-        let Self { run, .. } = *self;
-        let _ignored = catch_unwind(AssertUnwindSafe(run));
-    }
-
-    /// Cancels this custom job before it starts.
-    fn cancel(self: Box<Self>) {
-        let Self { cancel, .. } = *self;
-        let _ignored = catch_unwind(AssertUnwindSafe(cancel));
-    }
-}
+mod internal;
+use internal::CompletablePoolTask;
+use internal::CustomPoolTask;
+use internal::PoolJobInner;
 
 /// Type-erased pool job with separate detached and cancellable forms.
 ///
@@ -118,17 +30,6 @@ impl PoolTask for CustomPoolTask {
 pub struct PoolJob {
     /// Internal job representation hidden behind method-only access.
     inner: PoolJobInner,
-}
-
-/// Private type-erased pool job representation.
-enum PoolJobInner {
-    /// Fire-and-forget job submitted without a completion endpoint.
-    Detached {
-        /// Callback executed once a worker starts the job.
-        run: Box<dyn FnOnce() + Send + 'static>,
-    },
-    /// Job whose queued cancellation must complete a result endpoint.
-    Completable(Box<dyn PoolTask>),
 }
 
 impl PoolJob {

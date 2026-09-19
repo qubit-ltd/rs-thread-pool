@@ -11,6 +11,8 @@ use std::sync::atomic::Ordering;
 use std::time::Duration;
 use std::time::Instant;
 
+mod internal;
+
 use crossbeam_deque::Injector;
 use crossbeam_deque::Steal;
 use qubit_executor::service::ExecutorServiceLifecycle;
@@ -18,28 +20,12 @@ use qubit_executor::service::StopReport;
 use qubit_executor::service::SubmissionError;
 use qubit_lock::ParkingLotMonitor;
 
+use self::internal::FixedSubmitGuard;
 use super::fixed_thread_pool_state::FixedThreadPoolState;
 use crate::PoolJob;
 use crate::PoolJobSubmissionError;
 use crate::ThreadPoolHooks;
 use crate::ThreadPoolStats;
-
-/// Submit guard that leaves in-flight accounting on drop.
-struct FixedSubmitGuard<'a> {
-    /// Pool whose in-flight counter was entered.
-    inner: &'a FixedThreadPoolInner,
-}
-
-impl Drop for FixedSubmitGuard<'_> {
-    /// Leaves submit accounting and wakes waiters if needed.
-    fn drop(&mut self) {
-        let previous = self.inner.inflight_submissions.fetch_sub(1, Ordering::Release);
-        debug_assert!(previous > 0, "fixed pool submit counter underflow");
-        if previous == 1 && (self.inner.has_submit_waiters() || self.inner.has_idle_waiters()) {
-            self.inner.notify_waiters_after_atomic_change();
-        }
-    }
-}
 
 /// Shared state for a fixed-size thread pool.
 pub struct FixedThreadPoolInner {
