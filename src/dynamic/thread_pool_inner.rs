@@ -405,13 +405,15 @@ impl ThreadPoolInner {
         debug_assert_eq!(state.lifecycle, ExecutorServiceLifecycle::Running);
         if state.live_workers < state.core_pool_size {
             let worker = self.reserve_worker_locked(&mut state);
-            self.spawn_reserved_worker_with_initial_job_locked(&mut state, worker, job)?;
-            return Ok(());
+            let startup = self.spawn_reserved_worker_with_initial_job_locked(&mut state, worker)?;
+            drop(state);
+            return self.start_reserved_worker(startup, job);
         }
         if state.live_workers == 0 {
             let worker = self.reserve_worker_locked(&mut state);
-            self.spawn_reserved_worker_with_initial_job_locked(&mut state, worker, job)?;
-            return Ok(());
+            let startup = self.spawn_reserved_worker_with_initial_job_locked(&mut state, worker)?;
+            drop(state);
+            return self.start_reserved_worker(startup, job);
         }
         if self.reserve_queue_slot() {
             drop(state);
@@ -419,8 +421,9 @@ impl ThreadPoolInner {
         }
         if state.live_workers < state.maximum_pool_size {
             let worker = self.reserve_worker_locked(&mut state);
-            self.spawn_reserved_worker_with_initial_job_locked(&mut state, worker, job)?;
-            Ok(())
+            let startup = self.spawn_reserved_worker_with_initial_job_locked(&mut state, worker)?;
+            drop(state);
+            self.start_reserved_worker(startup, job)
         } else {
             Err(PoolJobSubmissionError::Rejected(SubmissionError::Saturated))
         }
@@ -512,7 +515,7 @@ impl ThreadPoolInner {
             builder = builder.stack_size(stack_size);
         }
         match builder.spawn(move || {
-            ThreadPoolWorker::run(worker_inner, index, None);
+            ThreadPoolWorker::run(worker_inner, index);
         }) {
             Ok(_) => {
                 self.live_worker_count.fetch_add(1, Ordering::Release);
@@ -531,24 +534,21 @@ impl ThreadPoolInner {
         }
     }
 
-    /// Spawns a reserved worker with one already assigned initial job.
+    /// Spawns a reserved worker that waits for an initial job decision.
     ///
-    /// The caller must hold the pool state monitor. A start gate keeps the
-    /// worker from running the initial job until this method has observed a
-    /// successful spawn and updated task counters. If the OS thread cannot
-    /// be created, the job is dropped without crossing the acceptance
-    /// boundary.
+    /// The caller must hold the pool state monitor. The returned startup
+    /// channels let the caller run the job's acceptance callback after the
+    /// monitor is released, then explicitly release the worker to run or
+    /// abort. If the OS thread cannot be created, no job has crossed the
+    /// acceptance boundary.
     ///
     /// # Parameters
     ///
     /// * `state` - Locked pool state used for counter updates and rollback.
     /// * `worker` - Worker reservation created while holding the state lock.
-    /// * `job` - Initial job assigned directly to the new worker.
-    ///
     /// # Returns
     ///
-    /// `Ok(())` after the worker has been spawned and released to run its first
-    /// job.
+    /// Startup channels for the successfully spawned worker.
     ///
     /// # Errors
     ///
@@ -558,34 +558,24 @@ impl ThreadPoolInner {
         self: &Arc<Self>,
         state: &mut ThreadPoolState,
         worker: ReservedWorker,
-        job: PoolJob,
-    ) -> Result<(), PoolJobSubmissionError> {
+    ) -> Result<InitialWorkerStartup, PoolJobSubmissionError> {
         let ReservedWorker { index } = worker;
-        if job.accept().is_err() {
-            state.live_workers = state
-                .live_workers
-                .checked_sub(1)
-                .expect("thread pool live worker counter underflow");
-            self.notify_if_idle_or_terminated(state);
-            return Err(PoolJobSubmissionError::AcceptancePanicked);
-        }
         let (start_sender, start_receiver) = mpsc::sync_channel(1);
         let worker_inner = Arc::clone(self);
         let mut builder = thread::Builder::new().name(format!("{}-{index}", self.thread_name_prefix));
         if let Some(stack_size) = self.stack_size {
             builder = builder.stack_size(stack_size);
         }
-        match builder.spawn(move || {
-            if start_receiver.recv().is_ok() {
-                ThreadPoolWorker::run(worker_inner, index, Some(job));
+        match builder.spawn(move || match start_receiver.recv() {
+            Ok(initial_job) => ThreadPoolWorker::run_initial(worker_inner, index, initial_job),
+            Err(_) => {
+                let mut state = worker_inner.lock_state();
+                worker_inner.unregister_worker_locked(&mut state);
             }
         }) {
             Ok(_) => {
                 self.live_worker_count.fetch_add(1, Ordering::Release);
-                self.submitted_task_count.fetch_add(1, Ordering::Release);
-                self.running_task_count.fetch_add(1, Ordering::Release);
-                let _released = start_sender.send(());
-                Ok(())
+                Ok(InitialWorkerStartup { start_sender })
             }
             Err(source) => {
                 state.live_workers = state
@@ -597,6 +587,37 @@ impl ThreadPoolInner {
                     source: Arc::new(source),
                 }))
             }
+        }
+    }
+
+    /// Runs acceptance for a directly assigned job after the state lock is
+    /// released.
+    fn start_reserved_worker(&self, startup: InitialWorkerStartup, job: PoolJob) -> Result<(), PoolJobSubmissionError> {
+        let (acceptance_sender, acceptance_receiver) = mpsc::sync_channel(1);
+        let (decision_sender, decision_receiver) = mpsc::sync_channel(1);
+        startup
+            .start_sender
+            .send(InitialWorkerJob {
+                job,
+                acceptance_sender,
+                decision_receiver,
+            })
+            .map_err(|_| PoolJobSubmissionError::Rejected(worker_spawn_failed()))?;
+
+        match acceptance_receiver.recv() {
+            Ok(Ok(())) => {
+                self.submitted_task_count.fetch_add(1, Ordering::Release);
+                self.running_task_count.fetch_add(1, Ordering::Release);
+                decision_sender
+                    .send(InitialWorkerDecision::Run)
+                    .map_err(|_| PoolJobSubmissionError::Rejected(worker_spawn_failed()))?;
+                Ok(())
+            }
+            Ok(Err(())) => {
+                let _ignored = decision_sender.send(InitialWorkerDecision::Abort);
+                Err(PoolJobSubmissionError::AcceptancePanicked)
+            }
+            Err(_) => Err(PoolJobSubmissionError::Rejected(worker_spawn_failed())),
         }
     }
 
@@ -1120,8 +1141,30 @@ impl ThreadPoolInner {
     }
 }
 
+fn worker_spawn_failed() -> SubmissionError {
+    SubmissionError::WorkerSpawnFailed {
+        source: Arc::new(std::io::Error::other("worker terminated before startup completed")),
+    }
+}
+
 /// Worker reservation created under the pool state lock before thread spawn.
 struct ReservedWorker {
     /// Stable worker index assigned in pool state.
     index: usize,
+}
+
+pub(crate) struct InitialWorkerStartup {
+    pub(crate) start_sender: mpsc::SyncSender<InitialWorkerJob>,
+}
+
+pub(crate) struct InitialWorkerJob {
+    pub(crate) job: PoolJob,
+    pub(crate) acceptance_sender: mpsc::SyncSender<Result<(), ()>>,
+    pub(crate) decision_receiver: mpsc::Receiver<InitialWorkerDecision>,
+}
+
+#[derive(Clone, Copy)]
+pub(crate) enum InitialWorkerDecision {
+    Run,
+    Abort,
 }

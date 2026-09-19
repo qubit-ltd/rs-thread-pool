@@ -12,6 +12,8 @@ use std::sync::Arc;
 use qubit_executor::service::ExecutorServiceLifecycle;
 use qubit_lock::WaitTimeoutStatus;
 
+use super::thread_pool_inner::InitialWorkerDecision;
+use super::thread_pool_inner::InitialWorkerJob;
 use super::thread_pool_inner::ThreadPoolInner;
 use super::thread_pool_state::ThreadPoolState;
 use crate::PoolJob;
@@ -27,12 +29,9 @@ impl ThreadPoolWorker {
     ///
     /// * `inner` - Shared pool state used for queue access and counters.
     /// * `worker_index` - Stable worker index assigned by the pool.
-    pub(crate) fn run(inner: Arc<ThreadPoolInner>, worker_index: usize, initial_job: Option<PoolJob>) {
+    pub(crate) fn run(inner: Arc<ThreadPoolInner>, worker_index: usize) {
         inner.hooks().run_before_worker_start(worker_index);
         let has_task_hooks = inner.hooks().has_task_hooks();
-        if let Some(job) = initial_job {
-            run_initial_job(&inner, job, has_task_hooks, worker_index);
-        }
         loop {
             let job = wait_for_job(&inner, worker_index);
             match job {
@@ -51,6 +50,49 @@ impl ThreadPoolWorker {
             }
         }
     }
+
+    /// Accepts and runs a directly assigned job after the pool monitor is
+    /// released.
+    pub(crate) fn run_initial(inner: Arc<ThreadPoolInner>, worker_index: usize, initial: InitialWorkerJob) {
+        inner.hooks().run_before_worker_start(worker_index);
+        let has_task_hooks = inner.hooks().has_task_hooks();
+        let accepted = initial.job.accept().is_ok();
+        let _ignored = initial.acceptance_sender.send(if accepted { Ok(()) } else { Err(()) });
+        if !accepted {
+            let _ignored = initial.decision_receiver.recv();
+            run_loop(inner, worker_index, has_task_hooks);
+            return;
+        }
+        let should_run = matches!(initial.decision_receiver.recv(), Ok(InitialWorkerDecision::Run));
+        if should_run {
+            run_initial_accepted_job(&inner, initial.job, has_task_hooks, worker_index);
+        } else {
+            let mut state = inner.lock_state();
+            inner.unregister_worker_locked(&mut state);
+            inner.hooks().run_after_worker_stop(worker_index);
+            return;
+        }
+        run_loop(inner, worker_index, has_task_hooks);
+    }
+}
+
+fn run_loop(inner: Arc<ThreadPoolInner>, worker_index: usize, has_task_hooks: bool) {
+    loop {
+        match wait_for_job(&inner, worker_index) {
+            Some(job) => {
+                if has_task_hooks {
+                    run_with_task_hooks(job, inner.hooks(), worker_index);
+                } else {
+                    run_without_hooks(job);
+                }
+                inner.finish_running_job();
+            }
+            None => {
+                inner.hooks().run_after_worker_stop(worker_index);
+                return;
+            }
+        }
+    }
 }
 
 /// Runs the first job assigned directly to a newly spawned worker.
@@ -65,13 +107,11 @@ impl ThreadPoolWorker {
 /// * `job` - Initial job assigned to this worker.
 /// * `has_task_hooks` - Whether per-task hooks are configured.
 /// * `worker_index` - Stable index of the worker running the job.
-fn run_initial_job(inner: &ThreadPoolInner, job: PoolJob, has_task_hooks: bool, worker_index: usize) {
-    if job.accept().is_ok() {
-        if has_task_hooks {
-            run_with_task_hooks(job, inner.hooks(), worker_index);
-        } else {
-            run_without_hooks(job);
-        }
+fn run_initial_accepted_job(inner: &ThreadPoolInner, job: PoolJob, has_task_hooks: bool, worker_index: usize) {
+    if has_task_hooks {
+        run_with_task_hooks(job, inner.hooks(), worker_index);
+    } else {
+        run_without_hooks(job);
     }
     inner.finish_running_job();
 }

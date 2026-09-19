@@ -525,8 +525,8 @@ fn test_thread_pool_spawn_failure_does_not_accept_or_cancel_direct_job() {
         )),
     ));
     assert!(
-        accepted_rx.try_recv().is_ok(),
-        "the acceptance callback runs before a worker-spawn rejection is reported",
+        accepted_rx.try_recv().is_err(),
+        "a worker-spawn rejection must happen before the acceptance callback",
     );
     assert!(
         cancelled_rx.try_recv().is_err(),
@@ -585,8 +585,8 @@ fn test_thread_pool_spawn_failure_does_not_accept_or_cancel_queued_start_job() {
         )),
     ));
     assert!(
-        accepted_rx.try_recv().is_ok(),
-        "the acceptance callback runs before a worker-spawn rejection is reported",
+        accepted_rx.try_recv().is_err(),
+        "a worker-spawn rejection must happen before the acceptance callback",
     );
     assert!(
         cancelled_rx.try_recv().is_err(),
@@ -766,6 +766,31 @@ fn test_thread_pool_blocked_accept_does_not_hold_state_lock() {
         .expect("submit caller should not panic")
         .expect("job should be accepted");
     pool.join();
+    pool.shutdown();
+    pool.wait_termination();
+}
+
+#[test]
+fn test_thread_pool_direct_accept_can_reenter_pool_without_deadlock() {
+    let pool = Arc::new(ThreadPool::new(1).expect("thread pool should be created"));
+    let callback_pool = Arc::clone(&pool);
+    let (result_tx, result_rx) = mpsc::channel();
+    let submit_pool = Arc::clone(&pool);
+    std::thread::spawn(move || {
+        let result = submit_pool.submit_job(PoolJob::with_accept(
+            Box::new(move || {
+                let _ = callback_pool.stats();
+            }),
+            Box::new(|| {}),
+            Box::new(|| {}),
+        ));
+        result_tx.send(result).expect("test should receive submit result");
+    });
+
+    result_rx
+        .recv_timeout(Duration::from_secs(1))
+        .expect("direct acceptance callback must not deadlock on the pool monitor")
+        .expect("job should be accepted");
     pool.shutdown();
     pool.wait_termination();
 }

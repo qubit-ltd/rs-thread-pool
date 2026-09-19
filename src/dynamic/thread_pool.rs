@@ -68,12 +68,14 @@ impl ThreadPool {
     ///
     /// # Returns
     ///
-    /// `Ok(ThreadPool)` if all workers are spawned successfully.
+    /// `Ok(ThreadPool)` after validating the configuration. Workers are
+    /// created lazily by the default builder, so the first submission may
+    /// report [`SubmissionError::WorkerSpawnFailed`] if a worker cannot start.
     ///
     /// # Errors
     ///
     /// Returns [`ExecutorServiceBuilderError`] if the resulting maximum pool
-    /// size is zero or a worker thread cannot be spawned.
+    /// size is zero or another builder option is invalid.
     #[inline]
     pub fn new(pool_size: usize) -> Result<Self, ExecutorServiceBuilderError> {
         Self::builder().pool_size(pool_size).build()
