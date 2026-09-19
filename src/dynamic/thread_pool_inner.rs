@@ -1008,6 +1008,7 @@ impl ThreadPoolInner {
                 Some(state.maximum_pool_size)
             } else {
                 state.core_pool_size = core_pool_size;
+                self.core_pool_size.store(core_pool_size, Ordering::Release);
                 None
             }
         });
@@ -1017,7 +1018,6 @@ impl ThreadPoolInner {
                 maximum_pool_size,
             });
         }
-        self.core_pool_size.store(core_pool_size, Ordering::Release);
         self.state_monitor.notify_all();
         Ok(())
     }
@@ -1173,6 +1173,10 @@ fn worker_spawn_failed() -> SubmissionError {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+    use std::sync::Barrier;
+    use std::sync::atomic::Ordering;
+    use std::thread;
     use std::time::Duration;
 
     use qubit_executor::service::ExecutorServiceLifecycle;
@@ -1207,5 +1211,48 @@ mod tests {
             result,
             Err(PoolJobSubmissionError::Rejected(SubmissionError::Shutdown))
         ));
+    }
+
+    #[test]
+    fn test_concurrent_core_size_updates_keep_atomic_mirror_in_sync() {
+        let inner = Arc::new(ThreadPoolInner::new(
+            ThreadPoolConfig {
+                core_pool_size: 1,
+                maximum_pool_size: 2,
+                queue_capacity: Some(1),
+                thread_name_prefix: String::from("core-size-test"),
+                stack_size: None,
+                keep_alive: Duration::from_secs(1),
+                allow_core_thread_timeout: false,
+            },
+            ThreadPoolHooks::default(),
+        ));
+        let start = Barrier::new(3);
+        let done = Barrier::new(3);
+        thread::scope(|scope| {
+            for value in [1, 2] {
+                let inner = Arc::clone(&inner);
+                let start = &start;
+                let done = &done;
+                scope.spawn(move || {
+                    for _ in 0..5_000 {
+                        start.wait();
+                        inner.set_core_pool_size(value).expect("valid core size");
+                        done.wait();
+                    }
+                });
+            }
+            for _ in 0..5_000 {
+                start.wait();
+                done.wait();
+                inner.read_state(|state| {
+                    assert_eq!(
+                        state.core_pool_size,
+                        inner.core_pool_size.load(Ordering::Acquire),
+                        "core size mirror diverged after concurrent setters"
+                    );
+                });
+            }
+        });
     }
 }

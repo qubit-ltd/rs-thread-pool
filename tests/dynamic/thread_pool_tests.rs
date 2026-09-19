@@ -28,6 +28,7 @@ use qubit_thread_pool::ThreadPool;
 
 use super::mod_tests::create_single_worker_pool;
 use super::mod_tests::wait_started;
+use super::mod_tests::wait_until;
 
 static PANIC_HOOK_LOCK: Mutex<()> = Mutex::new(());
 
@@ -480,6 +481,36 @@ fn test_thread_pool_accessors_and_dynamic_settings() {
         pool.set_keep_alive(Duration::ZERO),
         Err(ExecutorServiceBuilderError::ZeroKeepAlive),
     ));
+    pool.shutdown();
+    pool.wait_termination();
+}
+
+#[test]
+fn test_thread_pool_core_size_update_grows_next_submission() {
+    let pool = ThreadPool::builder()
+        .core_pool_size(1)
+        .maximum_pool_size(2)
+        .queue_capacity(1)
+        .build()
+        .expect("pool should build");
+    let (started_tx, started_rx) = mpsc::channel();
+    let (release_tx, release_rx) = mpsc::channel();
+    let first = pool
+        .submit_callable(move || {
+            started_tx.send(()).expect("start signal should send");
+            release_rx.recv().map_err(|error| io::Error::other(error.to_string()))?;
+            Ok::<(), io::Error>(())
+        })
+        .expect("first job should be accepted");
+    wait_started(started_rx);
+    pool.set_core_pool_size(2).expect("core increase should succeed");
+    let second = pool
+        .submit_callable(|| Ok::<(), io::Error>(()))
+        .expect("second job should be accepted");
+    wait_until(|| pool.live_worker_count() == 2);
+    release_tx.send(()).expect("first job should be released");
+    first.get().expect("first job should complete");
+    second.get().expect("second job should complete");
     pool.shutdown();
     pool.wait_termination();
 }
