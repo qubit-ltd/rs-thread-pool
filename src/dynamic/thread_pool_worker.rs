@@ -206,8 +206,15 @@ fn wait_for_job(inner: &ThreadPoolInner, worker_index: usize) -> Option<PoolJob>
             }
             ExecutorServiceLifecycle::ShuttingDown => {
                 if inner.queued_count() == 0 {
-                    unregister_exiting_worker(inner, &mut state, worker_index);
-                    return None;
+                    if inner.inflight_count() == 0 {
+                        unregister_exiting_worker(inner, &mut state, worker_index);
+                        return None;
+                    }
+                    mark_thread_pool_worker_idle(inner, &mut state);
+                    if inner.queued_count() == 0 && inner.inflight_count() > 0 {
+                        state.wait();
+                    }
+                    unmark_thread_pool_worker_idle(inner, &mut state);
                 }
             }
             ExecutorServiceLifecycle::Stopping | ExecutorServiceLifecycle::Terminated => {

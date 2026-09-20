@@ -113,7 +113,14 @@ pub fn wait_for_fixed_pool_work(inner: &FixedThreadPoolInner) -> bool {
                 if inner.queued_count() > 0 {
                     return true;
                 }
-                return false;
+                if inner.inflight_count() == 0 {
+                    return false;
+                }
+                mark_fixed_worker_idle(inner, &mut state);
+                if inner.queued_count() == 0 && inner.inflight_count() > 0 {
+                    state.wait();
+                }
+                unmark_fixed_worker_idle(inner, &mut state);
             }
             ExecutorServiceLifecycle::Stopping | ExecutorServiceLifecycle::Terminated => {
                 return false;
@@ -139,7 +146,7 @@ fn spin_for_fixed_pool_work(inner: &FixedThreadPoolInner) -> bool {
         if inner.queued_count() > 0 || inner.has_pending_worker_wake() {
             return true;
         }
-        if !inner.accepting.load(Ordering::Acquire) {
+        if !inner.admission.is_open() {
             return false;
         }
         spin_loop();

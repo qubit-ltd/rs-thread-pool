@@ -37,21 +37,19 @@ use crate::PoolJob;
 use crate::PoolJobSubmissionError;
 use crate::ThreadPoolHooks;
 use crate::ThreadPoolStats;
+use crate::internal::AdmissionGate;
 
 /// Shared state for a thread pool.
 pub(crate) struct ThreadPoolInner {
     /// Lifecycle and worker state protected by a monitor.
     state_monitor: ParkingLotMonitor<ThreadPoolState>,
     /// Admission gate used by submitters.
-    accepting: AtomicBool,
+    admission: AdmissionGate,
     /// Whether immediate shutdown has requested workers to stop taking jobs.
     stop_now: AtomicBool,
     /// Successfully spawned workers that have not exited yet.
     live_worker_count: AtomicUsize,
-    /// Current core size mirrored from the locked state for submit fast paths.
-    core_pool_size: AtomicUsize,
     /// Submit calls that have passed the first admission check.
-    inflight_submissions: AtomicUsize,
     /// Number of workers currently blocked or about to block waiting for work.
     idle_worker_count: AtomicUsize,
     /// Number of idle-worker wakeups already requested but not yet consumed.
@@ -101,14 +99,11 @@ impl ThreadPoolInner {
         let thread_name_prefix = std::mem::take(&mut config.thread_name_prefix);
         let stack_size = config.stack_size;
         let queue_capacity = config.queue_capacity;
-        let core_pool_size = config.core_pool_size;
         Self {
             state_monitor: ParkingLotMonitor::new(ThreadPoolState::new(config)),
-            accepting: AtomicBool::new(true),
+            admission: AdmissionGate::new(),
             stop_now: AtomicBool::new(false),
             live_worker_count: AtomicUsize::new(0),
-            core_pool_size: AtomicUsize::new(core_pool_size),
-            inflight_submissions: AtomicUsize::new(0),
             idle_worker_count: AtomicUsize::new(0),
             pending_worker_wakes: AtomicUsize::new(0),
             submit_waiter_count: AtomicUsize::new(0),
@@ -164,8 +159,8 @@ impl ThreadPoolInner {
     ///
     /// Number of submitters that may still publish, spawn, or roll back work.
     #[inline]
-    fn inflight_count(&self) -> usize {
-        self.inflight_submissions.load(Ordering::Acquire)
+    pub(crate) fn inflight_count(&self) -> usize {
+        self.admission.inflight_count()
     }
 
     /// Acquires the pool state monitor while tolerating poisoned locks.
@@ -222,26 +217,11 @@ impl ThreadPoolInner {
     ///
     /// Returns [`SubmissionError::Shutdown`] when admission is already closed.
     fn begin_submit(&self) -> Result<ThreadPoolSubmitGuard<'_>, SubmissionError> {
-        self.inflight_submissions.fetch_add(1, Ordering::Release);
-        if self.accepting.load(Ordering::Acquire) {
+        if self.admission.try_enter() {
             Ok(ThreadPoolSubmitGuard { inner: self })
         } else {
-            let previous = self.inflight_submissions.fetch_sub(1, Ordering::Release);
-            debug_assert!(previous > 0, "thread pool submit counter underflow");
-            if previous == 1 && self.has_submit_waiters() {
-                self.notify_waiters_after_atomic_change();
-            }
             Err(SubmissionError::Shutdown)
         }
-    }
-
-    /// Returns whether any caller is waiting for submit admission to drain.
-    ///
-    /// # Returns
-    ///
-    /// `true` when the last in-flight submitter should wake submit waiters.
-    fn has_submit_waiters(&self) -> bool {
-        self.submit_waiter_count.load(Ordering::Acquire) > 0
     }
 
     /// Returns whether any caller is waiting for accepted work to drain.
@@ -277,37 +257,6 @@ impl ThreadPoolInner {
         debug_assert!(previous > 0, "thread pool queue slot counter underflow");
     }
 
-    /// Returns whether a queued submit can skip the pool-state monitor.
-    ///
-    /// # Returns
-    ///
-    /// `true` when a successfully spawned worker exists and the core size is
-    /// already satisfied.
-    fn can_submit_to_queue_without_state_lock(&self) -> bool {
-        let live_workers = self.live_worker_count.load(Ordering::Acquire);
-        live_workers > 0 && live_workers >= self.core_pool_size.load(Ordering::Acquire)
-    }
-
-    /// Attempts the lock-free queued submit path.
-    ///
-    /// # Parameters
-    ///
-    /// * `job` - Job to accept and queue if the fast path is usable.
-    ///
-    /// # Returns
-    ///
-    /// `Ok(())` when the job was handled, or `Err(job)` when the caller must
-    /// use the locked slow path.
-    fn try_submit_to_queue_without_state_lock(
-        &self,
-        job: PoolJob,
-    ) -> Result<Result<(), PoolJobSubmissionError>, PoolJob> {
-        if !self.can_submit_to_queue_without_state_lock() || !self.reserve_queue_slot() {
-            return Err(job);
-        }
-        Ok(self.accept_and_enqueue_reserved_job(job))
-    }
-
     /// Accepts a job whose queue slot has already been reserved and publishes
     /// it.
     ///
@@ -334,10 +283,8 @@ impl ThreadPoolInner {
     ///
     /// # Overall logic
     ///
-    /// This method first tries the hot queued path without taking the
-    /// pool-state monitor. It falls back to locked dynamic admission only
-    /// when the pool must spawn, grow, reject saturation, or observe a
-    /// lifecycle transition:
+    /// This method performs dynamic admission while holding the pool-state
+    /// monitor when it must inspect worker capacity or lifecycle state:
     ///
     /// 1. Reject immediately if the lifecycle is not running.
     /// 2. If live workers are below the core size, spawn a worker and hand the
@@ -367,10 +314,6 @@ impl ThreadPoolInner {
     /// worker cannot be created.
     pub(crate) fn submit(self: &Arc<Self>, job: PoolJob) -> Result<(), PoolJobSubmissionError> {
         let _guard = self.begin_submit()?;
-        let job = match self.try_submit_to_queue_without_state_lock(job) {
-            Ok(result) => return result,
-            Err(job) => job,
-        };
         self.submit_with_state_lock(job)
     }
 
@@ -785,14 +728,8 @@ impl ThreadPoolInner {
     ///
     /// The pool rejects later submissions but lets queued work drain.
     pub(crate) fn shutdown(&self) {
-        self.accepting.store(false, Ordering::Release);
-        self.submit_waiter_count.fetch_add(1, Ordering::AcqRel);
+        self.admission.close();
         let mut state = self.lock_state();
-        while self.inflight_count() > 0 {
-            state.wait();
-        }
-        let previous = self.submit_waiter_count.fetch_sub(1, Ordering::AcqRel);
-        debug_assert!(previous > 0, "thread pool submit waiter counter underflow");
         if state.lifecycle == ExecutorServiceLifecycle::Running {
             state.lifecycle = ExecutorServiceLifecycle::ShuttingDown;
         }
@@ -808,7 +745,7 @@ impl ThreadPoolInner {
     pub(crate) fn stop(&self) -> StopReport {
         let cancelled_before_stop = self.cancelled_task_count.load(Ordering::Acquire);
         let cancelling_before_stop = self.cancelling_task_count.load(Ordering::Acquire);
-        self.accepting.store(false, Ordering::Release);
+        self.admission.close();
         self.stop_now.store(true, Ordering::Release);
         let (jobs, queued, running) = {
             let mut state = self.lock_state();
@@ -1008,7 +945,6 @@ impl ThreadPoolInner {
                 Some(state.maximum_pool_size)
             } else {
                 state.core_pool_size = core_pool_size;
-                self.core_pool_size.store(core_pool_size, Ordering::Release);
                 None
             }
         });
@@ -1175,7 +1111,6 @@ fn worker_spawn_failed() -> SubmissionError {
 mod tests {
     use std::sync::Arc;
     use std::sync::Barrier;
-    use std::sync::atomic::Ordering;
     use std::thread;
     use std::time::Duration;
 
@@ -1246,11 +1181,8 @@ mod tests {
                 start.wait();
                 done.wait();
                 inner.read_state(|state| {
-                    assert_eq!(
-                        state.core_pool_size,
-                        inner.core_pool_size.load(Ordering::Acquire),
-                        "core size mirror diverged after concurrent setters"
-                    );
+                    assert!(matches!(state.core_pool_size, 1 | 2));
+                    assert!(state.core_pool_size <= state.maximum_pool_size);
                 });
             }
         });

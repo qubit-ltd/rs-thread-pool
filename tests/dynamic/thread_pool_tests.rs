@@ -828,6 +828,27 @@ fn test_thread_pool_direct_accept_can_reenter_pool_without_deadlock() {
 }
 
 #[test]
+fn test_thread_pool_accept_callback_can_request_shutdown() {
+    let pool = Arc::new(
+        ThreadPool::builder()
+            .pool_size(1)
+            .prestart_core_threads()
+            .build()
+            .expect("thread pool should be created"),
+    );
+    super::mod_tests::wait_until(|| pool.stats().idle_workers == 1);
+    let callback_pool = Arc::clone(&pool);
+    let result = pool.submit_job(PoolJob::with_accept(
+        Box::new(move || callback_pool.shutdown()),
+        Box::new(|| {}),
+        Box::new(|| panic!("accepted job should not be cancelled by shutdown")),
+    ));
+    result.expect("shutdown from an acceptance callback should not deadlock");
+    pool.wait_termination();
+    assert!(pool.is_terminated());
+}
+
+#[test]
 fn test_thread_pool_stop_waits_for_inflight_accept_then_cancels() {
     let pool = Arc::new(
         ThreadPool::builder()
@@ -968,7 +989,7 @@ fn test_stop_cancels_direct_initial_job_while_acceptance_is_inflight() {
 }
 
 #[test]
-fn test_thread_pool_shutdown_waits_for_inflight_accept_then_drains() {
+fn test_thread_pool_shutdown_returns_before_inflight_accept_then_drains() {
     let pool = Arc::new(
         ThreadPool::builder()
             .pool_size(1)
@@ -1008,10 +1029,9 @@ fn test_thread_pool_shutdown_waits_for_inflight_accept_then_drains() {
             .expect("test should receive shutdown completion signal");
     });
 
-    assert!(
-        shutdown_rx.recv_timeout(Duration::from_millis(50)).is_err(),
-        "shutdown should wait while submit is inside accept",
-    );
+    shutdown_rx
+        .recv_timeout(Duration::from_secs(1))
+        .expect("shutdown should return while submit is inside accept");
     release_accept_tx
         .send(())
         .expect("accept callback should receive release signal");
@@ -1019,9 +1039,6 @@ fn test_thread_pool_shutdown_waits_for_inflight_accept_then_drains() {
         .join()
         .expect("submit caller should not panic")
         .expect("in-flight submit should be accepted before shutdown drains");
-    shutdown_rx
-        .recv_timeout(Duration::from_secs(1))
-        .expect("shutdown should finish after accept is released");
     shutdown_thread.join().expect("shutdown caller should not panic");
 
     pool.wait_termination();

@@ -13,6 +13,7 @@ use qubit_executor::service::ExecutorServiceBuilderError;
 
 pub mod dynamic;
 pub mod fixed;
+mod internal;
 mod pool_job;
 mod pool_job_submission_error;
 mod thread_pool_hooks;

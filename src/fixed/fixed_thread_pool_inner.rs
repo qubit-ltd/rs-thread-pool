@@ -26,6 +26,7 @@ use crate::PoolJob;
 use crate::PoolJobSubmissionError;
 use crate::ThreadPoolHooks;
 use crate::ThreadPoolStats;
+use crate::internal::AdmissionGate;
 
 /// Shared state for a fixed-size thread pool.
 pub struct FixedThreadPoolInner {
@@ -34,11 +35,10 @@ pub struct FixedThreadPoolInner {
     /// Mutable lifecycle and worker counters.
     pub state: ParkingLotMonitor<FixedThreadPoolState>,
     /// Admission gate used by submitters.
-    pub accepting: AtomicBool,
+    pub admission: AdmissionGate,
     /// Whether immediate shutdown has requested workers to stop taking jobs.
     pub stop_now: AtomicBool,
     /// Submit calls that have passed the first admission check.
-    pub inflight_submissions: AtomicUsize,
     /// Number of workers currently blocked or about to block waiting for work.
     pub idle_worker_count: AtomicUsize,
     /// Number of idle-worker wakeups already requested but not yet consumed.
@@ -85,9 +85,8 @@ impl FixedThreadPoolInner {
         Self {
             pool_size,
             state: ParkingLotMonitor::new(FixedThreadPoolState::new()),
-            accepting: AtomicBool::new(true),
+            admission: AdmissionGate::new(),
             stop_now: AtomicBool::new(false),
-            inflight_submissions: AtomicUsize::new(0),
             idle_worker_count: AtomicUsize::new(0),
             pending_worker_wakes: AtomicUsize::new(0),
             submit_waiter_count: AtomicUsize::new(0),
@@ -152,7 +151,7 @@ impl FixedThreadPoolInner {
     /// Number of submit calls that may still publish or roll back a queued job.
     #[inline]
     pub fn inflight_count(&self) -> usize {
-        self.inflight_submissions.load(Ordering::Acquire)
+        self.admission.inflight_count()
     }
 
     /// Attempts to enter submit admission.
@@ -165,15 +164,9 @@ impl FixedThreadPoolInner {
     ///
     /// Returns [`SubmissionError::Shutdown`] when admission is closed.
     fn begin_submit(&self) -> Result<FixedSubmitGuard<'_>, SubmissionError> {
-        self.inflight_submissions.fetch_add(1, Ordering::Release);
-        if self.accepting.load(Ordering::Acquire) {
+        if self.admission.try_enter() {
             Ok(FixedSubmitGuard { inner: self })
         } else {
-            let previous = self.inflight_submissions.fetch_sub(1, Ordering::Release);
-            debug_assert!(previous > 0, "fixed pool submit counter underflow");
-            if previous == 1 && self.has_submit_waiters() {
-                self.notify_waiters_after_atomic_change();
-            }
             Err(SubmissionError::Shutdown)
         }
     }
@@ -277,16 +270,6 @@ impl FixedThreadPoolInner {
         let _ = self
             .pending_worker_wakes
             .fetch_update(Ordering::AcqRel, Ordering::Acquire, |current| current.checked_sub(1));
-    }
-
-    /// Returns whether any caller is waiting for submit admission to drain.
-    ///
-    /// # Returns
-    ///
-    /// `true` when a waiter needs notification after the last in-flight submit
-    /// leaves admission.
-    pub fn has_submit_waiters(&self) -> bool {
-        self.submit_waiter_count.load(Ordering::Acquire) > 0
     }
 
     /// Returns whether any caller is waiting for accepted work to drain.
@@ -423,7 +406,7 @@ impl FixedThreadPoolInner {
 
     /// Stops the pool after a build-time worker spawn failure.
     pub fn stop_after_failed_build(&self) {
-        self.accepting.store(false, Ordering::Release);
+        self.admission.close();
         self.stop_now.store(true, Ordering::Release);
         self.state.with_write_notify_all(|state| {
             state.lifecycle = ExecutorServiceLifecycle::Stopping;
@@ -472,14 +455,8 @@ impl FixedThreadPoolInner {
 
     /// Requests graceful shutdown.
     pub fn shutdown(&self) {
-        self.accepting.store(false, Ordering::Release);
-        self.submit_waiter_count.fetch_add(1, Ordering::AcqRel);
+        self.admission.close();
         let mut state = self.state.lock();
-        while self.inflight_count() > 0 {
-            state.wait();
-        }
-        let previous = self.submit_waiter_count.fetch_sub(1, Ordering::AcqRel);
-        debug_assert!(previous > 0, "fixed pool submit waiter counter underflow");
         if state.lifecycle == ExecutorServiceLifecycle::Running {
             state.lifecycle = ExecutorServiceLifecycle::ShuttingDown;
         }
@@ -512,7 +489,7 @@ impl FixedThreadPoolInner {
     pub fn stop(&self) -> StopReport {
         let cancelled_before_stop = self.cancelled_task_count.load(Ordering::Acquire);
         let cancelling_before_stop = self.cancelling_task_count.load(Ordering::Acquire);
-        self.accepting.store(false, Ordering::Release);
+        self.admission.close();
         self.stop_now.store(true, Ordering::Release);
         let (jobs, queued, running) = {
             let mut state = self.state.lock();
@@ -742,7 +719,7 @@ mod tests {
         // Hold `stop()` between publishing `stop_now` and taking its report
         // snapshots. This simulates a submitter that had already crossed
         // admission before immediate shutdown began.
-        inner.inflight_submissions.fetch_add(1, Ordering::Release);
+        assert!(inner.admission.try_enter());
         let stop_inner = Arc::clone(&inner);
         let stop_thread = thread::spawn(move || stop_inner.stop());
         wait_until(|| inner.stop_now.load(Ordering::Acquire) && inner.submit_waiter_count.load(Ordering::Acquire) > 0);
@@ -763,8 +740,7 @@ mod tests {
 
         // Let `stop()` continue. The report must include the cancellation that
         // happened above, even though the global queue is already empty.
-        let previous = inner.inflight_submissions.fetch_sub(1, Ordering::Release);
-        assert_eq!(previous, 1);
+        assert!(inner.admission.leave() || !inner.admission.is_open());
         inner.notify_waiters_after_atomic_change();
         let report = stop_thread
             .join()

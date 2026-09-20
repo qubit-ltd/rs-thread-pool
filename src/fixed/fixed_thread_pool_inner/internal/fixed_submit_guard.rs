@@ -5,8 +5,6 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use std::sync::atomic::Ordering;
-
 use super::super::FixedThreadPoolInner;
 
 /// Submit guard that leaves in-flight accounting on drop.
@@ -18,9 +16,8 @@ pub(crate) struct FixedSubmitGuard<'a> {
 impl Drop for FixedSubmitGuard<'_> {
     /// Leaves submit accounting and wakes waiters if needed.
     fn drop(&mut self) {
-        let previous = self.inner.inflight_submissions.fetch_sub(1, Ordering::Release);
-        debug_assert!(previous > 0, "fixed pool submit counter underflow");
-        if previous == 1 && (self.inner.has_submit_waiters() || self.inner.has_idle_waiters()) {
+        let last = self.inner.admission.leave();
+        if last && (!self.inner.admission.is_open() || self.inner.has_idle_waiters()) {
             self.inner.notify_waiters_after_atomic_change();
         }
     }
