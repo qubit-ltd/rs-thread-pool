@@ -272,8 +272,8 @@ impl ThreadPoolInner {
     /// monitor when it must inspect worker capacity or lifecycle state:
     ///
     /// 1. Reject immediately if the lifecycle is not running.
-    /// 2. If live workers are below the core size or no workers remain, spawn
-    ///    a worker and reserve a queue slot independently of queue capacity.
+    /// 2. If live workers are below the core size or no workers remain, spawn a
+    ///    worker and reserve a queue slot independently of queue capacity.
     /// 3. Otherwise, try enqueuing the job if the queue is not saturated.
     /// 4. If the queue is saturated but live workers are still below maximum,
     ///    spawn a non-core worker and reserve a slot independently of capacity.
@@ -323,10 +323,7 @@ impl ThreadPoolInner {
     /// Returns [`SubmissionError::Shutdown`], [`SubmissionError::Saturated`],
     /// or [`SubmissionError::WorkerSpawnFailed`] according to the dynamic
     /// admission state observed under the monitor.
-    fn submit_with_state_lock(
-        self: &Arc<Self>,
-        job: PoolJob,
-    ) -> Result<(), PoolJobSubmissionError> {
+    fn submit_with_state_lock(self: &Arc<Self>, job: PoolJob) -> Result<(), PoolJobSubmissionError> {
         let mut state = self.lock_state();
         if state.lifecycle != ExecutorServiceLifecycle::Running {
             return Err(PoolJobSubmissionError::Rejected(SubmissionError::Shutdown));
@@ -441,8 +438,7 @@ impl ThreadPoolInner {
     ) -> Result<(), SubmissionError> {
         let ReservedWorker { index } = worker;
         let worker_inner = Arc::clone(self);
-        let mut builder =
-            thread::Builder::new().name(format!("{}-{index}", self.thread_name_prefix));
+        let mut builder = thread::Builder::new().name(format!("{}-{index}", self.thread_name_prefix));
         if let Some(stack_size) = self.stack_size {
             builder = builder.stack_size(stack_size);
         }
@@ -543,11 +539,11 @@ impl ThreadPoolInner {
         if idle_workers == 0 {
             return;
         }
-        let requested = self.pending_worker_wakes.fetch_update(
-            Ordering::AcqRel,
-            Ordering::Acquire,
-            |pending_wakes| (pending_wakes < idle_workers).then_some(pending_wakes + 1),
-        );
+        let requested = self
+            .pending_worker_wakes
+            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |pending_wakes| {
+                (pending_wakes < idle_workers).then_some(pending_wakes + 1)
+            });
         if requested.is_ok() {
             self.lock_state().notify_one();
         }
@@ -564,11 +560,9 @@ impl ThreadPoolInner {
 
     /// Consumes one pending idle-worker wakeup if one exists.
     fn consume_pending_worker_wake(&self) {
-        let _ = self.pending_worker_wakes.fetch_update(
-            Ordering::AcqRel,
-            Ordering::Acquire,
-            |current| current.checked_sub(1),
-        );
+        let _ = self
+            .pending_worker_wakes
+            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |current| current.checked_sub(1));
     }
 
     /// Opens cancellation accounting for one queued job.
@@ -726,10 +720,11 @@ impl ThreadPoolInner {
             if remaining.is_zero() {
                 return self.is_terminated();
             }
-            match self.state_monitor.wait_until_ready_with_total_timeout(
-                remaining.min(Duration::from_secs(3600)),
-                |state| self.is_terminated_locked(state),
-            ) {
+            match self
+                .state_monitor
+                .wait_until_ready_with_total_timeout(remaining.min(Duration::from_secs(3600)), |state| {
+                    self.is_terminated_locked(state)
+                }) {
                 Ok(result) if result.is_ready() => return true,
                 Ok(_) => {}
                 Err(_) => return self.is_terminated(),
@@ -870,10 +865,7 @@ impl ThreadPoolInner {
     ///
     /// Returns [`ExecutorServiceBuilderError::ZeroKeepAlive`] when the duration
     /// is zero.
-    pub(crate) fn set_keep_alive(
-        &self,
-        keep_alive: Duration,
-    ) -> Result<(), ExecutorServiceBuilderError> {
+    pub(crate) fn set_keep_alive(&self, keep_alive: Duration) -> Result<(), ExecutorServiceBuilderError> {
         if keep_alive.is_zero() {
             return Err(ExecutorServiceBuilderError::ZeroKeepAlive);
         }
@@ -913,9 +905,7 @@ impl ThreadPoolInner {
     ///
     /// `true` when shutdown has started and no workers or jobs remain active.
     fn is_terminated_locked(&self, state: &ThreadPoolState) -> bool {
-        state.lifecycle != ExecutorServiceLifecycle::Running
-            && state.live_workers == 0
-            && self.is_idle_snapshot()
+        state.lifecycle != ExecutorServiceLifecycle::Running && state.live_workers == 0 && self.is_idle_snapshot()
     }
 
     /// Notifies waiters after an atomic-only condition change.

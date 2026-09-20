@@ -36,12 +36,8 @@ fn test_thread_pool_stop_cancels_queued_tasks() {
 
     let first = pool
         .submit_tracked(move || {
-            started_tx
-                .send(())
-                .expect("test should receive task start signal");
-            release_rx
-                .recv()
-                .map_err(|err| io::Error::other(err.to_string()))?;
+            started_tx.send(()).expect("test should receive task start signal");
+            release_rx.recv().map_err(|err| io::Error::other(err.to_string()))?;
             Ok::<(), io::Error>(())
         })
         .expect("first task should be accepted");
@@ -87,12 +83,8 @@ fn test_thread_pool_cancel_before_start_reports_cancelled() {
 
     let first = pool
         .submit_tracked(move || {
-            started_tx
-                .send(())
-                .expect("test should receive task start signal");
-            release_rx
-                .recv()
-                .map_err(|err| io::Error::other(err.to_string()))?;
+            started_tx.send(()).expect("test should receive task start signal");
+            release_rx.recv().map_err(|err| io::Error::other(err.to_string()))?;
             Ok::<(), io::Error>(())
         })
         .expect("first task should be accepted");
@@ -134,17 +126,13 @@ fn test_thread_pool_stop_waits_for_inflight_accept_then_cancels() {
                 accept_started_tx
                     .send(())
                     .expect("test should receive accept start signal");
-                release_accept_rx
-                    .recv()
-                    .expect("test should release accept callback");
+                release_accept_rx.recv().expect("test should release accept callback");
             }),
             Box::new(move || {
                 submit_ran.store(true, Ordering::Release);
             }),
             Box::new(move || {
-                cancelled_tx
-                    .send(())
-                    .expect("test should receive cancellation signal");
+                cancelled_tx.send(()).expect("test should receive cancellation signal");
             }),
         ))
     });
@@ -155,9 +143,7 @@ fn test_thread_pool_stop_waits_for_inflight_accept_then_cancels() {
     let (stop_tx, stop_rx) = mpsc::channel();
     let stop_thread = std::thread::spawn(move || {
         let report = stop_pool.stop();
-        stop_tx
-            .send(report)
-            .expect("test should receive stop report");
+        stop_tx.send(report).expect("test should receive stop report");
     });
 
     assert!(
@@ -216,9 +202,7 @@ fn test_stop_cancels_spawned_worker_job_while_acceptance_is_inflight() {
                 ran_tx.send(()).expect("run callback should be observable");
             }),
             Box::new(move || {
-                cancelled_tx
-                    .send(())
-                    .expect("cancel callback should be observable");
+                cancelled_tx.send(()).expect("cancel callback should be observable");
             }),
         ))
     });
@@ -267,9 +251,7 @@ fn test_thread_pool_repeated_stop_does_not_recount_in_progress_cancellation() {
     let (release_running_tx, release_running_rx) = mpsc::channel();
     let running = pool
         .submit_tracked(move || {
-            started_tx
-                .send(())
-                .expect("test should receive task start signal");
+            started_tx.send(()).expect("test should receive task start signal");
             release_running_rx
                 .recv()
                 .map_err(|err| io::Error::other(err.to_string()))?;
@@ -286,9 +268,7 @@ fn test_thread_pool_repeated_stop_does_not_recount_in_progress_cancellation() {
             cancel_started_tx
                 .send(())
                 .expect("test should receive cancel start signal");
-            release_cancel_rx
-                .recv()
-                .expect("test should release cancel callback");
+            release_cancel_rx.recv().expect("test should release cancel callback");
         }),
     ))
     .expect("queued custom job should be accepted");

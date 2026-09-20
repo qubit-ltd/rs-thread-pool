@@ -90,25 +90,18 @@ fn wait_for_job(inner: &ThreadPoolInner, worker_index: usize) -> Option<PoolJob>
         let mut state = inner.lock_state();
         match state.lifecycle {
             ExecutorServiceLifecycle::Running => {
-                if inner.queued_count() == 0
-                    && state.live_workers > state.maximum_pool_size
-                    && state.live_workers > 0
-                {
+                if inner.queued_count() == 0 && state.live_workers > state.maximum_pool_size && state.live_workers > 0 {
                     unregister_exiting_worker(inner, &mut state, worker_index);
                     return None;
                 }
                 drop(state);
                 state = inner.lock_state();
-                if state.lifecycle == ExecutorServiceLifecycle::Running
-                    && state.worker_wait_is_timed()
-                {
+                if state.lifecycle == ExecutorServiceLifecycle::Running && state.worker_wait_is_timed() {
                     let keep_alive = state.keep_alive;
                     mark_thread_pool_worker_idle(inner, &mut state);
                     let mut timed_out = false;
                     if inner.queued_count() == 0 && !inner.has_pending_worker_wake() {
-                        let status = state
-                            .wait_for(keep_alive)
-                            .expect("standard Timer should register");
+                        let status = state.wait_for(keep_alive).expect("standard Timer should register");
                         timed_out = status == WaitTimeoutStatus::TimedOut;
                     }
                     let should_retire = timed_out
@@ -184,10 +177,6 @@ fn unmark_thread_pool_worker_idle(inner: &ThreadPoolInner, state: &mut ThreadPoo
 ///   notification.
 /// * `state` - Locked mutable state whose live worker count is decremented.
 /// * `worker_index` - Stable index of the exiting worker.
-fn unregister_exiting_worker(
-    inner: &ThreadPoolInner,
-    state: &mut ThreadPoolState,
-    _worker_index: usize,
-) {
+fn unregister_exiting_worker(inner: &ThreadPoolInner, state: &mut ThreadPoolState, _worker_index: usize) {
     inner.unregister_worker_locked(state);
 }

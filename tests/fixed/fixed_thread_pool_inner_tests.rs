@@ -20,26 +20,18 @@ fn test_fixed_thread_pool_inner_tracks_public_task_counts() {
 
     let handle = pool
         .submit_tracked(move || {
-            started_sender
-                .send(())
-                .expect("test should observe task start");
-            release_receiver
-                .recv()
-                .expect("test should release running task");
+            started_sender.send(()).expect("test should observe task start");
+            release_receiver.recv().expect("test should release running task");
             Ok::<_, io::Error>(())
         })
         .expect("task should be accepted");
 
-    started_receiver
-        .recv()
-        .expect("worker should start submitted task");
+    started_receiver.recv().expect("worker should start submitted task");
     let running_stats = pool.stats();
     assert_eq!(running_stats.submitted_tasks, 1);
     assert_eq!(running_stats.running_tasks, 1);
 
-    release_sender
-        .send(())
-        .expect("running task should still be waiting");
+    release_sender.send(()).expect("running task should still be waiting");
     handle.get().expect("task should complete successfully");
     pool.join();
     let idle_stats = pool.stats();

@@ -65,10 +65,7 @@ fn test_thread_pool_reports_worker_spawn_failure() {
 
     let result = pool.submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>);
 
-    assert!(matches!(
-        result,
-        Err(SubmissionError::WorkerSpawnFailed { .. }),
-    ));
+    assert!(matches!(result, Err(SubmissionError::WorkerSpawnFailed { .. }),));
     pool.shutdown();
     pool.wait_termination();
 }
@@ -85,15 +82,11 @@ fn test_thread_pool_spawn_failure_does_not_accept_or_cancel_direct_job() {
 
     let result = pool.submit_job(PoolJob::with_accept(
         Box::new(move || {
-            accepted_tx
-                .send(())
-                .expect("test should receive acceptance signal");
+            accepted_tx.send(()).expect("test should receive acceptance signal");
         }),
         Box::new(|| panic!("custom job should not run when worker spawn fails")),
         Box::new(move || {
-            cancelled_tx
-                .send(())
-                .expect("test should receive cancellation signal");
+            cancelled_tx.send(()).expect("test should receive cancellation signal");
         }),
     ));
 
@@ -129,10 +122,7 @@ fn test_thread_pool_cancels_queued_job_when_initial_worker_spawn_fails() {
 
     let result = pool.submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>);
 
-    assert!(matches!(
-        result,
-        Err(SubmissionError::WorkerSpawnFailed { .. }),
-    ));
+    assert!(matches!(result, Err(SubmissionError::WorkerSpawnFailed { .. }),));
     assert_eq!(pool.queued_count(), 0);
     pool.shutdown();
     pool.wait_termination();
@@ -152,15 +142,11 @@ fn test_thread_pool_spawn_failure_does_not_accept_or_cancel_queued_start_job() {
 
     let result = pool.submit_job(PoolJob::with_accept(
         Box::new(move || {
-            accepted_tx
-                .send(())
-                .expect("test should receive acceptance signal");
+            accepted_tx.send(()).expect("test should receive acceptance signal");
         }),
         Box::new(|| panic!("custom job should not run when worker spawn fails")),
         Box::new(move || {
-            cancelled_tx
-                .send(())
-                .expect("test should receive cancellation signal");
+            cancelled_tx.send(()).expect("test should receive cancellation signal");
         }),
     ));
 
@@ -186,9 +172,7 @@ fn test_thread_pool_spawn_failure_does_not_accept_or_cancel_queued_start_job() {
 
 #[test]
 fn test_thread_pool_custom_job_panic_does_not_kill_worker_or_leak_running_count() {
-    let _panic_hook_lock = PANIC_HOOK_LOCK
-        .lock()
-        .expect("panic hook lock should not be poisoned");
+    let _panic_hook_lock = PANIC_HOOK_LOCK.lock().expect("panic hook lock should not be poisoned");
     let _panic_hook_guard = PanicHookGuard::suppress();
     let pool = ThreadPool::new(1).expect("thread pool should be created");
     pool.submit_job(PoolJob::new(
@@ -202,9 +186,7 @@ fn test_thread_pool_custom_job_panic_does_not_kill_worker_or_leak_running_count(
 
     let (done_tx, done_rx) = mpsc::channel();
     pool.submit(move || {
-        done_tx
-            .send(())
-            .expect("test should receive second task completion");
+        done_tx.send(()).expect("test should receive second task completion");
         Ok::<(), io::Error>(())
     })
     .expect("worker should still accept work after custom job panic");
@@ -218,9 +200,7 @@ fn test_thread_pool_custom_job_panic_does_not_kill_worker_or_leak_running_count(
 
 #[test]
 fn test_thread_pool_initial_accept_panic_does_not_kill_worker_or_leak_running_count() {
-    let _panic_hook_lock = PANIC_HOOK_LOCK
-        .lock()
-        .expect("panic hook lock should not be poisoned");
+    let _panic_hook_lock = PANIC_HOOK_LOCK.lock().expect("panic hook lock should not be poisoned");
     let _panic_hook_guard = PanicHookGuard::suppress();
     let pool = ThreadPool::new(1).expect("thread pool should be created");
 
@@ -229,19 +209,14 @@ fn test_thread_pool_initial_accept_panic_does_not_kill_worker_or_leak_running_co
         Box::new(|| panic!("job should not run when accept panics")),
         Box::new(|| panic!("running custom job should not be cancelled")),
     ));
-    assert!(matches!(
-        result,
-        Err(PoolJobSubmissionError::AcceptancePanicked)
-    ));
+    assert!(matches!(result, Err(PoolJobSubmissionError::AcceptancePanicked)));
 
     super::mod_tests::wait_until(|| pool.stats().completed_tasks == 0);
     assert_eq!(pool.running_count(), 0);
 
     let (done_tx, done_rx) = mpsc::channel();
     pool.submit(move || {
-        done_tx
-            .send(())
-            .expect("test should receive later task completion");
+        done_tx.send(()).expect("test should receive later task completion");
         Ok::<(), io::Error>(())
     })
     .expect("worker should still accept work after accept panic");
@@ -255,21 +230,15 @@ fn test_thread_pool_initial_accept_panic_does_not_kill_worker_or_leak_running_co
 
 #[test]
 fn test_thread_pool_queued_accept_panic_does_not_unwind_or_leak_state() {
-    let _panic_hook_lock = PANIC_HOOK_LOCK
-        .lock()
-        .expect("panic hook lock should not be poisoned");
+    let _panic_hook_lock = PANIC_HOOK_LOCK.lock().expect("panic hook lock should not be poisoned");
     let _panic_hook_guard = PanicHookGuard::suppress();
     let pool = create_single_worker_pool();
     let (started_tx, started_rx) = mpsc::channel();
     let (release_tx, release_rx) = mpsc::channel();
     let running = pool
         .submit_tracked(move || {
-            started_tx
-                .send(())
-                .expect("test should receive task start signal");
-            release_rx
-                .recv()
-                .map_err(|err| io::Error::other(err.to_string()))?;
+            started_tx.send(()).expect("test should receive task start signal");
+            release_rx.recv().map_err(|err| io::Error::other(err.to_string()))?;
             Ok::<(), io::Error>(())
         })
         .expect("running task should be accepted");
@@ -320,21 +289,15 @@ fn test_thread_pool_queued_accept_panic_does_not_unwind_or_leak_state() {
 
 #[test]
 fn test_thread_pool_stop_contains_custom_cancel_panic() {
-    let _panic_hook_lock = PANIC_HOOK_LOCK
-        .lock()
-        .expect("panic hook lock should not be poisoned");
+    let _panic_hook_lock = PANIC_HOOK_LOCK.lock().expect("panic hook lock should not be poisoned");
     let _panic_hook_guard = PanicHookGuard::suppress();
     let pool = create_single_worker_pool();
     let (started_tx, started_rx) = mpsc::channel();
     let (release_tx, release_rx) = mpsc::channel();
     let running = pool
         .submit_tracked(move || {
-            started_tx
-                .send(())
-                .expect("test should receive task start signal");
-            release_rx
-                .recv()
-                .map_err(|err| io::Error::other(err.to_string()))?;
+            started_tx.send(()).expect("test should receive task start signal");
+            release_rx.recv().map_err(|err| io::Error::other(err.to_string()))?;
             Ok::<(), io::Error>(())
         })
         .expect("running task should be accepted");
@@ -346,9 +309,7 @@ fn test_thread_pool_stop_contains_custom_cancel_panic() {
     .expect("queued custom job should be accepted");
 
     let stop_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| pool.stop()));
-    release_tx
-        .send(())
-        .expect("running task should receive release signal");
+    release_tx.send(()).expect("running task should receive release signal");
     running.get().expect("running task should complete");
     pool.wait_termination();
 

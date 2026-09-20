@@ -69,12 +69,8 @@ fn test_thread_pool_shutdown_drains_queued_tasks() {
 
     let first = pool
         .submit_tracked(move || {
-            started_tx
-                .send(())
-                .expect("test should receive task start signal");
-            release_rx
-                .recv()
-                .map_err(|err| io::Error::other(err.to_string()))?;
+            started_tx.send(()).expect("test should receive task start signal");
+            release_rx.recv().map_err(|err| io::Error::other(err.to_string()))?;
             Ok::<(), io::Error>(())
         })
         .expect("first task should be accepted");
@@ -88,9 +84,7 @@ fn test_thread_pool_shutdown_drains_queued_tasks() {
     release_tx
         .send(())
         .expect("blocking task should receive release signal");
-    first
-        .get()
-        .expect("first task should complete successfully");
+    first.get().expect("first task should complete successfully");
 
     assert!(matches!(rejected, Err(SubmissionError::Shutdown)));
     assert_eq!(second.get().expect("queued task should still run"), 42);
@@ -132,9 +126,7 @@ fn test_lazy_pool_accept_shutdown_still_runs_job() {
     ))
     .expect("in-flight job should be accepted");
     pool.wait_termination();
-    ran_rx
-        .recv_timeout(Duration::from_secs(1))
-        .expect("job should run");
+    ran_rx.recv_timeout(Duration::from_secs(1)).expect("job should run");
     assert!(cancel_rx.try_recv().is_err());
 }
 
@@ -166,9 +158,7 @@ fn test_lazy_pool_shutdown_during_acceptance_still_runs_job() {
         .expect("submitter should join")
         .expect("job should be accepted");
     pool.wait_termination();
-    ran_rx
-        .recv_timeout(Duration::from_secs(1))
-        .expect("job should run");
+    ran_rx.recv_timeout(Duration::from_secs(1)).expect("job should run");
     assert!(cancel_rx.try_recv().is_err());
 }
 
@@ -193,9 +183,7 @@ fn test_thread_pool_shutdown_returns_before_inflight_accept_then_drains() {
                 accept_started_tx
                     .send(())
                     .expect("test should receive accept start signal");
-                release_accept_rx
-                    .recv()
-                    .expect("test should release accept callback");
+                release_accept_rx.recv().expect("test should release accept callback");
             }),
             Box::new(move || {
                 submit_ran.store(true, Ordering::Release);
@@ -225,9 +213,7 @@ fn test_thread_pool_shutdown_returns_before_inflight_accept_then_drains() {
         .join()
         .expect("submit caller should not panic")
         .expect("in-flight submit should be accepted before shutdown drains");
-    shutdown_thread
-        .join()
-        .expect("shutdown caller should not panic");
+    shutdown_thread.join().expect("shutdown caller should not panic");
 
     pool.wait_termination();
     assert!(
@@ -244,9 +230,7 @@ fn test_thread_pool_wait_termination_waits_for_custom_cancel_callback() {
     let (release_running_tx, release_running_rx) = mpsc::channel();
     let running = pool
         .submit_tracked(move || {
-            started_tx
-                .send(())
-                .expect("test should receive task start signal");
+            started_tx.send(()).expect("test should receive task start signal");
             release_running_rx
                 .recv()
                 .map_err(|err| io::Error::other(err.to_string()))?;
@@ -263,9 +247,7 @@ fn test_thread_pool_wait_termination_waits_for_custom_cancel_callback() {
             cancel_started_tx
                 .send(())
                 .expect("test should receive cancel start signal");
-            release_cancel_rx
-                .recv()
-                .expect("test should release cancel callback");
+            release_cancel_rx.recv().expect("test should release cancel callback");
         }),
     ))
     .expect("queued custom job should be accepted");
@@ -286,14 +268,10 @@ fn test_thread_pool_wait_termination_waits_for_custom_cancel_callback() {
     let wait_pool = Arc::clone(&pool);
     let wait_thread = std::thread::spawn(move || {
         wait_pool.wait_termination();
-        terminated_tx
-            .send(())
-            .expect("test should receive termination signal");
+        terminated_tx.send(()).expect("test should receive termination signal");
     });
 
-    let terminated_before_cancel_completed = terminated_rx
-        .recv_timeout(Duration::from_millis(50))
-        .is_ok();
+    let terminated_before_cancel_completed = terminated_rx.recv_timeout(Duration::from_millis(50)).is_ok();
     release_cancel_tx
         .send(())
         .expect("cancel callback should receive release signal");

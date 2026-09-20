@@ -5,7 +5,8 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-//! Internal worker reservation and admission types for [`super::ThreadPoolInner`].
+//! Internal worker reservation and admission types for
+//! [`super::ThreadPoolInner`].
 
 mod reserved_worker;
 mod thread_pool_submit_guard;

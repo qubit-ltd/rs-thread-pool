@@ -22,32 +22,20 @@ fn test_fixed_thread_pool_builder_rejects_invalid_configuration() {
         Err(ExecutorServiceBuilderError::ZeroPoolSize),
     ));
     assert!(matches!(
-        FixedThreadPool::builder()
-            .pool_size(1)
-            .queue_capacity(0)
-            .build(),
+        FixedThreadPool::builder().pool_size(1).queue_capacity(0).build(),
         Err(ExecutorServiceBuilderError::ZeroQueueCapacity),
     ));
     assert!(matches!(
-        FixedThreadPool::builder()
-            .pool_size(1)
-            .stack_size(0)
-            .build(),
+        FixedThreadPool::builder().pool_size(1).stack_size(0).build(),
         Err(ExecutorServiceBuilderError::ZeroStackSize),
     ));
 }
 
 #[test]
 fn test_fixed_thread_pool_builder_reports_worker_spawn_failure() {
-    let result = FixedThreadPool::builder()
-        .pool_size(1)
-        .stack_size(usize::MAX)
-        .build();
+    let result = FixedThreadPool::builder().pool_size(1).stack_size(usize::MAX).build();
 
-    assert!(matches!(
-        result,
-        Err(ExecutorServiceBuilderError::SpawnWorker { .. })
-    ));
+    assert!(matches!(result, Err(ExecutorServiceBuilderError::SpawnWorker { .. })));
 }
 
 #[test]

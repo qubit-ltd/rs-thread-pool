@@ -25,10 +25,7 @@ fn test_fixed_thread_pool_state_is_reflected_in_stats() {
     pool.wait_termination();
 
     let terminated_stats = pool.stats();
-    assert_eq!(
-        terminated_stats.lifecycle,
-        ExecutorServiceLifecycle::Terminated
-    );
+    assert_eq!(terminated_stats.lifecycle, ExecutorServiceLifecycle::Terminated);
     assert_eq!(terminated_stats.live_workers, 0);
     assert!(terminated_stats.terminated);
 }

@@ -77,12 +77,8 @@ fn test_thread_pool_runs_task_hooks_for_queued_jobs() {
     let (release_tx, release_rx) = mpsc::channel();
     let running = pool
         .submit_tracked(move || {
-            started_tx
-                .send(())
-                .expect("test should receive task start signal");
-            release_rx
-                .recv()
-                .map_err(|err| io::Error::other(err.to_string()))?;
+            started_tx.send(()).expect("test should receive task start signal");
+            release_rx.recv().map_err(|err| io::Error::other(err.to_string()))?;
             Ok::<(), io::Error>(())
         })
         .expect("running task should be accepted");
@@ -91,9 +87,7 @@ fn test_thread_pool_runs_task_hooks_for_queued_jobs() {
         .submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>)
         .expect("queued task should be accepted");
 
-    release_tx
-        .send(())
-        .expect("running task should receive release signal");
+    release_tx.send(()).expect("running task should receive release signal");
     running.get().expect("running task should complete");
     queued.get().expect("queued task should complete");
     pool.shutdown();

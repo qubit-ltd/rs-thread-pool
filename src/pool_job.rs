@@ -50,10 +50,7 @@ impl PoolJob {
     /// # Returns
     ///
     /// A custom type-erased job accepted by thread pools.
-    pub fn new(
-        run: Box<dyn FnOnce() + Send + 'static>,
-        cancel: Box<dyn FnOnce() + Send + 'static>,
-    ) -> Self {
+    pub fn new(run: Box<dyn FnOnce() + Send + 'static>, cancel: Box<dyn FnOnce() + Send + 'static>) -> Self {
         Self::with_accept(Box::new(|| {}), run, cancel)
     }
 
@@ -63,12 +60,13 @@ impl PoolJob {
     /// acceptance boundary. If submission is rejected before acceptance,
     /// neither `accept`, `run`, nor `cancel` is invoked.
     ///
-    /// Acceptance runs synchronously on the submitting thread after admission and
-    /// any required worker creation succeeds. The callback may call `shutdown` on
-    /// the same pool because shutdown closes admission without waiting. It must not
-    /// call `stop`, `join`, or `wait_termination`, which may wait for this submission
-    /// to leave admission. Keep callbacks short; non-blocking observation such as
-    /// `stats` is safe. An acceptance panic is contained and reported as
+    /// Acceptance runs synchronously on the submitting thread after admission
+    /// and any required worker creation succeeds. The callback may call
+    /// `shutdown` on the same pool because shutdown closes admission
+    /// without waiting. It must not call `stop`, `join`, or
+    /// `wait_termination`, which may wait for this submission
+    /// to leave admission. Keep callbacks short; non-blocking observation such
+    /// as `stats` is safe. An acceptance panic is contained and reported as
     /// [`AcceptancePanicked`](crate::PoolJobSubmissionError::AcceptancePanicked);
     /// the job is neither run nor cancelled. Run and cancellation callback
     /// panics are caught and ignored.

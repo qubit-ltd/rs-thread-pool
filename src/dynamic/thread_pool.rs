@@ -176,11 +176,13 @@ impl ThreadPool {
     /// contained; if an acceptance callback panics, the job is not queued,
     /// run, or cancelled.
     ///
-    /// Acceptance runs synchronously on the submitting thread after admission and
-    /// any required worker creation succeeds. The callback may call `shutdown` on
-    /// the same pool because shutdown closes admission without waiting. It must not
-    /// call `stop`, `join`, or `wait_termination`, which may wait for this submission
-    /// to leave admission. Non-blocking observation such as [`Self::stats`] is safe.
+    /// Acceptance runs synchronously on the submitting thread after admission
+    /// and any required worker creation succeeds. The callback may call
+    /// `shutdown` on the same pool because shutdown closes admission
+    /// without waiting. It must not call `stop`, `join`, or
+    /// `wait_termination`, which may wait for this submission
+    /// to leave admission. Non-blocking observation such as [`Self::stats`] is
+    /// safe.
     ///
     /// # Parameters
     ///
@@ -192,9 +194,10 @@ impl ThreadPool {
     ///
     /// # Errors
     ///
-    /// Returns [`PoolJobSubmissionError::Rejected`] when the executor rejects the
-    /// job, or [`PoolJobSubmissionError::AcceptancePanicked`] when the acceptance
-    /// callback panics. In the latter case the job is neither run nor cancelled.
+    /// Returns [`PoolJobSubmissionError::Rejected`] when the executor rejects
+    /// the job, or [`PoolJobSubmissionError::AcceptancePanicked`] when the
+    /// acceptance callback panics. In the latter case the job is neither
+    /// run nor cancelled.
     #[inline]
     pub fn submit_job(&self, job: PoolJob) -> Result<(), PoolJobSubmissionError> {
         self.inner.submit(job)
@@ -262,10 +265,7 @@ impl ThreadPool {
     ///
     /// Returns [`ExecutorServiceBuilderError::CorePoolSizeExceedsMaximum`] when
     /// the new core size would exceed the current maximum size.
-    pub fn set_core_pool_size(
-        &self,
-        core_pool_size: usize,
-    ) -> Result<(), ExecutorServiceBuilderError> {
+    pub fn set_core_pool_size(&self, core_pool_size: usize) -> Result<(), ExecutorServiceBuilderError> {
         self.inner.set_core_pool_size(core_pool_size)
     }
 
@@ -288,10 +288,7 @@ impl ThreadPool {
     /// maximum size is zero, or
     /// [`ExecutorServiceBuilderError::CorePoolSizeExceedsMaximum`]
     /// when it would be smaller than the current core size.
-    pub fn set_maximum_pool_size(
-        &self,
-        maximum_pool_size: usize,
-    ) -> Result<(), ExecutorServiceBuilderError> {
+    pub fn set_maximum_pool_size(&self, maximum_pool_size: usize) -> Result<(), ExecutorServiceBuilderError> {
         self.inner.set_maximum_pool_size(maximum_pool_size)
     }
 
@@ -385,10 +382,7 @@ impl ExecutorService for ThreadPool {
     }
 
     /// Accepts a callable and queues it with a tracked handle.
-    fn submit_tracked_callable<C, R, E>(
-        &self,
-        task: C,
-    ) -> Result<Self::TrackedHandle<R, E>, SubmissionError>
+    fn submit_tracked_callable<C, R, E>(&self, task: C) -> Result<Self::TrackedHandle<R, E>, SubmissionError>
     where
         C: Callable<R, E> + Send + 'static,
         R: Send + 'static,
