@@ -292,6 +292,10 @@ mod tests {
 
 #[cfg(all(test, loom, feature = "loom-model"))]
 mod loom_tests {
+    use std::sync::Arc as StdArc;
+    use std::sync::atomic::AtomicUsize as StdAtomicUsize;
+    use std::sync::atomic::Ordering as StdOrdering;
+
     use loom::sync::Arc;
     use loom::sync::atomic::Ordering;
     use loom::thread;
@@ -331,22 +335,40 @@ mod loom_tests {
     /// state.
     #[test]
     fn loom_cancellation_retains_slot_until_finished() {
-        loom::model(|| {
+        // These counters observe completed branches across model executions;
+        // they never synchronize modeled threads or influence their decisions.
+        let accepted = StdArc::new(StdAtomicUsize::new(0));
+        let rejected = StdArc::new(StdAtomicUsize::new(0));
+        let accepted_witness = StdArc::clone(&accepted);
+        let rejected_witness = StdArc::clone(&rejected);
+        loom::model(move || {
             let accounting = Arc::new(PoolAccounting::new(Some(1)));
             assert!(accounting.try_reserve_bounded_slot());
             accounting.publish_accepted_job();
+            accounting.begin_cancel_queued_job();
             let cancelling_accounting = Arc::clone(&accounting);
             let cancellation = thread::spawn(move || {
-                cancelling_accounting.begin_cancel_queued_job();
                 assert_eq!(cancelling_accounting.queue_slot_count.load(Ordering::Acquire), 1);
                 assert!(!cancelling_accounting.is_idle());
                 assert!(!cancelling_accounting.try_reserve_bounded_slot());
                 cancelling_accounting.finish_cancelled_job();
             });
-            if accounting.try_reserve_bounded_slot() {
-                accounting.rollback_reserved_slot();
-            }
+            let competing_accounting = Arc::clone(&accounting);
+            let accepted_witness = StdArc::clone(&accepted_witness);
+            let rejected_witness = StdArc::clone(&rejected_witness);
+            let contender = thread::spawn(move || {
+                if competing_accounting.try_reserve_bounded_slot() {
+                    let snapshot = competing_accounting.snapshot();
+                    assert_eq!(snapshot.cancelled_tasks, 1);
+                    assert_eq!(snapshot.cancelling_tasks, 0);
+                    accepted_witness.fetch_add(1, StdOrdering::Relaxed);
+                    competing_accounting.rollback_reserved_slot();
+                } else {
+                    rejected_witness.fetch_add(1, StdOrdering::Relaxed);
+                }
+            });
             cancellation.join().expect("cancellation should finish");
+            contender.join().expect("contender should finish");
             let snapshot = accounting.snapshot();
             assert_eq!(snapshot.submitted_tasks, 1);
             assert_eq!(snapshot.cancelled_tasks, 1);
@@ -354,5 +376,16 @@ mod loom_tests {
             assert_eq!(snapshot.cancelling_tasks, 0);
             assert!(accounting.is_idle());
         });
+        let accepted = accepted.load(StdOrdering::Relaxed);
+        let rejected = rejected.load(StdOrdering::Relaxed);
+        assert!(
+            accepted > 0,
+            "model must explore successful reservation after cancellation"
+        );
+        assert!(
+            rejected > 0,
+            "model must explore rejected reservation during cancellation"
+        );
+        eprintln!("reservation witnesses: accepted={accepted}, rejected={rejected}");
     }
 }
