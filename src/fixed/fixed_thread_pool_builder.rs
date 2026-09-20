@@ -278,5 +278,7 @@ impl Default for FixedThreadPoolBuilder {
 ///
 /// Available CPU parallelism, or `1` if it cannot be detected.
 fn default_fixed_pool_size() -> usize {
-    thread::available_parallelism().map(usize::from).unwrap_or(1)
+    thread::available_parallelism()
+        .map(usize::from)
+        .unwrap_or(1)
 }

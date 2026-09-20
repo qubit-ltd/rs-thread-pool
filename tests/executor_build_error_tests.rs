@@ -17,7 +17,10 @@ fn test_executor_build_error_from_submission_error_shutdown() {
     let ExecutorServiceBuilderError::SpawnWorker { source, .. } = error else {
         panic!("expected spawn worker build error");
     };
-    assert_eq!(source.to_string(), "executor service shut down during prestart");
+    assert_eq!(
+        source.to_string(),
+        "executor service shut down during prestart"
+    );
 }
 
 #[test]
@@ -27,5 +30,8 @@ fn test_executor_build_error_from_submission_error_saturated() {
     let ExecutorServiceBuilderError::SpawnWorker { source, .. } = error else {
         panic!("expected spawn worker build error");
     };
-    assert_eq!(source.to_string(), "executor service saturated during prestart");
+    assert_eq!(
+        source.to_string(),
+        "executor service saturated during prestart"
+    );
 }

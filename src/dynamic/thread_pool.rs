@@ -260,7 +260,10 @@ impl ThreadPool {
     ///
     /// Returns [`ExecutorServiceBuilderError::CorePoolSizeExceedsMaximum`] when
     /// the new core size would exceed the current maximum size.
-    pub fn set_core_pool_size(&self, core_pool_size: usize) -> Result<(), ExecutorServiceBuilderError> {
+    pub fn set_core_pool_size(
+        &self,
+        core_pool_size: usize,
+    ) -> Result<(), ExecutorServiceBuilderError> {
         self.inner.set_core_pool_size(core_pool_size)
     }
 
@@ -283,7 +286,10 @@ impl ThreadPool {
     /// maximum size is zero, or
     /// [`ExecutorServiceBuilderError::CorePoolSizeExceedsMaximum`]
     /// when it would be smaller than the current core size.
-    pub fn set_maximum_pool_size(&self, maximum_pool_size: usize) -> Result<(), ExecutorServiceBuilderError> {
+    pub fn set_maximum_pool_size(
+        &self,
+        maximum_pool_size: usize,
+    ) -> Result<(), ExecutorServiceBuilderError> {
         self.inner.set_maximum_pool_size(maximum_pool_size)
     }
 
@@ -377,7 +383,10 @@ impl ExecutorService for ThreadPool {
     }
 
     /// Accepts a callable and queues it with a tracked handle.
-    fn submit_tracked_callable<C, R, E>(&self, task: C) -> Result<Self::TrackedHandle<R, E>, SubmissionError>
+    fn submit_tracked_callable<C, R, E>(
+        &self,
+        task: C,
+    ) -> Result<Self::TrackedHandle<R, E>, SubmissionError>
     where
         C: Callable<R, E> + Send + 'static,
         R: Send + 'static,
