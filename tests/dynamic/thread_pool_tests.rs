@@ -120,8 +120,12 @@ fn test_thread_pool_runs_task_hooks_for_queued_jobs() {
     let (release_tx, release_rx) = mpsc::channel();
     let running = pool
         .submit_tracked(move || {
-            started_tx.send(()).expect("test should receive task start signal");
-            release_rx.recv().map_err(|err| io::Error::other(err.to_string()))?;
+            started_tx
+                .send(())
+                .expect("test should receive task start signal");
+            release_rx
+                .recv()
+                .map_err(|err| io::Error::other(err.to_string()))?;
             Ok::<(), io::Error>(())
         })
         .expect("running task should be accepted");
@@ -130,7 +134,9 @@ fn test_thread_pool_runs_task_hooks_for_queued_jobs() {
         .submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>)
         .expect("queued task should be accepted");
 
-    release_tx.send(()).expect("running task should receive release signal");
+    release_tx
+        .send(())
+        .expect("running task should receive release signal");
     running.get().expect("running task should complete");
     queued.get().expect("queued task should complete");
     pool.shutdown();
@@ -170,7 +176,10 @@ fn test_thread_pool_submit_callable_returns_value() {
         .submit_callable(ok_usize_task as fn() -> Result<usize, io::Error>)
         .expect("thread pool should accept callable");
 
-    assert_eq!(handle.get().expect("callable should complete successfully"), 42,);
+    assert_eq!(
+        handle.get().expect("callable should complete successfully"),
+        42,
+    );
     pool.shutdown();
     pool.wait_termination();
 }
@@ -200,7 +209,9 @@ fn test_thread_pool_submit_custom_job_runs_job() {
 
     pool.submit_job(PoolJob::new(
         Box::new(move || {
-            done_tx.send("run").expect("test should receive custom job completion");
+            done_tx
+                .send("run")
+                .expect("test should receive custom job completion");
         }),
         Box::new(|| panic!("custom job should not be cancelled")),
     ))
@@ -223,8 +234,12 @@ fn test_thread_pool_submit_custom_job_accepts_and_cancels_queued_job() {
     let (release_tx, release_rx) = mpsc::channel();
     let running = pool
         .submit_tracked(move || {
-            started_tx.send(()).expect("test should receive task start signal");
-            release_rx.recv().map_err(|err| io::Error::other(err.to_string()))?;
+            started_tx
+                .send(())
+                .expect("test should receive task start signal");
+            release_rx
+                .recv()
+                .map_err(|err| io::Error::other(err.to_string()))?;
             Ok::<(), io::Error>(())
         })
         .expect("running task should be accepted");
@@ -234,7 +249,9 @@ fn test_thread_pool_submit_custom_job_accepts_and_cancels_queued_job() {
 
     pool.submit_job(PoolJob::with_accept(
         Box::new(move || {
-            accepted_tx.send(()).expect("test should receive custom job acceptance");
+            accepted_tx
+                .send(())
+                .expect("test should receive custom job acceptance");
         }),
         Box::new(|| panic!("queued custom job should not run")),
         Box::new(move || {
@@ -268,7 +285,10 @@ fn test_thread_pool_submit_wakes_prestarted_idle_worker() {
         .build()
         .expect("thread pool should be created");
 
-    assert!(pool.prestart_core_thread().expect("core worker should prestart"));
+    assert!(
+        pool.prestart_core_thread()
+            .expect("core worker should prestart")
+    );
     super::mod_tests::wait_until(|| pool.stats().idle_workers == 1);
     let handle = pool
         .submit_callable(ok_usize_task as fn() -> Result<usize, io::Error>)
@@ -291,8 +311,12 @@ fn test_thread_pool_bounded_submit_queues_when_worker_busy() {
     let (release_tx, release_rx) = mpsc::channel();
     let running = pool
         .submit_tracked(move || {
-            started_tx.send(()).expect("test should receive task start signal");
-            release_rx.recv().map_err(|err| io::Error::other(err.to_string()))?;
+            started_tx
+                .send(())
+                .expect("test should receive task start signal");
+            release_rx
+                .recv()
+                .map_err(|err| io::Error::other(err.to_string()))?;
             Ok::<(), io::Error>(())
         })
         .expect("running task should be accepted");
@@ -345,8 +369,12 @@ fn test_thread_pool_shutdown_drains_queued_tasks() {
 
     let first = pool
         .submit_tracked(move || {
-            started_tx.send(()).expect("test should receive task start signal");
-            release_rx.recv().map_err(|err| io::Error::other(err.to_string()))?;
+            started_tx
+                .send(())
+                .expect("test should receive task start signal");
+            release_rx
+                .recv()
+                .map_err(|err| io::Error::other(err.to_string()))?;
             Ok::<(), io::Error>(())
         })
         .expect("first task should be accepted");
@@ -360,7 +388,9 @@ fn test_thread_pool_shutdown_drains_queued_tasks() {
     release_tx
         .send(())
         .expect("blocking task should receive release signal");
-    first.get().expect("first task should complete successfully");
+    first
+        .get()
+        .expect("first task should complete successfully");
 
     assert!(matches!(rejected, Err(SubmissionError::Shutdown)));
     assert_eq!(second.get().expect("queued task should still run"), 42);
@@ -376,8 +406,12 @@ fn test_thread_pool_stop_cancels_queued_tasks() {
 
     let first = pool
         .submit_tracked(move || {
-            started_tx.send(()).expect("test should receive task start signal");
-            release_rx.recv().map_err(|err| io::Error::other(err.to_string()))?;
+            started_tx
+                .send(())
+                .expect("test should receive task start signal");
+            release_rx
+                .recv()
+                .map_err(|err| io::Error::other(err.to_string()))?;
             Ok::<(), io::Error>(())
         })
         .expect("first task should be accepted");
@@ -423,8 +457,12 @@ fn test_thread_pool_cancel_before_start_reports_cancelled() {
 
     let first = pool
         .submit_tracked(move || {
-            started_tx.send(()).expect("test should receive task start signal");
-            release_rx.recv().map_err(|err| io::Error::other(err.to_string()))?;
+            started_tx
+                .send(())
+                .expect("test should receive task start signal");
+            release_rx
+                .recv()
+                .map_err(|err| io::Error::other(err.to_string()))?;
             Ok::<(), io::Error>(())
         })
         .expect("first task should be accepted");
@@ -498,12 +536,15 @@ fn test_thread_pool_core_size_update_grows_next_submission() {
     let first = pool
         .submit_callable(move || {
             started_tx.send(()).expect("start signal should send");
-            release_rx.recv().map_err(|error| io::Error::other(error.to_string()))?;
+            release_rx
+                .recv()
+                .map_err(|error| io::Error::other(error.to_string()))?;
             Ok::<(), io::Error>(())
         })
         .expect("first job should be accepted");
     wait_started(started_rx);
-    pool.set_core_pool_size(2).expect("core increase should succeed");
+    pool.set_core_pool_size(2)
+        .expect("core increase should succeed");
     let second = pool
         .submit_callable(|| Ok::<(), io::Error>(()))
         .expect("second job should be accepted");
@@ -525,7 +566,10 @@ fn test_thread_pool_reports_worker_spawn_failure() {
 
     let result = pool.submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>);
 
-    assert!(matches!(result, Err(SubmissionError::WorkerSpawnFailed { .. }),));
+    assert!(matches!(
+        result,
+        Err(SubmissionError::WorkerSpawnFailed { .. }),
+    ));
     pool.shutdown();
     pool.wait_termination();
 }
@@ -542,11 +586,15 @@ fn test_thread_pool_spawn_failure_does_not_accept_or_cancel_direct_job() {
 
     let result = pool.submit_job(PoolJob::with_accept(
         Box::new(move || {
-            accepted_tx.send(()).expect("test should receive acceptance signal");
+            accepted_tx
+                .send(())
+                .expect("test should receive acceptance signal");
         }),
         Box::new(|| panic!("custom job should not run when worker spawn fails")),
         Box::new(move || {
-            cancelled_tx.send(()).expect("test should receive cancellation signal");
+            cancelled_tx
+                .send(())
+                .expect("test should receive cancellation signal");
         }),
     ));
 
@@ -582,7 +630,10 @@ fn test_thread_pool_cancels_queued_job_when_initial_worker_spawn_fails() {
 
     let result = pool.submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>);
 
-    assert!(matches!(result, Err(SubmissionError::WorkerSpawnFailed { .. }),));
+    assert!(matches!(
+        result,
+        Err(SubmissionError::WorkerSpawnFailed { .. }),
+    ));
     assert_eq!(pool.queued_count(), 0);
     pool.shutdown();
     pool.wait_termination();
@@ -602,11 +653,15 @@ fn test_thread_pool_spawn_failure_does_not_accept_or_cancel_queued_start_job() {
 
     let result = pool.submit_job(PoolJob::with_accept(
         Box::new(move || {
-            accepted_tx.send(()).expect("test should receive acceptance signal");
+            accepted_tx
+                .send(())
+                .expect("test should receive acceptance signal");
         }),
         Box::new(|| panic!("custom job should not run when worker spawn fails")),
         Box::new(move || {
-            cancelled_tx.send(()).expect("test should receive cancellation signal");
+            cancelled_tx
+                .send(())
+                .expect("test should receive cancellation signal");
         }),
     ));
 
@@ -632,7 +687,9 @@ fn test_thread_pool_spawn_failure_does_not_accept_or_cancel_queued_start_job() {
 
 #[test]
 fn test_thread_pool_custom_job_panic_does_not_kill_worker_or_leak_running_count() {
-    let _panic_hook_lock = PANIC_HOOK_LOCK.lock().expect("panic hook lock should not be poisoned");
+    let _panic_hook_lock = PANIC_HOOK_LOCK
+        .lock()
+        .expect("panic hook lock should not be poisoned");
     let _panic_hook_guard = PanicHookGuard::suppress();
     let pool = ThreadPool::new(1).expect("thread pool should be created");
     pool.submit_job(PoolJob::new(
@@ -646,7 +703,9 @@ fn test_thread_pool_custom_job_panic_does_not_kill_worker_or_leak_running_count(
 
     let (done_tx, done_rx) = mpsc::channel();
     pool.submit(move || {
-        done_tx.send(()).expect("test should receive second task completion");
+        done_tx
+            .send(())
+            .expect("test should receive second task completion");
         Ok::<(), io::Error>(())
     })
     .expect("worker should still accept work after custom job panic");
@@ -660,7 +719,9 @@ fn test_thread_pool_custom_job_panic_does_not_kill_worker_or_leak_running_count(
 
 #[test]
 fn test_thread_pool_initial_accept_panic_does_not_kill_worker_or_leak_running_count() {
-    let _panic_hook_lock = PANIC_HOOK_LOCK.lock().expect("panic hook lock should not be poisoned");
+    let _panic_hook_lock = PANIC_HOOK_LOCK
+        .lock()
+        .expect("panic hook lock should not be poisoned");
     let _panic_hook_guard = PanicHookGuard::suppress();
     let pool = ThreadPool::new(1).expect("thread pool should be created");
 
@@ -669,14 +730,19 @@ fn test_thread_pool_initial_accept_panic_does_not_kill_worker_or_leak_running_co
         Box::new(|| panic!("job should not run when accept panics")),
         Box::new(|| panic!("running custom job should not be cancelled")),
     ));
-    assert!(matches!(result, Err(PoolJobSubmissionError::AcceptancePanicked)));
+    assert!(matches!(
+        result,
+        Err(PoolJobSubmissionError::AcceptancePanicked)
+    ));
 
     super::mod_tests::wait_until(|| pool.stats().completed_tasks == 0);
     assert_eq!(pool.running_count(), 0);
 
     let (done_tx, done_rx) = mpsc::channel();
     pool.submit(move || {
-        done_tx.send(()).expect("test should receive later task completion");
+        done_tx
+            .send(())
+            .expect("test should receive later task completion");
         Ok::<(), io::Error>(())
     })
     .expect("worker should still accept work after accept panic");
@@ -690,15 +756,21 @@ fn test_thread_pool_initial_accept_panic_does_not_kill_worker_or_leak_running_co
 
 #[test]
 fn test_thread_pool_queued_accept_panic_does_not_unwind_or_leak_state() {
-    let _panic_hook_lock = PANIC_HOOK_LOCK.lock().expect("panic hook lock should not be poisoned");
+    let _panic_hook_lock = PANIC_HOOK_LOCK
+        .lock()
+        .expect("panic hook lock should not be poisoned");
     let _panic_hook_guard = PanicHookGuard::suppress();
     let pool = create_single_worker_pool();
     let (started_tx, started_rx) = mpsc::channel();
     let (release_tx, release_rx) = mpsc::channel();
     let running = pool
         .submit_tracked(move || {
-            started_tx.send(()).expect("test should receive task start signal");
-            release_rx.recv().map_err(|err| io::Error::other(err.to_string()))?;
+            started_tx
+                .send(())
+                .expect("test should receive task start signal");
+            release_rx
+                .recv()
+                .map_err(|err| io::Error::other(err.to_string()))?;
             Ok::<(), io::Error>(())
         })
         .expect("running task should be accepted");
@@ -766,7 +838,9 @@ fn test_thread_pool_blocked_accept_does_not_hold_state_lock() {
                 accept_started_tx
                     .send(())
                     .expect("test should receive accept start signal");
-                release_accept_rx.recv().expect("test should release accept callback");
+                release_accept_rx
+                    .recv()
+                    .expect("test should release accept callback");
             }),
             Box::new(|| {}),
             Box::new(|| panic!("accepted job should run after accept is released")),
@@ -816,7 +890,9 @@ fn test_thread_pool_direct_accept_can_reenter_pool_without_deadlock() {
             Box::new(|| {}),
             Box::new(|| {}),
         ));
-        result_tx.send(result).expect("test should receive submit result");
+        result_tx
+            .send(result)
+            .expect("test should receive submit result");
     });
 
     result_rx
@@ -870,13 +946,17 @@ fn test_thread_pool_stop_waits_for_inflight_accept_then_cancels() {
                 accept_started_tx
                     .send(())
                     .expect("test should receive accept start signal");
-                release_accept_rx.recv().expect("test should release accept callback");
+                release_accept_rx
+                    .recv()
+                    .expect("test should release accept callback");
             }),
             Box::new(move || {
                 submit_ran.store(true, Ordering::Release);
             }),
             Box::new(move || {
-                cancelled_tx.send(()).expect("test should receive cancellation signal");
+                cancelled_tx
+                    .send(())
+                    .expect("test should receive cancellation signal");
             }),
         ))
     });
@@ -887,7 +967,9 @@ fn test_thread_pool_stop_waits_for_inflight_accept_then_cancels() {
     let (stop_tx, stop_rx) = mpsc::channel();
     let stop_thread = std::thread::spawn(move || {
         let report = stop_pool.stop();
-        stop_tx.send(report).expect("test should receive stop report");
+        stop_tx
+            .send(report)
+            .expect("test should receive stop report");
     });
 
     assert!(
@@ -946,7 +1028,9 @@ fn test_stop_cancels_direct_initial_job_while_acceptance_is_inflight() {
                 ran_tx.send(()).expect("run callback should be observable");
             }),
             Box::new(move || {
-                cancelled_tx.send(()).expect("cancel callback should be observable");
+                cancelled_tx
+                    .send(())
+                    .expect("cancel callback should be observable");
             }),
         ))
     });
@@ -1009,7 +1093,9 @@ fn test_thread_pool_shutdown_returns_before_inflight_accept_then_drains() {
                 accept_started_tx
                     .send(())
                     .expect("test should receive accept start signal");
-                release_accept_rx.recv().expect("test should release accept callback");
+                release_accept_rx
+                    .recv()
+                    .expect("test should release accept callback");
             }),
             Box::new(move || {
                 submit_ran.store(true, Ordering::Release);
@@ -1039,7 +1125,9 @@ fn test_thread_pool_shutdown_returns_before_inflight_accept_then_drains() {
         .join()
         .expect("submit caller should not panic")
         .expect("in-flight submit should be accepted before shutdown drains");
-    shutdown_thread.join().expect("shutdown caller should not panic");
+    shutdown_thread
+        .join()
+        .expect("shutdown caller should not panic");
 
     pool.wait_termination();
     assert!(
@@ -1056,7 +1144,9 @@ fn test_thread_pool_wait_termination_waits_for_custom_cancel_callback() {
     let (release_running_tx, release_running_rx) = mpsc::channel();
     let running = pool
         .submit_tracked(move || {
-            started_tx.send(()).expect("test should receive task start signal");
+            started_tx
+                .send(())
+                .expect("test should receive task start signal");
             release_running_rx
                 .recv()
                 .map_err(|err| io::Error::other(err.to_string()))?;
@@ -1073,7 +1163,9 @@ fn test_thread_pool_wait_termination_waits_for_custom_cancel_callback() {
             cancel_started_tx
                 .send(())
                 .expect("test should receive cancel start signal");
-            release_cancel_rx.recv().expect("test should release cancel callback");
+            release_cancel_rx
+                .recv()
+                .expect("test should release cancel callback");
         }),
     ))
     .expect("queued custom job should be accepted");
@@ -1094,10 +1186,14 @@ fn test_thread_pool_wait_termination_waits_for_custom_cancel_callback() {
     let wait_pool = Arc::clone(&pool);
     let wait_thread = std::thread::spawn(move || {
         wait_pool.wait_termination();
-        terminated_tx.send(()).expect("test should receive termination signal");
+        terminated_tx
+            .send(())
+            .expect("test should receive termination signal");
     });
 
-    let terminated_before_cancel_completed = terminated_rx.recv_timeout(Duration::from_millis(50)).is_ok();
+    let terminated_before_cancel_completed = terminated_rx
+        .recv_timeout(Duration::from_millis(50))
+        .is_ok();
     release_cancel_tx
         .send(())
         .expect("cancel callback should receive release signal");
@@ -1125,7 +1221,9 @@ fn test_thread_pool_repeated_stop_does_not_recount_in_progress_cancellation() {
     let (release_running_tx, release_running_rx) = mpsc::channel();
     let running = pool
         .submit_tracked(move || {
-            started_tx.send(()).expect("test should receive task start signal");
+            started_tx
+                .send(())
+                .expect("test should receive task start signal");
             release_running_rx
                 .recv()
                 .map_err(|err| io::Error::other(err.to_string()))?;
@@ -1142,7 +1240,9 @@ fn test_thread_pool_repeated_stop_does_not_recount_in_progress_cancellation() {
             cancel_started_tx
                 .send(())
                 .expect("test should receive cancel start signal");
-            release_cancel_rx.recv().expect("test should release cancel callback");
+            release_cancel_rx
+                .recv()
+                .expect("test should release cancel callback");
         }),
     ))
     .expect("queued custom job should be accepted");
@@ -1174,15 +1274,21 @@ fn test_thread_pool_repeated_stop_does_not_recount_in_progress_cancellation() {
 
 #[test]
 fn test_thread_pool_stop_contains_custom_cancel_panic() {
-    let _panic_hook_lock = PANIC_HOOK_LOCK.lock().expect("panic hook lock should not be poisoned");
+    let _panic_hook_lock = PANIC_HOOK_LOCK
+        .lock()
+        .expect("panic hook lock should not be poisoned");
     let _panic_hook_guard = PanicHookGuard::suppress();
     let pool = create_single_worker_pool();
     let (started_tx, started_rx) = mpsc::channel();
     let (release_tx, release_rx) = mpsc::channel();
     let running = pool
         .submit_tracked(move || {
-            started_tx.send(()).expect("test should receive task start signal");
-            release_rx.recv().map_err(|err| io::Error::other(err.to_string()))?;
+            started_tx
+                .send(())
+                .expect("test should receive task start signal");
+            release_rx
+                .recv()
+                .map_err(|err| io::Error::other(err.to_string()))?;
             Ok::<(), io::Error>(())
         })
         .expect("running task should be accepted");
@@ -1194,7 +1300,9 @@ fn test_thread_pool_stop_contains_custom_cancel_panic() {
     .expect("queued custom job should be accepted");
 
     let stop_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| pool.stop()));
-    release_tx.send(()).expect("running task should receive release signal");
+    release_tx
+        .send(())
+        .expect("running task should receive release signal");
     running.get().expect("running task should complete");
     pool.wait_termination();
 
