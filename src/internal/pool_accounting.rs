@@ -8,6 +8,7 @@
 //! Shared admission and task accounting for thread pools.
 
 use super::AdmissionGate;
+use super::pool_counter_snapshot::PoolCounterSnapshot;
 use super::sync::AtomicUsize;
 use super::sync::Ordering;
 
@@ -22,18 +23,6 @@ pub(crate) struct PoolAccounting {
     submitted_task_count: AtomicUsize,
     completed_task_count: AtomicUsize,
     cancelled_task_count: AtomicUsize,
-}
-
-/// Independently loaded counters for best-effort monitoring.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) struct PoolCounterSnapshot {
-    pub(crate) inflight_submissions: usize,
-    pub(crate) queued_tasks: usize,
-    pub(crate) running_tasks: usize,
-    pub(crate) cancelling_tasks: usize,
-    pub(crate) submitted_tasks: usize,
-    pub(crate) completed_tasks: usize,
-    pub(crate) cancelled_tasks: usize,
 }
 
 impl PoolAccounting {
@@ -296,6 +285,7 @@ mod loom_tests {
     use std::sync::atomic::AtomicUsize as StdAtomicUsize;
     use std::sync::atomic::Ordering as StdOrdering;
 
+    use loom::model;
     use loom::sync::Arc;
     use loom::sync::atomic::Ordering;
     use loom::thread;
@@ -305,7 +295,7 @@ mod loom_tests {
     /// Two contenders cannot exceed capacity and return every reserved slot.
     #[test]
     fn loom_bounded_slot_is_reclaimed() {
-        loom::model(|| {
+        model(|| {
             let accounting = Arc::new(PoolAccounting::new(Some(1)));
             let first_accounting = Arc::clone(&accounting);
             let second_accounting = Arc::clone(&accounting);
@@ -341,7 +331,7 @@ mod loom_tests {
         let rejected = StdArc::new(StdAtomicUsize::new(0));
         let accepted_witness = StdArc::clone(&accepted);
         let rejected_witness = StdArc::clone(&rejected);
-        loom::model(move || {
+        model(move || {
             let accounting = Arc::new(PoolAccounting::new(Some(1)));
             assert!(accounting.try_reserve_bounded_slot());
             accounting.publish_accepted_job();

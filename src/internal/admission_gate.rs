@@ -110,6 +110,7 @@ mod tests {
 
 #[cfg(all(test, loom, feature = "loom-model"))]
 mod loom_tests {
+    use loom::model;
     use loom::sync::Arc;
     use loom::thread;
 
@@ -118,7 +119,7 @@ mod loom_tests {
     /// Closing preserves existing entrants and rejects all later entries.
     #[test]
     fn loom_close_rejects_later_entry() {
-        loom::model(|| {
+        model(|| {
             let gate = Arc::new(AdmissionGate::new());
             assert!(gate.try_enter());
             let closer_gate = Arc::clone(&gate);
@@ -135,7 +136,7 @@ mod loom_tests {
     /// A racing entry is either rejected or retained until its matching leave.
     #[test]
     fn loom_close_races_with_entry() {
-        loom::model(|| {
+        model(|| {
             let gate = Arc::new(AdmissionGate::new());
             let entering_gate = Arc::clone(&gate);
             let entrant = thread::spawn(move || entering_gate.try_enter());
