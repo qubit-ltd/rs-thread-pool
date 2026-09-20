@@ -10,6 +10,7 @@
 use std::io;
 use std::sync::mpsc;
 use std::time::Duration;
+use std::time::Instant;
 
 use qubit_executor::service::ExecutorService;
 use qubit_executor::service::ExecutorServiceBuilderError;
@@ -269,18 +270,35 @@ fn test_thread_pool_prestart_all_core_threads_reports_state() {
 
 #[test]
 fn test_thread_pool_core_threads_can_timeout() {
+    let (started_tx, started_rx) = mpsc::sync_channel(1);
+    let (stopped_tx, stopped_rx) = mpsc::sync_channel(1);
+    let keep_alive = Duration::from_millis(80);
     let pool = ThreadPool::builder()
         .pool_size(1)
-        .keep_alive(Duration::from_millis(80))
+        .keep_alive(keep_alive)
         .allow_core_thread_timeout(true)
         .prestart_core_threads()
+        .before_worker_start(move |_| {
+            started_tx
+                .send(Instant::now())
+                .expect("test should receive worker start signal");
+        })
+        .after_worker_stop(move |_| {
+            stopped_tx
+                .send(Instant::now())
+                .expect("test should receive worker stop signal");
+        })
         .build()
         .expect("thread pool should be created");
 
     assert_eq!(pool.live_worker_count(), 1);
-    std::thread::sleep(Duration::from_millis(20));
-    assert_eq!(pool.live_worker_count(), 1);
-    wait_until(|| pool.live_worker_count() == 0);
+    let started_at = started_rx
+        .recv_timeout(Duration::from_secs(1))
+        .expect("worker should start within timeout");
+    let stopped_at = stopped_rx
+        .recv_timeout(Duration::from_secs(2))
+        .expect("worker should time out within timeout");
+    assert!(stopped_at.duration_since(started_at) >= keep_alive);
     assert!(!pool.is_terminated());
     pool.shutdown();
     pool.wait_termination();
