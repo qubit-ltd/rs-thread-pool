@@ -30,8 +30,13 @@ include = [
 name = "qubit_thread_pool"
 doctest = true
 
+[features]
+default = []
+loom-model = ["dep:loom"]
+
 [dependencies]
 crossbeam-deque = "^0.8"
+loom = { version = "^0.7", optional = true }
 thiserror = "^2.0"
 
 qubit-argument = "0.4"
@@ -43,7 +48,13 @@ qubit-lock = { default-features = false, features = ["monitor", "parking-lot"], 
 criterion = "^0.8"
 rayon = "^1.12"
 threadpool = "^1.8"
+
+# Tokio is used only by ordinary integration tests; its runtime is not modeled.
+[target.'cfg(not(loom))'.dev-dependencies]
 tokio = { version = "^1.53", features = ["macros", "rt-multi-thread", "time"] }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(coverage)", "cfg(loom)"] }
 
 [[bench]]
 name = "thread_pool_bench"

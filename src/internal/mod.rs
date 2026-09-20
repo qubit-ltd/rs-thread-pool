@@ -8,6 +8,7 @@
 
 mod admission_gate;
 mod pool_accounting;
+mod sync;
 
 pub(crate) use admission_gate::AdmissionGate;
 pub(crate) use pool_accounting::PoolAccounting;

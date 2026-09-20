@@ -6,8 +6,8 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
-use std::sync::atomic::AtomicUsize;
-use std::sync::atomic::Ordering;
+use super::sync::AtomicUsize;
+use super::sync::Ordering;
 
 const CLOSED: usize = 1usize << (usize::BITS - 1);
 const COUNT_MASK: usize = CLOSED - 1;
@@ -19,7 +19,7 @@ pub(crate) struct AdmissionGate {
 
 impl AdmissionGate {
     /// Creates an open admission gate with no submitters.
-    pub(crate) const fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             state: AtomicUsize::new(0),
         }
@@ -32,16 +32,11 @@ impl AdmissionGate {
             if current & CLOSED != 0 {
                 return false;
             }
-            assert!(
-                current & COUNT_MASK < COUNT_MASK,
-                "admission count overflow"
-            );
-            match self.state.compare_exchange_weak(
-                current,
-                current + 1,
-                Ordering::AcqRel,
-                Ordering::Acquire,
-            ) {
+            assert!(current & COUNT_MASK < COUNT_MASK, "admission count overflow");
+            match self
+                .state
+                .compare_exchange_weak(current, current + 1, Ordering::AcqRel, Ordering::Acquire)
+            {
                 Ok(_) => return true,
                 Err(observed) => current = observed,
             }
@@ -71,7 +66,7 @@ impl AdmissionGate {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(loom)))]
 mod tests {
     use std::sync::Arc;
     use std::sync::Barrier;
@@ -110,5 +105,49 @@ mod tests {
         barrier.wait();
         assert_eq!(worker.join().expect("admission worker should finish"), 0);
         assert_eq!(gate.inflight_count(), 0);
+    }
+}
+
+#[cfg(all(test, loom, feature = "loom-model"))]
+mod loom_tests {
+    use loom::sync::Arc;
+    use loom::thread;
+
+    use super::AdmissionGate;
+
+    /// Closing preserves existing entrants and rejects all later entries.
+    #[test]
+    fn loom_close_rejects_later_entry() {
+        loom::model(|| {
+            let gate = Arc::new(AdmissionGate::new());
+            assert!(gate.try_enter());
+            let closer_gate = Arc::clone(&gate);
+            thread::spawn(move || closer_gate.close())
+                .join()
+                .expect("closer should finish");
+            assert!(!gate.is_open());
+            assert!(!gate.try_enter());
+            assert!(gate.leave());
+            assert_eq!(gate.inflight_count(), 0);
+        });
+    }
+
+    /// A racing entry is either rejected or retained until its matching leave.
+    #[test]
+    fn loom_close_races_with_entry() {
+        loom::model(|| {
+            let gate = Arc::new(AdmissionGate::new());
+            let entering_gate = Arc::clone(&gate);
+            let entrant = thread::spawn(move || entering_gate.try_enter());
+            gate.close();
+            let entered = entrant.join().expect("entrant should finish");
+            assert!(!gate.is_open());
+            assert!(!gate.try_enter());
+            assert_eq!(gate.inflight_count(), usize::from(entered));
+            if entered {
+                assert!(gate.leave());
+            }
+            assert_eq!(gate.inflight_count(), 0);
+        });
     }
 }

@@ -7,10 +7,9 @@
 // =============================================================================
 //! Shared admission and task accounting for thread pools.
 
-use std::sync::atomic::AtomicUsize;
-use std::sync::atomic::Ordering;
-
 use super::AdmissionGate;
+use super::sync::AtomicUsize;
+use super::sync::Ordering;
 
 /// Admission, queue reservations, and task counters shared by both pool kinds.
 pub(crate) struct PoolAccounting {
@@ -40,7 +39,7 @@ pub(crate) struct PoolCounterSnapshot {
 impl PoolAccounting {
     /// Creates empty accounting with `Some(limit)` bounded slots or `None`
     /// for an unbounded queue.
-    pub(crate) const fn new(queue_capacity: Option<usize>) -> Self {
+    pub(crate) fn new(queue_capacity: Option<usize>) -> Self {
         Self {
             admission: AdmissionGate::new(),
             queue_capacity,
@@ -184,7 +183,7 @@ impl PoolAccounting {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(loom)))]
 mod tests {
     use std::sync::atomic::Ordering;
 
@@ -288,5 +287,72 @@ mod tests {
     #[should_panic(expected = "cancelling task counter underflow")]
     fn test_finish_rejects_cancelling_task_underflow() {
         PoolAccounting::new(None).finish_cancelled_job();
+    }
+}
+
+#[cfg(all(test, loom, feature = "loom-model"))]
+mod loom_tests {
+    use loom::sync::Arc;
+    use loom::sync::atomic::Ordering;
+    use loom::thread;
+
+    use super::PoolAccounting;
+
+    /// Two contenders cannot exceed capacity and return every reserved slot.
+    #[test]
+    fn loom_bounded_slot_is_reclaimed() {
+        loom::model(|| {
+            let accounting = Arc::new(PoolAccounting::new(Some(1)));
+            let first_accounting = Arc::clone(&accounting);
+            let second_accounting = Arc::clone(&accounting);
+            let first = thread::spawn(move || {
+                if first_accounting.try_reserve_bounded_slot() {
+                    assert_eq!(first_accounting.queue_slot_count.load(Ordering::Acquire), 1);
+                    first_accounting.rollback_reserved_slot();
+                }
+            });
+            let second = thread::spawn(move || {
+                if second_accounting.try_reserve_bounded_slot() {
+                    assert_eq!(second_accounting.queue_slot_count.load(Ordering::Acquire), 1);
+                    second_accounting.rollback_reserved_slot();
+                }
+            });
+            first.join().expect("first contender should finish");
+            second.join().expect("second contender should finish");
+            assert_eq!(accounting.queue_slot_count.load(Ordering::Acquire), 0);
+            assert!(accounting.is_idle());
+            assert!(accounting.try_reserve_bounded_slot());
+            accounting.rollback_reserved_slot();
+        });
+    }
+
+    /// Cancellation retains its slot through callback accounting while another
+    /// submitter competes for that capacity, then restores a balanced idle
+    /// state.
+    #[test]
+    fn loom_cancellation_retains_slot_until_finished() {
+        loom::model(|| {
+            let accounting = Arc::new(PoolAccounting::new(Some(1)));
+            assert!(accounting.try_reserve_bounded_slot());
+            accounting.publish_accepted_job();
+            let cancelling_accounting = Arc::clone(&accounting);
+            let cancellation = thread::spawn(move || {
+                cancelling_accounting.begin_cancel_queued_job();
+                assert_eq!(cancelling_accounting.queue_slot_count.load(Ordering::Acquire), 1);
+                assert!(!cancelling_accounting.is_idle());
+                assert!(!cancelling_accounting.try_reserve_bounded_slot());
+                cancelling_accounting.finish_cancelled_job();
+            });
+            if accounting.try_reserve_bounded_slot() {
+                accounting.rollback_reserved_slot();
+            }
+            cancellation.join().expect("cancellation should finish");
+            let snapshot = accounting.snapshot();
+            assert_eq!(snapshot.submitted_tasks, 1);
+            assert_eq!(snapshot.cancelled_tasks, 1);
+            assert_eq!(snapshot.queued_tasks, 0);
+            assert_eq!(snapshot.cancelling_tasks, 0);
+            assert!(accounting.is_idle());
+        });
     }
 }
