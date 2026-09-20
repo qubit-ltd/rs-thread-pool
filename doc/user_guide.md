@@ -77,15 +77,20 @@ Ok(())
 Use `submit` for fire-and-forget runnables. Use `submit_callable` when a value
 or task error must be observed. `join()` waits for accepted work to drain but
 does not request shutdown, so later submissions are still possible.
+`shutdown()` closes admission, changes the lifecycle, wakes workers, and returns
+without waiting for in-flight submissions or accepted work. Call
+`wait_termination()` when a completion barrier is required.
 `stop()` cancels work that has not crossed the worker claim boundary. A directly
 assigned initial job may be accepted while `stop()` is waiting; submission then
 returns `Ok(())`, and the worker makes the final run-or-cancel decision. The
 `StopReport` counts are a point-in-time snapshot rather than a synchronization
 barrier. For `submit_job`, `Ok(())` reports acceptance only, not task start or
 task success.
-Acceptance callbacks run synchronously during submission. Keep them short and
-never synchronously call `shutdown`, `stop`, `join`, or `wait_termination` on
-the same pool; those waits can deadlock behind the in-flight submission.
+Acceptance callbacks run synchronously during submission. Keep them short.
+Calling `shutdown` on the same pool is safe because it closes admission and
+returns without waiting for the current submission. Do not synchronously call
+`stop`, `join`, or `wait_termination` from the callback because those waits can
+deadlock behind the in-flight submission.
 Do not call `join()` or `wait_termination()` from a task running on the same
 pool unless another worker can always make progress; otherwise the task can
 self-wait.

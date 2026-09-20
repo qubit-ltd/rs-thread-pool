@@ -58,9 +58,10 @@ qubit-executor = "0.8" # 直接导入 ExecutorService 时需要
 `AcceptancePanicked` 表示自定义接纳回调发生 panic，任务不会发布；标准
 `ExecutorService` 方法仍返回 `SubmissionError`。
 
-接纳回调会在提交路径上同步执行，应保持短小。回调不能同步对同一个线程池
-调用 `shutdown`、`stop`、`join` 或 `wait_termination`，因为这些操作可能等待
-当前提交完成并造成死锁；读取 `stats` 等非阻塞观测是安全的。
+接纳回调会在提交路径上同步执行，应保持短小。可以在回调中调用同一个线程池的
+`shutdown`，它只关闭接纳并立即返回，不等待当前提交。不能同步调用 `stop`、`join`
+或 `wait_termination`，因为这些操作可能等待当前提交完成并造成死锁；读取 `stats`
+等非阻塞观测是安全的。
 
 线程池可以使用无界队列或有界队列。有界队列能明确表达背压：当线程池无法接收任务时，提交会返回 `SubmissionError::Saturated`，而不是静默增加内存使用。
 
@@ -119,7 +120,8 @@ Ok(())
 
 对于低层 `submit_job`，`Ok(())` 只表示任务跨过了接纳边界，不表示 run 回调已经开始，也不表示任务最终执行成功。
 
-`wait_termination` 会阻塞当前线程，直到已请求 shutdown 且所有已接受工作完成或取消。
+`shutdown` 关闭接纳、切换生命周期并唤醒 worker 后立即返回，不等待当前提交或已接纳工作。
+`wait_termination` 才是完成屏障：它会阻塞当前线程，直到所有已接纳工作完成或取消。
 不要在同一个线程池正在执行的任务中调用 `join()` 或 `wait_termination()`，除非能够确保有其它 worker 持续推进任务；否则任务可能等待自身完成。
 空闲和终止等待也会包含取消回调，只有队列任务完成取消处理后才会返回。
 
@@ -201,7 +203,7 @@ worker 回到空闲状态的等待不计入结果。
 
 benchmark 输入与历史对比数据保存在 `test-data` 下。
 
-### 最新本地运行结果
+### 历史本地运行结果
 
 最新一次本地运行在 2026-05-11 执行
 `cargo bench --bench thread_pool_bench -- thread_pool_submit_modes`，环境为

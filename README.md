@@ -105,9 +105,10 @@ result, or `submit_tracked` / `submit_tracked_callable` when you also need
 status and pre-start cancellation.
 
 Acceptance callbacks run synchronously on the submission path. They must stay
-short and must not synchronously call `shutdown`, `stop`, `join`, or
-`wait_termination` on the same pool, because those operations can wait for the
-in-flight submission and deadlock. Non-blocking observation such as `stats` is
+short. Calling `shutdown` on the same pool is safe: it closes admission and
+returns without waiting for the current submission. `stop`, `join`, and
+`wait_termination` can wait for the in-flight submission and must not be called
+synchronously from the callback. Non-blocking observation such as `stats` is
 safe.
 
 ## Lifecycle Hooks
@@ -162,7 +163,9 @@ For low-level `submit_job`, `Ok(())` means only that the job crossed the
 acceptance boundary. It does not mean that the run callback has started or will
 finish successfully.
 
-`wait_termination` blocks the current thread after shutdown has been requested
+`shutdown` closes admission, changes the lifecycle, wakes workers, and returns
+without waiting for in-flight submissions or accepted work. Use
+`wait_termination` as the completion barrier; it blocks the current thread
 until all accepted work has completed or been cancelled.
 Idle and termination waits also include cancellation callbacks, so they return
 only after queued jobs have finished their cancellation handling.
@@ -267,7 +270,7 @@ outside the timed interval.
 
 Benchmark inputs and historical comparison data are kept under `test-data`.
 
-### Latest local run
+### Historical local run
 
 The latest local run used
 `cargo bench --bench thread_pool_bench -- thread_pool_submit_modes` on
