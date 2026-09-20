@@ -12,8 +12,6 @@ use std::sync::Arc;
 use qubit_executor::service::ExecutorServiceLifecycle;
 use qubit_lock::WaitTimeoutStatus;
 
-use super::thread_pool_inner::InitialWorkerDecision;
-use super::thread_pool_inner::InitialWorkerJob;
 use super::thread_pool_inner::ThreadPoolInner;
 use super::thread_pool_state::ThreadPoolState;
 use crate::PoolJob;
@@ -50,98 +48,6 @@ impl ThreadPoolWorker {
             }
         }
     }
-
-    /// Accepts and runs a directly assigned job after the pool monitor is
-    /// released.
-    pub(crate) fn run_initial(
-        inner: Arc<ThreadPoolInner>,
-        worker_index: usize,
-        initial: InitialWorkerJob,
-    ) {
-        inner.hooks().run_before_worker_start(worker_index);
-        let has_task_hooks = inner.hooks().has_task_hooks();
-        let accepted = initial.job.accept().is_ok();
-        let _ignored = initial
-            .acceptance_sender
-            .send(if accepted { Ok(()) } else { Err(()) });
-        if !accepted {
-            let _ignored = initial.decision_receiver.recv();
-            run_loop(inner, worker_index, has_task_hooks);
-            return;
-        }
-        match initial.decision_receiver.recv() {
-            Ok(InitialWorkerDecision::Run) => {
-                if inner.is_stopping_now() {
-                    inner.begin_cancel_initial_job();
-                    initial.job.cancel();
-                    inner.finish_cancelled_initial_job();
-                    let mut state = inner.lock_state();
-                    inner.unregister_worker_locked(&mut state);
-                    drop(state);
-                    inner.hooks().run_after_worker_stop(worker_index);
-                } else {
-                    run_initial_accepted_job(&inner, initial.job, has_task_hooks, worker_index);
-                    run_loop(inner, worker_index, has_task_hooks);
-                }
-            }
-            Ok(InitialWorkerDecision::Cancel) => {
-                initial.job.cancel();
-                inner.finish_cancelled_initial_job();
-                let mut state = inner.lock_state();
-                inner.unregister_worker_locked(&mut state);
-                drop(state);
-                inner.hooks().run_after_worker_stop(worker_index);
-            }
-            Ok(InitialWorkerDecision::Abort) | Err(_) => {
-                run_loop(inner, worker_index, has_task_hooks);
-            }
-        }
-    }
-}
-
-fn run_loop(inner: Arc<ThreadPoolInner>, worker_index: usize, has_task_hooks: bool) {
-    loop {
-        match wait_for_job(&inner, worker_index) {
-            Some(job) => {
-                if has_task_hooks {
-                    run_with_task_hooks(job, inner.hooks(), worker_index);
-                } else {
-                    run_without_hooks(job);
-                }
-                inner.finish_running_job();
-            }
-            None => {
-                inner.hooks().run_after_worker_stop(worker_index);
-                return;
-            }
-        }
-    }
-}
-
-/// Runs the first job assigned directly to a newly spawned worker.
-///
-/// The pool has already counted this job as running before releasing the worker
-/// start gate. This function accepts the job, executes it when acceptance does
-/// not panic, and then releases the running-task accounting slot.
-///
-/// # Parameters
-///
-/// * `inner` - Shared pool state whose running counter will be released.
-/// * `job` - Initial job assigned to this worker.
-/// * `has_task_hooks` - Whether per-task hooks are configured.
-/// * `worker_index` - Stable index of the worker running the job.
-fn run_initial_accepted_job(
-    inner: &ThreadPoolInner,
-    job: PoolJob,
-    has_task_hooks: bool,
-    worker_index: usize,
-) {
-    if has_task_hooks {
-        run_with_task_hooks(job, inner.hooks(), worker_index);
-    } else {
-        run_without_hooks(job);
-    }
-    inner.finish_running_job();
 }
 
 /// Runs one claimed job without invoking task hooks.
@@ -208,6 +114,8 @@ fn wait_for_job(inner: &ThreadPoolInner, worker_index: usize) -> Option<PoolJob>
                     let should_retire = timed_out
                         && inner.queued_count() == 0
                         && !inner.has_pending_worker_wake()
+                        // An admitted submitter may still publish its job.
+                        && (state.live_workers > 1 || inner.inflight_count() == 0)
                         && state.idle_worker_can_retire();
                     unmark_thread_pool_worker_idle(inner, &mut state);
                     if should_retire {

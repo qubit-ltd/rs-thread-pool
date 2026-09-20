@@ -9,7 +9,6 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
-use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 use std::time::Instant;
@@ -24,9 +23,6 @@ use qubit_executor::service::SubmissionError;
 use qubit_lock::ParkingLotMonitor;
 use qubit_lock::ParkingLotMonitorGuard;
 
-pub(super) use self::internal::InitialWorkerDecision;
-pub(super) use self::internal::InitialWorkerJob;
-pub(super) use self::internal::InitialWorkerStartup;
 pub(super) use self::internal::ReservedWorker;
 pub(super) use self::internal::ThreadPoolSubmitGuard;
 use super::thread_pool_config::ThreadPoolConfig;
@@ -251,6 +247,15 @@ impl ThreadPoolInner {
         true
     }
 
+    /// Reserves a queued-work slot for a successfully spawned worker's job.
+    ///
+    /// Worker growth admits this job even when the ordinary queue is full.
+    /// The slot is released when acceptance fails, execution starts, or
+    /// cancellation completes.
+    fn reserve_worker_handoff_slot(&self) {
+        self.queue_slot_count.fetch_add(1, Ordering::Release);
+    }
+
     /// Releases one reserved queued-work slot that never became runnable.
     fn release_queue_slot(&self) {
         let previous = self.queue_slot_count.fetch_sub(1, Ordering::Release);
@@ -260,12 +265,21 @@ impl ThreadPoolInner {
     /// Accepts a job whose queue slot has already been reserved and publishes
     /// it.
     ///
-    /// This method may run custom acceptance callbacks and therefore must not
-    /// be called while holding the pool-state monitor.
+    /// This method runs custom acceptance callbacks on the submitting thread
+    /// and therefore must not be called while holding the pool-state monitor.
     ///
     /// # Parameters
     ///
     /// * `job` - Job with one reserved queue slot.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` after acceptance succeeds and the job is published.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PoolJobSubmissionError::AcceptancePanicked`] if the acceptance
+    /// callback panics, releasing the reserved slot without publishing the job.
     fn accept_and_enqueue_reserved_job(&self, job: PoolJob) -> Result<(), PoolJobSubmissionError> {
         if job.accept().is_err() {
             self.release_queue_slot();
@@ -287,12 +301,16 @@ impl ThreadPoolInner {
     /// monitor when it must inspect worker capacity or lifecycle state:
     ///
     /// 1. Reject immediately if the lifecycle is not running.
-    /// 2. If live workers are below the core size, spawn a worker and hand the
-    ///    job to it directly (no queue hop).
+    /// 2. If live workers are below the core size or no workers remain, spawn
+    ///    a worker and reserve a queue slot independently of queue capacity.
     /// 3. Otherwise, try enqueuing the job if the queue is not saturated.
     /// 4. If the queue is saturated but live workers are still below maximum,
-    ///    spawn a non-core worker with the job as its first task.
+    ///    spawn a non-core worker and reserve a slot independently of capacity.
     /// 5. Otherwise reject as saturated.
+    ///
+    /// After admission, acceptance runs on the submitting thread outside the
+    /// monitor, then the job is published to the global queue. Worker-spawn
+    /// failure rejects the job before its acceptance callback runs.
     ///
     /// Queued submissions use a targeted wake-up strategy with pending wake
     /// tokens, so submitters wake at most one idle worker while avoiding the
@@ -321,7 +339,7 @@ impl ThreadPoolInner {
     ///
     /// # Parameters
     ///
-    /// * `job` - Job that could not use the queue-only fast path.
+    /// * `job` - Job to admit and publish after releasing the monitor.
     ///
     /// # Returns
     ///
@@ -342,15 +360,17 @@ impl ThreadPoolInner {
         }
         if state.live_workers < state.core_pool_size {
             let worker = self.reserve_worker_locked(&mut state);
-            let startup = self.spawn_reserved_worker_with_initial_job_locked(&mut state, worker)?;
+            self.spawn_reserved_worker_locked(&mut state, worker)?;
+            self.reserve_worker_handoff_slot();
             drop(state);
-            return self.start_reserved_worker(startup, job);
+            return self.accept_and_enqueue_reserved_job(job);
         }
         if state.live_workers == 0 {
             let worker = self.reserve_worker_locked(&mut state);
-            let startup = self.spawn_reserved_worker_with_initial_job_locked(&mut state, worker)?;
+            self.spawn_reserved_worker_locked(&mut state, worker)?;
+            self.reserve_worker_handoff_slot();
             drop(state);
-            return self.start_reserved_worker(startup, job);
+            return self.accept_and_enqueue_reserved_job(job);
         }
         if self.reserve_queue_slot() {
             drop(state);
@@ -358,9 +378,10 @@ impl ThreadPoolInner {
         }
         if state.live_workers < state.maximum_pool_size {
             let worker = self.reserve_worker_locked(&mut state);
-            let startup = self.spawn_reserved_worker_with_initial_job_locked(&mut state, worker)?;
+            self.spawn_reserved_worker_locked(&mut state, worker)?;
+            self.reserve_worker_handoff_slot();
             drop(state);
-            self.start_reserved_worker(startup, job)
+            self.accept_and_enqueue_reserved_job(job)
         } else {
             Err(PoolJobSubmissionError::Rejected(SubmissionError::Saturated))
         }
@@ -472,130 +493,6 @@ impl ThreadPoolInner {
         }
     }
 
-    /// Spawns a reserved worker that waits for an initial job decision.
-    ///
-    /// The caller must hold the pool state monitor. The returned startup
-    /// channels let the caller run the job's acceptance callback after the
-    /// monitor is released, then explicitly release the worker to run or
-    /// abort. If the OS thread cannot be created, no job has crossed the
-    /// acceptance boundary.
-    ///
-    /// # Parameters
-    ///
-    /// * `state` - Locked pool state used for counter updates and rollback.
-    /// * `worker` - Worker reservation created while holding the state lock.
-    /// # Returns
-    ///
-    /// Startup channels for the successfully spawned worker.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`SubmissionError::WorkerSpawnFailed`] if the worker thread
-    /// cannot be created.
-    fn spawn_reserved_worker_with_initial_job_locked(
-        self: &Arc<Self>,
-        state: &mut ThreadPoolState,
-        worker: ReservedWorker,
-    ) -> Result<InitialWorkerStartup, PoolJobSubmissionError> {
-        let ReservedWorker { index } = worker;
-        let (start_sender, start_receiver) = mpsc::sync_channel(1);
-        let worker_inner = Arc::clone(self);
-        let mut builder =
-            thread::Builder::new().name(format!("{}-{index}", self.thread_name_prefix));
-        if let Some(stack_size) = self.stack_size {
-            builder = builder.stack_size(stack_size);
-        }
-        match builder.spawn(move || match start_receiver.recv() {
-            Ok(initial_job) => ThreadPoolWorker::run_initial(worker_inner, index, initial_job),
-            Err(_) => {
-                let mut state = worker_inner.lock_state();
-                worker_inner.unregister_worker_locked(&mut state);
-            }
-        }) {
-            Ok(_) => {
-                self.live_worker_count.fetch_add(1, Ordering::Release);
-                Ok(InitialWorkerStartup { start_sender })
-            }
-            Err(source) => {
-                state.live_workers = state
-                    .live_workers
-                    .checked_sub(1)
-                    .expect("thread pool live worker counter underflow");
-                self.notify_if_idle_or_terminated(state);
-                Err(PoolJobSubmissionError::Rejected(
-                    SubmissionError::WorkerSpawnFailed {
-                        source: Arc::new(source),
-                    },
-                ))
-            }
-        }
-    }
-
-    /// Runs acceptance for a directly assigned job after the state lock is
-    /// released.
-    fn start_reserved_worker(
-        &self,
-        startup: InitialWorkerStartup,
-        job: PoolJob,
-    ) -> Result<(), PoolJobSubmissionError> {
-        let (acceptance_sender, acceptance_receiver) = mpsc::sync_channel(1);
-        let (decision_sender, decision_receiver) = mpsc::sync_channel(1);
-        startup
-            .start_sender
-            .send(InitialWorkerJob {
-                job,
-                acceptance_sender,
-                decision_receiver,
-            })
-            .map_err(|_| PoolJobSubmissionError::Rejected(worker_spawn_failed()))?;
-
-        match acceptance_receiver.recv() {
-            Ok(Ok(())) => {
-                let decision = {
-                    let state = self.lock_state();
-                    self.submitted_task_count.fetch_add(1, Ordering::Release);
-                    if state.lifecycle == ExecutorServiceLifecycle::Running {
-                        self.running_task_count.fetch_add(1, Ordering::Release);
-                        InitialWorkerDecision::Run
-                    } else {
-                        self.cancelling_task_count.fetch_add(1, Ordering::Release);
-                        InitialWorkerDecision::Cancel
-                    }
-                };
-                decision_sender
-                    .send(decision)
-                    .map_err(|_| PoolJobSubmissionError::Rejected(worker_spawn_failed()))?;
-                Ok(())
-            }
-            Ok(Err(())) => {
-                let _ignored = decision_sender.send(InitialWorkerDecision::Abort);
-                Err(PoolJobSubmissionError::AcceptancePanicked)
-            }
-            Err(_) => Err(PoolJobSubmissionError::Rejected(worker_spawn_failed())),
-        }
-    }
-
-    /// Moves a directly assigned task from running to cancellation after a
-    /// stop races with the worker's final pre-start check.
-    pub(crate) fn begin_cancel_initial_job(&self) {
-        let previous = self.running_task_count.fetch_sub(1, Ordering::Release);
-        debug_assert!(previous > 0, "thread pool running task counter underflow");
-        self.cancelling_task_count.fetch_add(1, Ordering::Release);
-    }
-
-    /// Completes cancellation of a directly assigned task.
-    pub(crate) fn finish_cancelled_initial_job(&self) {
-        let previous = self.cancelling_task_count.fetch_sub(1, Ordering::Release);
-        debug_assert!(
-            previous > 0,
-            "thread pool cancelling task counter underflow"
-        );
-        self.cancelled_task_count.fetch_add(1, Ordering::Release);
-        if self.is_idle_snapshot() {
-            self.notify_waiters_after_atomic_change();
-        }
-    }
-
     /// Attempts to take one queued job without acquiring the state monitor.
     ///
     /// # Returns
@@ -659,11 +556,6 @@ impl ThreadPoolInner {
     /// Marks a worker as idle in lock-free wake-up state.
     pub(crate) fn mark_worker_idle(&self) {
         self.idle_worker_count.fetch_add(1, Ordering::AcqRel);
-    }
-
-    /// Returns whether immediate stop has been requested.
-    pub(crate) fn is_stopping_now(&self) -> bool {
-        self.stop_now.load(Ordering::Acquire)
     }
 
     /// Marks a worker as no longer idle and consumes one pending wake token.
@@ -1121,14 +1013,6 @@ impl ThreadPoolInner {
         let previous = self.live_worker_count.fetch_sub(1, Ordering::Release);
         debug_assert!(previous > 0, "thread pool live worker counter underflow");
         self.notify_if_terminated(state);
-    }
-}
-
-fn worker_spawn_failed() -> SubmissionError {
-    SubmissionError::WorkerSpawnFailed {
-        source: Arc::new(std::io::Error::other(
-            "worker terminated before startup completed",
-        )),
     }
 }
 

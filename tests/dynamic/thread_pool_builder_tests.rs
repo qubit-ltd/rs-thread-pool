@@ -113,9 +113,9 @@ fn test_thread_pool_grows_above_core_when_queue_is_full() {
         .build()
         .expect("thread pool should be created");
     let (first_started_tx, first_started_rx) = mpsc::channel();
-    let (third_started_tx, third_started_rx) = mpsc::channel();
+    let (second_started_tx, second_started_rx) = mpsc::channel();
     let (release_first_tx, release_first_rx) = mpsc::channel();
-    let (release_third_tx, release_third_rx) = mpsc::channel();
+    let (release_second_tx, release_second_rx) = mpsc::channel();
 
     let first = pool
         .submit_tracked(move || {
@@ -131,28 +131,28 @@ fn test_thread_pool_grows_above_core_when_queue_is_full() {
     wait_started(first_started_rx);
 
     let second = pool
-        .submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>)
-        .expect("second task should be queued");
-    let third = pool
         .submit_tracked(move || {
-            third_started_tx
+            second_started_tx
                 .send(())
-                .expect("test should receive third start signal");
-            release_third_rx
+                .expect("test should receive second start signal");
+            release_second_rx
                 .recv()
                 .map_err(|err| io::Error::other(err.to_string()))?;
             Ok::<(), io::Error>(())
         })
+        .expect("second task should be queued");
+    let third = pool
+        .submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>)
         .expect("third task should create a non-core worker");
-    wait_started(third_started_rx);
+    wait_started(second_started_rx);
 
     let fourth = pool.submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>);
 
     assert!(matches!(fourth, Err(SubmissionError::Saturated)));
     assert_eq!(pool.stats().live_workers, 2);
-    release_third_tx
+    release_second_tx
         .send(())
-        .expect("third task should receive release signal");
+        .expect("second task should receive release signal");
     third
         .get()
         .expect("third task should complete successfully");

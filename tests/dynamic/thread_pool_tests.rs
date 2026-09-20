@@ -1002,7 +1002,108 @@ fn test_thread_pool_stop_waits_for_inflight_accept_then_cancels() {
 }
 
 #[test]
-fn test_stop_cancels_direct_initial_job_while_acceptance_is_inflight() {
+fn test_lazy_pool_accept_shutdown_still_runs_job() {
+    let pool = Arc::new(ThreadPool::new(1).expect("pool should be created"));
+    let callback_pool = Arc::clone(&pool);
+    let (ran_tx, ran_rx) = mpsc::channel();
+    let (cancel_tx, cancel_rx) = mpsc::channel();
+    pool.submit_job(PoolJob::with_accept(
+        Box::new(move || callback_pool.shutdown()),
+        Box::new(move || ran_tx.send(()).expect("run signal")),
+        Box::new(move || cancel_tx.send(()).expect("cancel signal")),
+    ))
+    .expect("in-flight job should be accepted");
+    pool.wait_termination();
+    ran_rx
+        .recv_timeout(Duration::from_secs(1))
+        .expect("job should run");
+    assert!(cancel_rx.try_recv().is_err());
+}
+
+#[test]
+fn test_lazy_pool_shutdown_during_acceptance_still_runs_job() {
+    let pool = Arc::new(ThreadPool::new(1).expect("pool should be created"));
+    let (entered_tx, entered_rx) = mpsc::channel();
+    let (release_tx, release_rx) = mpsc::channel();
+    let (ran_tx, ran_rx) = mpsc::channel();
+    let (cancel_tx, cancel_rx) = mpsc::channel();
+    let submit_pool = Arc::clone(&pool);
+    let submitter = std::thread::spawn(move || {
+        submit_pool.submit_job(PoolJob::with_accept(
+            Box::new(move || {
+                entered_tx.send(()).expect("accept entered");
+                release_rx.recv().expect("accept released");
+            }),
+            Box::new(move || ran_tx.send(()).expect("run signal")),
+            Box::new(move || cancel_tx.send(()).expect("cancel signal")),
+        ))
+    });
+    entered_rx
+        .recv_timeout(Duration::from_secs(1))
+        .expect("accept should start");
+    pool.shutdown();
+    release_tx.send(()).expect("release accept");
+    submitter
+        .join()
+        .expect("submitter should join")
+        .expect("job should be accepted");
+    pool.wait_termination();
+    ran_rx
+        .recv_timeout(Duration::from_secs(1))
+        .expect("job should run");
+    assert!(cancel_rx.try_recv().is_err());
+}
+
+#[test]
+fn test_lazy_pool_keeps_worker_alive_during_acceptance() {
+    let pool = Arc::new(
+        ThreadPool::builder()
+            .pool_size(1)
+            .keep_alive(Duration::from_millis(10))
+            .allow_core_thread_timeout(true)
+            .build()
+            .expect("pool should be created"),
+    );
+    let callback_pool = Arc::clone(&pool);
+    let (ran_tx, ran_rx) = mpsc::channel();
+    pool.submit_job(PoolJob::with_accept(
+        Box::new(move || {
+            wait_until(|| callback_pool.stats().idle_workers == 1);
+            std::thread::sleep(Duration::from_millis(50));
+        }),
+        Box::new(move || ran_tx.send(()).expect("run signal")),
+        Box::new(|| {}),
+    ))
+    .expect("job should be accepted");
+    let run_result = ran_rx.recv_timeout(Duration::from_secs(1));
+    pool.stop();
+    pool.wait_termination();
+    run_result.expect("accepted job must retain a worker while acceptance is in flight");
+}
+
+#[test]
+fn test_lazy_pool_acceptance_runs_on_submitter_thread() {
+    let pool = ThreadPool::new(1).expect("pool should be created");
+    let acceptance_thread = Arc::new(Mutex::new(None));
+    let callback_thread = Arc::clone(&acceptance_thread);
+    let submitter_thread = std::thread::current().id();
+    pool.submit_job(PoolJob::with_accept(
+        Box::new(move || {
+            *callback_thread.lock().expect("acceptance thread lock") =
+                Some(std::thread::current().id());
+        }),
+        Box::new(|| {}),
+        Box::new(|| panic!("accepted job should not be cancelled")),
+    ))
+    .expect("job should be accepted");
+    let observed_thread = *acceptance_thread.lock().expect("acceptance thread lock");
+    pool.shutdown();
+    pool.wait_termination();
+    assert_eq!(observed_thread, Some(submitter_thread));
+}
+
+#[test]
+fn test_stop_cancels_spawned_worker_job_while_acceptance_is_inflight() {
     let pool = Arc::new(
         ThreadPool::builder()
             .pool_size(1)
@@ -1056,16 +1157,16 @@ fn test_stop_cancels_direct_initial_job_while_acceptance_is_inflight() {
     submit_thread
         .join()
         .expect("submit thread should not panic")
-        .expect("accepted direct job should report success");
+        .expect("accepted job should report success");
     let report = stop_thread.join().expect("stop thread should not panic");
     assert_eq!(report.cancelled, 1);
     assert!(
         cancelled_rx.recv_timeout(Duration::from_secs(1)).is_ok(),
-        "accepted direct job should be cancelled after stop"
+        "accepted job should be cancelled after stop"
     );
     assert!(
         ran_rx.recv_timeout(Duration::from_millis(100)).is_err(),
-        "cancelled direct job must not run"
+        "cancelled job must not run"
     );
     pool.wait_termination();
     assert_eq!(pool.running_count(), 0);
