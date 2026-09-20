@@ -18,12 +18,15 @@ qubit-executor = "0.8"
 - `ThreadPool::submit_job` reports `PoolJobSubmissionError`. Match
   `Rejected(SubmissionError)` for admission failures and
   `AcceptancePanicked` for a panicking acceptance callback.
-- Dynamic workers are created before a directly assigned job is accepted, and
-  acceptance runs outside the pool monitor. A worker-spawn rejection therefore
-  does not invoke acceptance, run, or cancellation callbacks.
-- `stop()` now defines cancellation at the worker claim boundary. A directly
-  assigned job may return from acceptance successfully while a concurrent stop
-  is waiting; it is then cancelled before its run callback. Treat
+- Any required dynamic worker creation succeeds before acceptance runs on the
+  submitting thread outside the pool monitor. Worker growth reserves an
+  additional slot independently of ordinary queue capacity; all accepted jobs
+  are still published to the same global `Injector`, without being bound to
+  the newly created worker. A worker-spawn rejection therefore invokes none of
+  the acceptance, run, or cancellation callbacks.
+- `stop()` now defines cancellation at the worker claim boundary. A job may
+  finish acceptance successfully while a concurrent stop is waiting, then be
+  published to the global queue and cancelled before its run callback. Treat
   `StopReport` as a snapshot, and do not use `submit_job` returning `Ok(())` as
   proof that the run callback started.
 - Acceptance callbacks run synchronously during submission. They may call
