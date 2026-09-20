@@ -8,8 +8,12 @@
 mod mod_tests;
 mod thread_pool_builder_tests;
 mod thread_pool_config_tests;
+mod thread_pool_failure_tests;
+mod thread_pool_hooks_tests;
 mod thread_pool_inner_tests;
 mod thread_pool_lifecycle_tests;
+mod thread_pool_shutdown_tests;
 mod thread_pool_state_tests;
-mod thread_pool_tests;
+mod thread_pool_stop_tests;
+mod thread_pool_submission_tests;
 mod thread_pool_worker_tests;
