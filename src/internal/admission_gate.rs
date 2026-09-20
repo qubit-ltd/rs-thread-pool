@@ -32,16 +32,11 @@ impl AdmissionGate {
             if current & CLOSED != 0 {
                 return false;
             }
-            assert!(
-                current & COUNT_MASK < COUNT_MASK,
-                "admission count overflow"
-            );
-            match self.state.compare_exchange_weak(
-                current,
-                current + 1,
-                Ordering::AcqRel,
-                Ordering::Acquire,
-            ) {
+            assert!(current & COUNT_MASK < COUNT_MASK, "admission count overflow");
+            match self
+                .state
+                .compare_exchange_weak(current, current + 1, Ordering::AcqRel, Ordering::Acquire)
+            {
                 Ok(_) => return true,
                 Err(observed) => current = observed,
             }

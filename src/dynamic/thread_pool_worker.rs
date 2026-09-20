@@ -53,17 +53,11 @@ impl ThreadPoolWorker {
 
     /// Accepts and runs a directly assigned job after the pool monitor is
     /// released.
-    pub(crate) fn run_initial(
-        inner: Arc<ThreadPoolInner>,
-        worker_index: usize,
-        initial: InitialWorkerJob,
-    ) {
+    pub(crate) fn run_initial(inner: Arc<ThreadPoolInner>, worker_index: usize, initial: InitialWorkerJob) {
         inner.hooks().run_before_worker_start(worker_index);
         let has_task_hooks = inner.hooks().has_task_hooks();
         let accepted = initial.job.accept().is_ok();
-        let _ignored = initial
-            .acceptance_sender
-            .send(if accepted { Ok(()) } else { Err(()) });
+        let _ignored = initial.acceptance_sender.send(if accepted { Ok(()) } else { Err(()) });
         if !accepted {
             let _ignored = initial.decision_receiver.recv();
             run_loop(inner, worker_index, has_task_hooks);
@@ -130,12 +124,7 @@ fn run_loop(inner: Arc<ThreadPoolInner>, worker_index: usize, has_task_hooks: bo
 /// * `job` - Initial job assigned to this worker.
 /// * `has_task_hooks` - Whether per-task hooks are configured.
 /// * `worker_index` - Stable index of the worker running the job.
-fn run_initial_accepted_job(
-    inner: &ThreadPoolInner,
-    job: PoolJob,
-    has_task_hooks: bool,
-    worker_index: usize,
-) {
+fn run_initial_accepted_job(inner: &ThreadPoolInner, job: PoolJob, has_task_hooks: bool, worker_index: usize) {
     if has_task_hooks {
         run_with_task_hooks(job, inner.hooks(), worker_index);
     } else {
@@ -184,25 +173,18 @@ fn wait_for_job(inner: &ThreadPoolInner, worker_index: usize) -> Option<PoolJob>
         let mut state = inner.lock_state();
         match state.lifecycle {
             ExecutorServiceLifecycle::Running => {
-                if inner.queued_count() == 0
-                    && state.live_workers > state.maximum_pool_size
-                    && state.live_workers > 0
-                {
+                if inner.queued_count() == 0 && state.live_workers > state.maximum_pool_size && state.live_workers > 0 {
                     unregister_exiting_worker(inner, &mut state, worker_index);
                     return None;
                 }
                 drop(state);
                 state = inner.lock_state();
-                if state.lifecycle == ExecutorServiceLifecycle::Running
-                    && state.worker_wait_is_timed()
-                {
+                if state.lifecycle == ExecutorServiceLifecycle::Running && state.worker_wait_is_timed() {
                     let keep_alive = state.keep_alive;
                     mark_thread_pool_worker_idle(inner, &mut state);
                     let mut timed_out = false;
                     if inner.queued_count() == 0 && !inner.has_pending_worker_wake() {
-                        let status = state
-                            .wait_for(keep_alive)
-                            .expect("standard Timer should register");
+                        let status = state.wait_for(keep_alive).expect("standard Timer should register");
                         timed_out = status == WaitTimeoutStatus::TimedOut;
                     }
                     let should_retire = timed_out
@@ -276,10 +258,6 @@ fn unmark_thread_pool_worker_idle(inner: &ThreadPoolInner, state: &mut ThreadPoo
 ///   notification.
 /// * `state` - Locked mutable state whose live worker count is decremented.
 /// * `worker_index` - Stable index of the exiting worker.
-fn unregister_exiting_worker(
-    inner: &ThreadPoolInner,
-    state: &mut ThreadPoolState,
-    _worker_index: usize,
-) {
+fn unregister_exiting_worker(inner: &ThreadPoolInner, state: &mut ThreadPoolState, _worker_index: usize) {
     inner.unregister_worker_locked(state);
 }

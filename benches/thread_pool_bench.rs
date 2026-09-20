@@ -164,11 +164,7 @@ impl<P> IdleWakeupFixture<P> {
     /// A fixture ready to measure idle-worker wake-ups.
     fn new(pool: P, idle_worker_count: fn(&P) -> usize) -> Self {
         let (sender, receiver) = mpsc::channel();
-        let fixture = Self {
-            pool,
-            sender,
-            receiver,
-        };
+        let fixture = Self { pool, sender, receiver };
         fixture.wait_for_idle_worker(idle_worker_count);
         fixture
     }
@@ -186,16 +182,10 @@ impl<P> IdleWakeupFixture<P> {
     /// # Returns
     ///
     /// The duration from submission until task completion.
-    fn round_trip(
-        &self,
-        submit: fn(&P, mpsc::Sender<()>),
-        idle_worker_count: fn(&P) -> usize,
-    ) -> Duration {
+    fn round_trip(&self, submit: fn(&P, mpsc::Sender<()>), idle_worker_count: fn(&P) -> usize) -> Duration {
         let started = std::time::Instant::now();
         submit(&self.pool, self.sender.clone());
-        self.receiver
-            .recv()
-            .expect("benchmark task should signal completion");
+        self.receiver.recv().expect("benchmark task should signal completion");
         let elapsed = started.elapsed();
         self.wait_for_idle_worker(idle_worker_count);
         elapsed
@@ -300,9 +290,7 @@ fn run_cpu_work_batch_on_pool(pool: &ThreadPool, task_count: usize, inner_iters:
         let iterations = inner_iters;
         let index = task_index;
         let handle = pool
-            .submit_callable(move || {
-                Ok::<usize, Infallible>(compute_distributed_cpu_work(iterations, index, seed))
-            })
+            .submit_callable(move || Ok::<usize, Infallible>(compute_distributed_cpu_work(iterations, index, seed)))
             .expect("task should be accepted");
         handles.push(handle);
     }
@@ -361,10 +349,7 @@ fn run_dynamic_submit_batch_on_pool(pool: &ThreadPool, task_count: usize, worklo
         .expect("task should be accepted");
     }
     drop(sender);
-    let sum = receiver
-        .into_iter()
-        .take(task_count)
-        .fold(0usize, usize::wrapping_add);
+    let sum = receiver.into_iter().take(task_count).fold(0usize, usize::wrapping_add);
     black_box(sum);
 }
 
@@ -384,10 +369,7 @@ fn run_dynamic_submit_tracked_batch(pool_size: usize, task_count: usize, workloa
         handles.push(handle);
     }
     drop(sender);
-    let sum = receiver
-        .into_iter()
-        .take(task_count)
-        .fold(0usize, usize::wrapping_add);
+    let sum = receiver.into_iter().take(task_count).fold(0usize, usize::wrapping_add);
     black_box(sum);
     black_box(handles.len());
     pool.shutdown();
@@ -407,10 +389,7 @@ fn run_fixed_submit_batch(pool_size: usize, task_count: usize, workload: Workloa
         .expect("task should be accepted");
     }
     drop(sender);
-    let sum = receiver
-        .into_iter()
-        .take(task_count)
-        .fold(0usize, usize::wrapping_add);
+    let sum = receiver.into_iter().take(task_count).fold(0usize, usize::wrapping_add);
     black_box(sum);
     pool.shutdown();
     wait_for_termination(&pool);
@@ -432,10 +411,7 @@ fn run_fixed_submit_tracked_batch(pool_size: usize, task_count: usize, workload:
         handles.push(handle);
     }
     drop(sender);
-    let sum = receiver
-        .into_iter()
-        .take(task_count)
-        .fold(0usize, usize::wrapping_add);
+    let sum = receiver.into_iter().take(task_count).fold(0usize, usize::wrapping_add);
     black_box(sum);
     black_box(handles.len());
     pool.shutdown();
@@ -453,10 +429,7 @@ fn run_external_threadpool_submit_batch(pool_size: usize, task_count: usize, wor
         });
     }
     drop(sender);
-    let sum = receiver
-        .into_iter()
-        .take(task_count)
-        .fold(0usize, usize::wrapping_add);
+    let sum = receiver.into_iter().take(task_count).fold(0usize, usize::wrapping_add);
     black_box(sum);
 }
 
@@ -500,17 +473,13 @@ fn bench_thread_pool_vs_rayon(c: &mut Criterion) {
             let task_count = total_iters / inner_iters;
             group.throughput(Throughput::Elements(task_count as u64));
             let thread_pool_id = format!("thread_pool/workers={worker_count}/iters={inner_iters}");
-            group.bench_with_input(
-                BenchmarkId::from_parameter(thread_pool_id),
-                &worker_count,
-                |b, &wc| b.iter(|| run_cpu_work_batch(wc, task_count, inner_iters)),
-            );
+            group.bench_with_input(BenchmarkId::from_parameter(thread_pool_id), &worker_count, |b, &wc| {
+                b.iter(|| run_cpu_work_batch(wc, task_count, inner_iters))
+            });
             let rayon_id = format!("rayon/workers={worker_count}/iters={inner_iters}");
-            group.bench_with_input(
-                BenchmarkId::from_parameter(rayon_id),
-                &worker_count,
-                |b, &wc| b.iter(|| run_rayon_cpu_work_batch(wc, task_count, inner_iters)),
-            );
+            group.bench_with_input(BenchmarkId::from_parameter(rayon_id), &worker_count, |b, &wc| {
+                b.iter(|| run_rayon_cpu_work_batch(wc, task_count, inner_iters))
+            });
         }
     }
     group.finish();
@@ -550,8 +519,7 @@ fn bench_thread_pool_idle_wakeup(c: &mut Criterion) {
         bencher.iter_custom(|iterations| {
             let mut elapsed = Duration::ZERO;
             for _ in 0..iterations {
-                elapsed +=
-                    dynamic.round_trip(submit_dynamic_idle_wakeup, dynamic_idle_worker_count);
+                elapsed += dynamic.round_trip(submit_dynamic_idle_wakeup, dynamic_idle_worker_count);
             }
             elapsed
         });
@@ -606,11 +574,9 @@ fn bench_thread_pool_implementations(c: &mut Criterion) {
             &worker_count,
             |b, &wc| b.iter(|| run_external_threadpool_cpu_work_batch(wc, task_count, inner_iters)),
         );
-        group.bench_with_input(
-            BenchmarkId::new("rayon", worker_count),
-            &worker_count,
-            |b, &wc| b.iter(|| run_rayon_cpu_work_batch(wc, task_count, inner_iters)),
-        );
+        group.bench_with_input(BenchmarkId::new("rayon", worker_count), &worker_count, |b, &wc| {
+            b.iter(|| run_rayon_cpu_work_batch(wc, task_count, inner_iters))
+        });
     }
     group.finish();
 }
@@ -625,11 +591,9 @@ fn bench_thread_pool_submit_modes(c: &mut Criterion) {
     for workload in benchmark_workloads() {
         for worker_count in workers {
             let case = format!("{}/workers={worker_count}", workload.name());
-            group.bench_with_input(
-                BenchmarkId::new("dynamic_submit", &case),
-                &worker_count,
-                |b, &wc| b.iter(|| run_dynamic_submit_batch(wc, task_count, workload)),
-            );
+            group.bench_with_input(BenchmarkId::new("dynamic_submit", &case), &worker_count, |b, &wc| {
+                b.iter(|| run_dynamic_submit_batch(wc, task_count, workload))
+            });
             group.bench_with_input(
                 BenchmarkId::new("dynamic_prestarted_submit", &case),
                 &worker_count,
@@ -640,11 +604,9 @@ fn bench_thread_pool_submit_modes(c: &mut Criterion) {
                 &worker_count,
                 |b, &wc| b.iter(|| run_dynamic_submit_tracked_batch(wc, task_count, workload)),
             );
-            group.bench_with_input(
-                BenchmarkId::new("fixed_submit", &case),
-                &worker_count,
-                |b, &wc| b.iter(|| run_fixed_submit_batch(wc, task_count, workload)),
-            );
+            group.bench_with_input(BenchmarkId::new("fixed_submit", &case), &worker_count, |b, &wc| {
+                b.iter(|| run_fixed_submit_batch(wc, task_count, workload))
+            });
             group.bench_with_input(
                 BenchmarkId::new("fixed_submit_tracked", &case),
                 &worker_count,
@@ -681,9 +643,7 @@ fn run_fixed_cpu_work_batch(pool_size: usize, task_count: usize, inner_iters: us
         let iterations = inner_iters;
         let index = task_index;
         let handle = pool
-            .submit_callable(move || {
-                Ok::<usize, Infallible>(compute_distributed_cpu_work(iterations, index, seed))
-            })
+            .submit_callable(move || Ok::<usize, Infallible>(compute_distributed_cpu_work(iterations, index, seed)))
             .expect("task should be accepted");
         handles.push(handle);
     }
@@ -708,9 +668,6 @@ fn run_external_threadpool_cpu_work_batch(pool_size: usize, task_count: usize, i
         });
     }
     drop(sender);
-    let sum = receiver
-        .into_iter()
-        .take(task_count)
-        .fold(0usize, usize::wrapping_add);
+    let sum = receiver.into_iter().take(task_count).fold(0usize, usize::wrapping_add);
     black_box(sum);
 }

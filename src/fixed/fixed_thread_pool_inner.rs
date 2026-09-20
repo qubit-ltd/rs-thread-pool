@@ -81,11 +81,7 @@ impl FixedThreadPoolInner {
     /// # Returns
     ///
     /// A shared state object ready for worker startup.
-    pub(crate) fn with_hooks(
-        pool_size: usize,
-        queue_capacity: Option<usize>,
-        hooks: ThreadPoolHooks,
-    ) -> Self {
+    pub(crate) fn with_hooks(pool_size: usize, queue_capacity: Option<usize>, hooks: ThreadPoolHooks) -> Self {
         Self {
             pool_size,
             state: ParkingLotMonitor::new(FixedThreadPoolState::new()),
@@ -249,11 +245,11 @@ impl FixedThreadPoolInner {
         if idle_workers == 0 {
             return;
         }
-        let requested = self.pending_worker_wakes.fetch_update(
-            Ordering::AcqRel,
-            Ordering::Acquire,
-            |pending_wakes| (pending_wakes < idle_workers).then_some(pending_wakes + 1),
-        );
+        let requested = self
+            .pending_worker_wakes
+            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |pending_wakes| {
+                (pending_wakes < idle_workers).then_some(pending_wakes + 1)
+            });
         if requested.is_ok() {
             self.state.lock().notify_one();
         }
@@ -271,11 +267,9 @@ impl FixedThreadPoolInner {
 
     /// Consumes one requested idle-worker wakeup if one exists.
     pub fn consume_pending_worker_wake(&self) {
-        let _ = self.pending_worker_wakes.fetch_update(
-            Ordering::AcqRel,
-            Ordering::Acquire,
-            |current| current.checked_sub(1),
-        );
+        let _ = self
+            .pending_worker_wakes
+            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |current| current.checked_sub(1));
     }
 
     /// Returns whether any caller is waiting for accepted work to drain.
@@ -421,8 +415,7 @@ impl FixedThreadPoolInner {
 
     /// Blocks until the pool is fully terminated.
     pub fn wait_for_termination(&self) {
-        self.state
-            .wait_until_ready(|state| self.is_terminated_locked(state));
+        self.state.wait_until_ready(|state| self.is_terminated_locked(state));
     }
 
     /// Waits for termination for at most `timeout`.
@@ -433,10 +426,11 @@ impl FixedThreadPoolInner {
             if remaining.is_zero() {
                 return self.is_terminated();
             }
-            match self.state.wait_until_ready_with_total_timeout(
-                remaining.min(Duration::from_secs(3600)),
-                |state| self.is_terminated_locked(state),
-            ) {
+            match self
+                .state
+                .wait_until_ready_with_total_timeout(remaining.min(Duration::from_secs(3600)), |state| {
+                    self.is_terminated_locked(state)
+                }) {
                 Ok(result) if result.is_ready() => return true,
                 Ok(_) => {}
                 Err(_) => return self.is_terminated(),
@@ -598,8 +592,7 @@ impl FixedThreadPoolInner {
     ///
     /// `true` after shutdown and after all workers and jobs are gone.
     pub fn is_terminated(&self) -> bool {
-        self.state
-            .with_read(|state| self.is_terminated_locked(state))
+        self.state.with_read(|state| self.is_terminated_locked(state))
     }
 
     /// Checks termination against one locked state snapshot.
@@ -710,20 +703,14 @@ mod tests {
     /// deterministically exercise step 3 without relying on timing.
     #[test]
     fn test_stop_reports_worker_side_cancel_after_stop_now() {
-        let inner = Arc::new(FixedThreadPoolInner::with_hooks(
-            1,
-            None,
-            ThreadPoolHooks::new(),
-        ));
+        let inner = Arc::new(FixedThreadPoolInner::with_hooks(1, None, ThreadPoolHooks::new()));
         let (cancelled_tx, cancelled_rx) = mpsc::channel();
 
         inner
             .submit(PoolJob::new(
                 Box::new(thread::yield_now),
                 Box::new(move || {
-                    cancelled_tx
-                        .send(())
-                        .expect("test should receive cancellation signal");
+                    cancelled_tx.send(()).expect("test should receive cancellation signal");
                 }),
             ))
             .expect("job should be accepted before stop");
@@ -735,10 +722,7 @@ mod tests {
         assert!(inner.admission.try_enter());
         let stop_inner = Arc::clone(&inner);
         let stop_thread = thread::spawn(move || stop_inner.stop());
-        wait_until(|| {
-            inner.stop_now.load(Ordering::Acquire)
-                && inner.submit_waiter_count.load(Ordering::Acquire) > 0
-        });
+        wait_until(|| inner.stop_now.load(Ordering::Acquire) && inner.submit_waiter_count.load(Ordering::Acquire) > 0);
 
         // This is the worker-side cancellation window being protected. The
         // public worker helper checks `stop_now` before stealing, so this test
@@ -770,11 +754,7 @@ mod tests {
 
     #[test]
     fn test_fixed_stop_waits_for_cancel_callback() {
-        let inner = Arc::new(FixedThreadPoolInner::with_hooks(
-            1,
-            None,
-            ThreadPoolHooks::new(),
-        ));
+        let inner = Arc::new(FixedThreadPoolInner::with_hooks(1, None, ThreadPoolHooks::new()));
         let (entered_tx, entered_rx) = mpsc::channel();
         let (release_tx, release_rx) = mpsc::channel();
         inner
@@ -782,9 +762,7 @@ mod tests {
                 Box::new(|| panic!("cancelled job must not run")),
                 Box::new(move || {
                     entered_tx.send(()).expect("cancel callback should start");
-                    release_rx
-                        .recv()
-                        .expect("cancel callback should be released");
+                    release_rx.recv().expect("cancel callback should be released");
                 }),
             ))
             .expect("job should be accepted");
@@ -800,9 +778,7 @@ mod tests {
         let (idle_done_tx, idle_done_rx) = mpsc::channel();
         let idle_thread = thread::spawn(move || {
             idle_inner.wait_until_idle();
-            idle_done_tx
-                .send(())
-                .expect("idle wait result should be reported");
+            idle_done_tx.send(()).expect("idle wait result should be reported");
         });
         let termination_inner = Arc::clone(&inner);
         let (termination_done_tx, termination_done_rx) = mpsc::channel();
@@ -812,25 +788,13 @@ mod tests {
                 .send(())
                 .expect("termination wait result should be reported");
         });
-        assert!(
-            idle_done_rx
-                .recv_timeout(Duration::from_millis(50))
-                .is_err()
-        );
-        assert!(
-            termination_done_rx
-                .recv_timeout(Duration::from_millis(50))
-                .is_err()
-        );
+        assert!(idle_done_rx.recv_timeout(Duration::from_millis(50)).is_err());
+        assert!(termination_done_rx.recv_timeout(Duration::from_millis(50)).is_err());
         assert!(!inner.is_terminated());
 
-        release_tx
-            .send(())
-            .expect("cancel callback should be released");
+        release_tx.send(()).expect("cancel callback should be released");
         let report = stop_thread.join().expect("stop should finish");
-        idle_thread
-            .join()
-            .expect("idle wait should finish after cancellation");
+        idle_thread.join().expect("idle wait should finish after cancellation");
         termination_thread
             .join()
             .expect("termination wait should finish after cancellation");
@@ -858,10 +822,7 @@ mod tests {
             ))
         }));
 
-        assert!(
-            result.is_ok(),
-            "accept callback panic must not escape submit"
-        );
+        assert!(result.is_ok(), "accept callback panic must not escape submit");
         assert!(matches!(
             result.expect("submit result should exist"),
             Err(crate::PoolJobSubmissionError::AcceptancePanicked)
