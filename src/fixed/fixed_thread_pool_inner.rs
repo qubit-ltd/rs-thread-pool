@@ -176,8 +176,9 @@ impl FixedThreadPoolInner {
     ///
     /// # Errors
     ///
-    /// Returns [`SubmissionError::Shutdown`] after shutdown or
-    /// [`SubmissionError::Saturated`] when the bounded queue is full.
+    /// Returns [`PoolJobSubmissionError::Rejected`] for closed admission or
+    /// a full bounded queue, or [`PoolJobSubmissionError::AcceptancePanicked`]
+    /// when the acceptance callback panics before publication.
     pub(crate) fn submit(&self, job: PoolJob) -> Result<(), PoolJobSubmissionError> {
         let _guard = self.begin_submit()?;
         if !self.reserve_queue_slot() {
@@ -192,7 +193,7 @@ impl FixedThreadPoolInner {
         Ok(())
     }
 
-    /// Enqueues one accepted job to a worker inbox or the global fallback.
+    /// Publishes one accepted job to the shared global queue.
     ///
     /// # Parameters
     ///

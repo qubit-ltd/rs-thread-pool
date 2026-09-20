@@ -7,302 +7,104 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![中文文档](https://img.shields.io/badge/文档-中文版-blue.svg)](README.zh_CN.md)
 
-Run synchronous Rust work off the caller thread when a service needs bounded
-admission, observable completion, and a deliberate shutdown path without
-adopting an async runtime or a data-parallel scheduler.
-
-## Overview
-
-Qubit Thread Pool provides OS-thread based `ExecutorService` implementations for
-synchronous work. It contains a dynamic `ThreadPool` for bursty workloads, a
-`FixedThreadPool` for stable worker counts.
-
-The crate is built on `qubit-executor`, so it shares the same task acceptance,
-shutdown, cancellation, and `TaskHandle` semantics as other Qubit executor
-implementations. It does not require Tokio or Rayon for normal use.
+Qubit Thread Pool runs synchronous Rust work on OS threads, with bounded
+admission, observable results and explicit shutdown. It helps services move
+blocking work away from request threads without adding an async runtime.
 
 ## Installation
 
 ```toml
 [dependencies]
 qubit-thread-pool = "0.10"
-qubit-executor = "0.8" # required when importing ExecutorService directly
+qubit-executor = "0.8"
 ```
 
-Declare `qubit-executor` directly when application code imports its traits or
-types; Rust does not expose transitive dependencies for imports.
-
-## Features
-
-- Dynamic `ThreadPool` with separate core and maximum worker limits.
-- Fixed-size `FixedThreadPool` for predictable worker counts.
-- `FixedThreadPool` implements `Default`: it is built from `FixedThreadPoolBuilder::default()` with the same defaults (worker count from available parallelism, unbounded queue, default thread name prefix). On failure to spawn workers it panics; use `FixedThreadPoolBuilder::default().build()` when you need a `Result`.
-- Bounded or unbounded queue configuration.
-- Lazy worker creation for the dynamic pool, with optional core-worker prestart.
-- Keep-alive and optional core-thread timeout for dynamic-pool workers.
-- Configurable worker thread name prefixes and stack sizes.
-- Worker and task lifecycle hooks for lightweight instrumentation.
-- `ThreadPoolStats` for observing pool configuration and runtime counters.
-- Shared `ExecutorService` lifecycle methods including `shutdown`, `stop`, and `wait_termination`.
-- Criterion benchmarks and test data for comparing Qubit pools with `threadpool` and Rayon.
-
-## Pool Models
-
-`ThreadPool` is modeled after the common core-size / maximum-size executor
-pattern. It creates workers lazily up to the core size, queues tasks after that,
-and grows toward the maximum size when a bounded queue cannot accept more work.
-This is useful when load is uneven and you want short bursts to use additional
-threads without keeping them alive forever.
-
-`FixedThreadPool` starts and maintains a fixed number of workers. It is useful
-when capacity planning is simple, when worker count should be stable, or when
-predictable scheduling is more important than dynamic growth.
-
-`FixedThreadPool::default()` is equivalent to `FixedThreadPoolBuilder::default().build()` except that build errors become a panic; prefer the builder's `build()` when you must handle `ExecutorServiceBuilderError`.
-
-Internally, both pool types use a lock-free global `Injector` with targeted
-idle-worker wakeups. Queue consumption is FIFO-ish but neither pool promises
-strict task start or completion ordering.
-
-Runtime size setters on `ThreadPool` are intended for explicit control-plane
-adjustments, such as operator-driven throttling or short-lived incident
-mitigation. Normal application code should prefer choosing pool sizes at
-construction time. Changing the core size at runtime updates future admission
-and prestart behavior, but it does not eagerly create workers for already
-queued work.
-
-## Queueing and Rejection
-
-The low-level `submit_job` API returns `PoolJobSubmissionError`. Its
-`AcceptancePanicked` variant means the custom acceptance callback panicked and
-the job was not published. Standard `ExecutorService` methods continue to
-return `SubmissionError`.
-
-A pool can use either an unbounded queue or a bounded queue. Bounded queues make
-back pressure explicit: when the pool cannot accept a task, submission returns
-`SubmissionError::Saturated` instead of silently growing memory use.
-
-An unbounded queue keeps submissions at the core worker count once the core is
-full; setting a larger maximum does not by itself create burst workers. Choose a
-bounded queue when the pool should grow toward its maximum under a burst:
-
-```rust
-let steady = ThreadPool::builder()
-    .core_pool_size(4)
-    .maximum_pool_size(4)
-    .unbounded_queue()
-    .build()?;
-let elastic = ThreadPool::builder()
-    .core_pool_size(4)
-    .maximum_pool_size(8)
-    .queue_capacity(128)
-    .build()?;
-```
-
-A successful `submit` means only that the pool accepted a fire-and-forget
-runnable. Use `submit_callable` when you need a `TaskHandle` for the final
-result, or `submit_tracked` / `submit_tracked_callable` when you also need
-status and pre-start cancellation.
-
-Acceptance callbacks run synchronously on the submission path. They must stay
-short. Calling `shutdown` on the same pool is safe: it closes admission and
-returns without waiting for the current submission. `stop`, `join`, and
-`wait_termination` can wait for the in-flight submission and must not be called
-synchronously from the callback. Non-blocking observation such as `stats` is
-safe.
-
-## Lifecycle Hooks
-
-Both `ThreadPoolBuilder` and `FixedThreadPoolBuilder` support optional hooks for
-worker and task instrumentation:
-
-- `before_worker_start`
-- `after_worker_stop`
-- `before_task`
-- `after_task`
-
-Each hook receives the stable worker index and runs on the worker thread. Hook
-panics are caught and ignored so instrumentation cannot terminate workers or
-corrupt executor accounting. Keep hooks short; they are part of the execution
-hot path.
-
-```rust
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-use qubit_executor::service::ExecutorService;
-use qubit_thread_pool::FixedThreadPool;
-
-let pool = FixedThreadPool::builder()
-    .pool_size(4)
-    .before_task(|worker| {
-        std::hint::black_box(worker);
-    })
-    .after_task(|worker| {
-        std::hint::black_box(worker);
-    })
-    .build()?;
-
-pool.submit(|| Ok::<(), std::io::Error>(()))?;
-pool.shutdown();
-Ok(())
-}
-```
-
-## Shutdown Behavior
-
-`shutdown` stops accepting new tasks and lets already accepted tasks finish.
-`stop` stops accepting new tasks and cancels work that is still queued or
-not yet claimed by a worker. A task accepted through direct initial-worker
-dispatch can race with `stop`: once acceptance succeeds, submission returns
-`Ok(())`, and the task is then either run or cancelled at the worker's claim
-boundary. Already claimed or running OS-thread tasks are not forcefully killed;
-they finish according to their own code. `StopReport` is a point-in-time
-observation of queued, running, and cancelled work, not an exact synchronization
-barrier.
-
-For low-level `submit_job`, `Ok(())` means only that the job crossed the
-acceptance boundary. It does not mean that the run callback has started or will
-finish successfully.
-
-`shutdown` closes admission, changes the lifecycle, wakes workers, and returns
-without waiting for in-flight submissions or accepted work. Use
-`wait_termination` as the completion barrier; it blocks the current thread
-until all accepted work has completed or been cancelled.
-Idle and termination waits also include cancellation callbacks, so they return
-only after queued jobs have finished their cancellation handling.
-Do not call `join()` or `wait_termination()` from a task running on the same
-pool unless another worker can always make progress; otherwise the task can
-self-wait.
+Rust 1.94 or later is required. Declare `qubit-executor` directly when
+importing its `ExecutorService` trait; normal pool use requires neither
+Tokio nor Rayon.
 
 ## Quick Start
 
-### Dynamic thread pool
+A service processing bursts of blocking work can retain two core workers,
+grow to eight under queue pressure, and reject excess submissions. This
+minimal callable returns an observable result, then drains and terminates
+the pool.
 
 ```rust
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-use std::io;
+    use std::io;
 
-use qubit_executor::service::ExecutorService;
-use qubit_thread_pool::ThreadPool;
+    use qubit_executor::service::ExecutorService;
+    use qubit_thread_pool::ThreadPool;
 
-let pool = ThreadPool::builder()
-    .core_pool_size(2)
-    .maximum_pool_size(8)
-    .queue_capacity(128)
-    .thread_name_prefix("app-worker")
-    .build()?;
+    let pool = ThreadPool::builder()
+        .core_pool_size(2)
+        .maximum_pool_size(8)
+        .queue_capacity(128)
+        .thread_name_prefix("app-worker")
+        .build()?;
 
-let handle = pool.submit_callable(|| Ok::<usize, io::Error>(40 + 2))?;
-assert_eq!(handle.get()?, 42);
-pool.shutdown();
-Ok(())
+    let handle = pool.submit_callable(|| Ok::<usize, io::Error>(40 + 2))?;
+    assert_eq!(handle.get()?, 42);
+    pool.shutdown();
+    pool.wait_termination();
+    Ok(())
 }
 ```
 
-### Fixed thread pool
+For stable capacity, construct
+`FixedThreadPool::builder().pool_size(4).queue_capacity(128).build()?`.
+It prestarts its workers. `FixedThreadPool::default()` uses available
+parallelism and an unbounded queue; use the builder to handle build errors
+instead of panicking if worker creation fails.
 
-```rust
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-use std::io;
+## Choosing a Pool
 
-use qubit_executor::service::ExecutorService;
-use qubit_thread_pool::FixedThreadPool;
+| Pool | Use when | Worker policy |
+| --- | --- | --- |
+| `ThreadPool` | Blocking demand varies and bursts need spare capacity. | Lazy creation up to core size, then queueing, then growth up to maximum under bounded-queue pressure. |
+| `FixedThreadPool` | The worker count should stay fixed. | Prestart the configured count; no resizing. |
 
-let pool = FixedThreadPool::builder()
-    .pool_size(4)
-    .queue_capacity(256)
-    .build()?;
+Both provide thread name/stack configuration, worker/task hooks,
+`ThreadPoolStats`, callable results and tracked tasks. Dynamic pools also
+support prestart, keep-alive and optional core timeout. Neither pool schedules
+async futures, implements CPU divide-and-conquer scheduling, or promises
+strict task start/completion order.
 
-let handle = pool.submit_callable(|| Ok::<usize, io::Error>(6 * 7))?;
-assert_eq!(handle.get()?, 42);
-pool.shutdown();
-Ok(())
-}
-```
+## Queueing and Backpressure
 
-With default builder settings you can also write `let pool = FixedThreadPool::default();`—same as `FixedThreadPoolBuilder::default().build()` but panics if worker threads cannot be spawned.
+A bounded queue makes overload visible as `SubmissionError::Saturated`;
+handle it by limiting demand, retrying with an application policy, or
+adjusting capacity. An unbounded queue can keep growing in memory and does
+not trigger dynamic growth above core size merely because maximum size is
+larger. Queue capacity is not a total outstanding-task limit: running work
+is excluded, and dynamic worker growth can reserve an additional job slot.
 
-## Choosing an Executor
+`submit` accepts fire-and-forget work. Use `submit_callable` for a result,
+or tracked submission for state and cancellation before execution.
+Low-level `ThreadPool::submit_job` returns `PoolJobSubmissionError`,
+including `AcceptancePanicked`; acceptance failure invokes neither run nor
+cancel. See the guide for callback restrictions.
 
-Use `ThreadPool` when a service has blocking work with bursty traffic and needs
-core/maximum worker tuning. Use `FixedThreadPool` when the desired worker count
-is stable and should not grow dynamically. Use `qubit-executor`'s scheduled
-executor service when you need delayed or deadline-based task submission.
+## Shutdown and Stop
 
-For CPU-bound divide-and-conquer work, prefer `qubit-rayon-executor`. For Tokio
-applications, prefer `qubit-tokio-executor` for Tokio blocking tasks or async IO
-futures. For application-level routing across all of these domains, use
-`qubit-execution-services`.
+`shutdown()` closes admission and returns without waiting for submissions
+or accepted work. Follow it with `wait_termination()` to finish graceful
+shutdown. `stop()` waits for in-flight admission and cancels jobs that have
+not crossed the worker claim boundary; running work cannot be forcibly
+killed. It is not a termination barrier. `join()` waits for work to drain
+without closing admission. These waits include cancellation callbacks;
+do not call them from a task on the same pool. Stats and `StopReport`
+are monitoring snapshots, not synchronization barriers.
 
 ## Learn More
 
 Read the [English user guide](doc/user_guide.md) or
-[中文版用户手册](doc/user_guide.zh_CN.md) for a scenario-led setup guide,
-queueing decisions, lifecycle handling, and diagnostics. API details are on
-[docs.rs](https://docs.rs/qubit-thread-pool).
-
-For upgrades, see the [0.9 to 0.10 migration guide](doc/migration_0.9_to_0.10.md).
-
-## Benchmarks
-
-This crate includes Criterion benchmarks migrated with the thread-pool code from
-the original concurrent module split. The benchmarks compare Qubit thread-pool
-implementations with common open-source alternatives such as `threadpool` and
-Rayon under representative submission patterns.
-
-Run the benchmark suite with:
-
-```bash
-cargo bench --bench thread_pool_bench
-```
-
-The submission-mode benchmark compares `ThreadPool.submit`,
-`ThreadPool.submit_tracked`, `FixedThreadPool.submit`,
-`FixedThreadPool.submit_tracked`, the external `threadpool` crate, and Rayon on
-`cpu_light`, `cpu_medium`, and `cpu_heavy` tasks. CPU task costs are
-deterministically varied with a bell-shaped distribution so worker scheduling,
-queue contention, and wakeup behavior are visible instead of every task
-completing at the same time.
-
-The `thread_pool_idle_wakeup` group separately measures a single prestarted
-idle worker accepting a no-op task in `ThreadPool` and `FixedThreadPool`. It
-times submission through task completion while returning the worker to idle
-outside the timed interval.
-
-Benchmark inputs and historical comparison data are kept under `test-data`.
-
-### Historical local run
-
-The latest local run used
-`cargo bench --bench thread_pool_bench -- thread_pool_submit_modes` on
-2026-05-11 with Rust 1.94.1 on an Apple M3 Max with 16 hardware threads. The
-tables below show Criterion mean wall-clock time for `thread_pool_submit_modes`;
-lower is better. Each case submits 2,000 tasks. The `submit_tracked` cases use
-the same channel-based task completion wait as `submit`, so the table compares
-submission modes without mixing in handle wait costs.
-
-#### `cpu_light`
-
-| Workers | `ThreadPool.submit` | `ThreadPool.submit_tracked` | `FixedThreadPool.submit` | `FixedThreadPool.submit_tracked` | `threadpool.execute` | Rayon |
-| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 1 | 0.444 ms | 0.546 ms | 0.388 ms | 0.439 ms | 0.386 ms | 0.144 ms |
-| 4 | 0.726 ms | 1.285 ms | 0.560 ms | 0.981 ms | 0.740 ms | 0.082 ms |
-| 8 | 1.758 ms | 4.561 ms | 0.967 ms | 1.402 ms | 1.065 ms | 0.142 ms |
-
-#### `cpu_medium`
-
-| Workers | `ThreadPool.submit` | `ThreadPool.submit_tracked` | `FixedThreadPool.submit` | `FixedThreadPool.submit_tracked` | `threadpool.execute` | Rayon |
-| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 1 | 2.031 ms | 2.133 ms | 2.029 ms | 2.115 ms | 2.037 ms | 1.439 ms |
-| 4 | 1.354 ms | 1.057 ms | 1.321 ms | 1.296 ms | 1.455 ms | 0.425 ms |
-| 8 | 1.902 ms | 3.868 ms | 0.959 ms | 1.280 ms | 2.022 ms | 0.391 ms |
-
-#### `cpu_heavy`
-
-| Workers | `ThreadPool.submit` | `ThreadPool.submit_tracked` | `FixedThreadPool.submit` | `FixedThreadPool.submit_tracked` | `threadpool.execute` | Rayon |
-| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 1 | 14.256 ms | 14.360 ms | 14.251 ms | 14.198 ms | 14.157 ms | 11.078 ms |
-| 4 | 4.384 ms | 4.588 ms | 4.715 ms | 4.533 ms | 4.594 ms | 3.311 ms |
-| 8 | 3.505 ms | 3.502 ms | 3.391 ms | 3.993 ms | 4.335 ms | 2.965 ms |
+[中文版用户手册](doc/user_guide.zh_CN.md) for callbacks, queue policies,
+lifecycle handling and diagnostics. See the [current design](doc/design.md),
+[performance and historical measurements](doc/performance.md),
+[0.9 to 0.10 migration guide](doc/migration_0.9_to_0.10.md), and
+[API documentation](https://docs.rs/qubit-thread-pool).
 
 ## Testing
 

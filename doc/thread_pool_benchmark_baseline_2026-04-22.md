@@ -1,5 +1,9 @@
 # ThreadPool Benchmark Baseline (2026-04-22)
 
+> 历史快照，不是当前架构规范。当前规范见[中文版设计](design.zh_CN.md)或
+> [English design](design.md)。Historical snapshot, not the current architecture
+> specification; follow the linked current design documents.
+
 ## 环境信息
 
 - 日期: 2026-04-22

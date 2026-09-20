@@ -1,6 +1,7 @@
 # Benchmark Test Data
 
-This directory stores external datasets used by `benches/thread_pool_bench.rs`.
+This directory preserves datasets used by historical benchmark experiments.
+The default `benches/thread_pool_bench.rs` does not currently load them.
 
 ## Layout
 
@@ -28,7 +29,8 @@ By default, the script writes into this folder. You can override the target root
 THREAD_POOL_BENCH_DATA_DIR=/abs/path/to/test-data ./test-data/fetch_datasets.sh
 ```
 
-After data is ready, run benchmarks:
+The current benchmark uses generated CPU workloads and does not require these
+datasets. Run it independently with:
 
 ```bash
 cargo bench --bench thread_pool_bench -- --warm-up-time 0.2 --measurement-time 1 --sample-size 50

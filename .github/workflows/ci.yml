@@ -35,7 +35,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest]
+        os: [ubuntu-latest, macos-14, windows-latest]
     defaults:
       run:
         shell: bash
@@ -54,6 +54,9 @@ jobs:
       - name: Run style, hook, and coverage Clippy
         if: runner.os == 'Linux'
         run: ./ci-check.sh --only=style,clippy,coverage-cfg-clippy,project-hook
+      - name: Run release and package suites
+        if: runner.os == 'Linux'
+        run: ./ci-check.sh --only=release-build,package
       - name: Install Clippy toolchain on additional platforms
         if: runner.os != 'Linux'
         run: rustup toolchain install nightly-2026-06-05 --profile minimal --component clippy
@@ -63,13 +66,13 @@ jobs:
       - name: Install legacy CI build toolchain
         run: rustup toolchain install 1.94.0 --profile minimal
       - name: Run documentation tests
-        run: cargo +1.94.0 test --doc --verbose
+        run: cargo +1.94.0 test --doc --all-features --locked --verbose
       - name: Run README dependency-version check
         run: ./.infra/tools/infra-tool.sh rs-infra-verify --project "$GITHUB_WORKSPACE" run --suite readme
       - name: Install documentation toolchain
         run: rustup toolchain install 1.94.0 --profile minimal
       - name: Generate strict all-features documentation
-        run: RUSTDOCFLAGS="-D warnings -D missing-docs" cargo +1.94.0 doc --all-features --no-deps --verbose
+        run: RUSTDOCFLAGS="-D warnings -D missing-docs" cargo +1.94.0 doc --all-features --no-deps --locked --verbose
       - name: Upload documentation artifact
         if: runner.os == 'Linux'
         uses: actions/upload-artifact@v7
@@ -282,9 +285,10 @@ jobs:
         if: ${{ steps.suite-config.outputs.enabled == 'true' }}
         run: |
           if [ "${{ matrix.suite }}" = "loom" ]; then
-            export RUSTFLAGS="--cfg loom"
+            RUSTFLAGS="--cfg loom" cargo test --features loom-model --lib loom_ --locked
+          else
+            ./.infra/tools/infra-tool.sh rs-infra-verify --project "$GITHUB_WORKSPACE" run --suite "${{ matrix.suite }}"
           fi
-          ./.infra/tools/infra-tool.sh rs-infra-verify --project "$GITHUB_WORKSPACE" run --suite "${{ matrix.suite }}"
       - name: Skip unconfigured infrastructure suite
         if: ${{ steps.suite-config.outputs.enabled != 'true' }}
         run: echo "${{ matrix.suite }} is not configured; skipping."

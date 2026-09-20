@@ -61,15 +61,17 @@ impl PoolJob {
     ///
     /// The pool invokes `accept` exactly once after the submission crosses the
     /// acceptance boundary. If submission is rejected before acceptance,
-    /// neither `accept`, `run`, nor `cancel` is invoked. Custom callbacks run
-    /// synchronously and should not block. The acceptance callback must not
-    /// synchronously call `shutdown`, `stop`, `join`, or `wait_termination` on
-    /// the same pool, because those operations may wait for the in-flight
-    /// submission and deadlock. Non-blocking observation such as `stats` is
-    /// safe. Panics raised by these callbacks are caught and ignored by the
-    /// pool job wrapper; an
-    /// `accept` panic is reported to the pool as a failed acceptance
-    /// callback.
+    /// neither `accept`, `run`, nor `cancel` is invoked.
+    ///
+    /// Acceptance runs synchronously on the submitting thread after admission and
+    /// any required worker creation succeeds. The callback may call `shutdown` on
+    /// the same pool because shutdown closes admission without waiting. It must not
+    /// call `stop`, `join`, or `wait_termination`, which may wait for this submission
+    /// to leave admission. Keep callbacks short; non-blocking observation such as
+    /// `stats` is safe. An acceptance panic is contained and reported as
+    /// [`AcceptancePanicked`](crate::PoolJobSubmissionError::AcceptancePanicked);
+    /// the job is neither run nor cancelled. Run and cancellation callback
+    /// panics are caught and ignored.
     ///
     /// # Parameters
     ///

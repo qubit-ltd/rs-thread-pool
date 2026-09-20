@@ -174,10 +174,13 @@ impl ThreadPool {
     /// run synchronously on the thread that reaches the corresponding lifecycle
     /// event and should stay short and non-blocking. Callback panics are
     /// contained; if an acceptance callback panics, the job is not queued,
-    /// run, or cancelled. The acceptance callback must not synchronously call
-    /// `shutdown`, `stop`, `join`, or `wait_termination` on this pool, because
-    /// those operations may wait for the in-flight submission and deadlock.
-    /// Non-blocking observation such as [`Self::stats`] is safe.
+    /// run, or cancelled.
+    ///
+    /// Acceptance runs synchronously on the submitting thread after admission and
+    /// any required worker creation succeeds. The callback may call `shutdown` on
+    /// the same pool because shutdown closes admission without waiting. It must not
+    /// call `stop`, `join`, or `wait_termination`, which may wait for this submission
+    /// to leave admission. Non-blocking observation such as [`Self::stats`] is safe.
     ///
     /// # Parameters
     ///
@@ -189,10 +192,9 @@ impl ThreadPool {
     ///
     /// # Errors
     ///
-    /// Returns [`SubmissionError::Shutdown`] after shutdown, returns
-    /// [`SubmissionError::Saturated`] when the bounded pool cannot accept
-    /// more work, or returns [`SubmissionError::WorkerSpawnFailed`] when a
-    /// required worker cannot be created.
+    /// Returns [`PoolJobSubmissionError::Rejected`] when the executor rejects the
+    /// job, or [`PoolJobSubmissionError::AcceptancePanicked`] when the acceptance
+    /// callback panics. In the latter case the job is neither run nor cancelled.
     #[inline]
     pub fn submit_job(&self, job: PoolJob) -> Result<(), PoolJobSubmissionError> {
         self.inner.submit(job)

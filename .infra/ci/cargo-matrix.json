@@ -12,6 +12,12 @@
       "commands": ["check", "test", "doc"],
       "defaultFeatures": false,
       "features": []
+    },
+    {
+      "name": "loom-model-compile",
+      "commands": ["check"],
+      "defaultFeatures": false,
+      "features": ["loom-model"]
     }
   ]
 }

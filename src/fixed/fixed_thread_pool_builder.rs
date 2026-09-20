@@ -56,6 +56,7 @@ impl FixedThreadPoolBuilder {
     /// # Returns
     ///
     /// A builder with a fixed worker count equal to available parallelism.
+    #[inline]
     pub fn new() -> Self {
         Self::default()
     }
@@ -69,6 +70,7 @@ impl FixedThreadPoolBuilder {
     /// # Returns
     ///
     /// This builder for fluent configuration.
+    #[inline]
     pub fn pool_size(mut self, pool_size: usize) -> Self {
         self.pool_size = pool_size;
         self
@@ -83,6 +85,7 @@ impl FixedThreadPoolBuilder {
     /// # Returns
     ///
     /// This builder for fluent configuration.
+    #[inline]
     pub fn queue_capacity(mut self, capacity: usize) -> Self {
         self.queue_capacity = Some(capacity);
         self
@@ -93,6 +96,7 @@ impl FixedThreadPoolBuilder {
     /// # Returns
     ///
     /// This builder for fluent configuration.
+    #[inline]
     pub fn unbounded_queue(mut self) -> Self {
         self.queue_capacity = None;
         self
@@ -107,6 +111,7 @@ impl FixedThreadPoolBuilder {
     /// # Returns
     ///
     /// This builder for fluent configuration.
+    #[inline]
     pub fn thread_name_prefix(mut self, prefix: &str) -> Self {
         self.thread_name_prefix = prefix.to_owned();
         self
@@ -121,6 +126,7 @@ impl FixedThreadPoolBuilder {
     /// # Returns
     ///
     /// This builder for fluent configuration.
+    #[inline]
     pub fn stack_size(mut self, stack_size: usize) -> Self {
         self.stack_size = Some(stack_size);
         self
@@ -135,6 +141,7 @@ impl FixedThreadPoolBuilder {
     /// # Returns
     ///
     /// This builder for fluent configuration.
+    #[inline]
     pub fn before_worker_start<F>(mut self, hook: F) -> Self
     where
         F: Fn(usize) + Send + Sync + 'static,
@@ -152,6 +159,7 @@ impl FixedThreadPoolBuilder {
     /// # Returns
     ///
     /// This builder for fluent configuration.
+    #[inline]
     pub fn after_worker_stop<F>(mut self, hook: F) -> Self
     where
         F: Fn(usize) + Send + Sync + 'static,
@@ -169,6 +177,7 @@ impl FixedThreadPoolBuilder {
     /// # Returns
     ///
     /// This builder for fluent configuration.
+    #[inline]
     pub fn before_task<F>(mut self, hook: F) -> Self
     where
         F: Fn(usize) + Send + Sync + 'static,
@@ -186,6 +195,7 @@ impl FixedThreadPoolBuilder {
     /// # Returns
     ///
     /// This builder for fluent configuration.
+    #[inline]
     pub fn after_task<F>(mut self, hook: F) -> Self
     where
         F: Fn(usize) + Send + Sync + 'static,

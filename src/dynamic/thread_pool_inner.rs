@@ -300,7 +300,9 @@ impl ThreadPoolInner {
     /// Returns [`SubmissionError::Shutdown`] after shutdown, returns
     /// [`SubmissionError::Saturated`] when the queue and worker capacity are
     /// full, or returns [`SubmissionError::WorkerSpawnFailed`] if a required
-    /// worker cannot be created.
+    /// worker cannot be created. These errors are wrapped in
+    /// [`PoolJobSubmissionError::Rejected`]. Returns
+    /// [`PoolJobSubmissionError::AcceptancePanicked`] if acceptance panics.
     pub(crate) fn submit(self: &Arc<Self>, job: PoolJob) -> Result<(), PoolJobSubmissionError> {
         let _guard = self.begin_submit()?;
         self.submit_with_state_lock(job)

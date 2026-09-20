@@ -7,234 +7,70 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![English Document](https://img.shields.io/badge/Document-English-blue.svg)](README.md)
 
-当服务需要把同步 Rust 工作移出调用线程，同时保留有界接纳、可观测的完成结果和可控的关闭过程时，可使用本 crate，而无需引入异步运行时或数据并行调度器。
-
-## 概览
-
-Qubit Thread Pool 为同步工作提供基于 OS 线程的 `ExecutorService` 实现。它包含适合突发负载的动态 `ThreadPool`，以及适合稳定 worker 数量的 `FixedThreadPool`。
-
-本 crate 基于 `qubit-executor` 构建，因此与其它 Qubit executor 实现共享任务接受、关闭、取消和 `TaskHandle` 语义。普通使用不需要依赖 Tokio 或 Rayon。
+Qubit Thread Pool 用 OS 线程执行同步 Rust 任务，支持有界接纳、结果观察和明确的关闭流程。服务可以把阻塞工作移出请求线程，无需为此引入异步运行时。
 
 ## 安装
 
 ```toml
 [dependencies]
 qubit-thread-pool = "0.10"
-qubit-executor = "0.8" # 直接导入 ExecutorService 时需要
+qubit-executor = "0.8"
 ```
 
-当业务代码直接导入 trait 或类型时，必须声明 `qubit-executor` 直接依赖；Rust
-不会把传递依赖自动开放为可导入的 crate。
-
-## 功能
-
-- 提供动态 `ThreadPool`，支持分离的 core worker 与 maximum worker 限制。
-- 提供固定大小 `FixedThreadPool`，用于可预测的 worker 数量。
-- `FixedThreadPool` 实现 `Default`：通过 `FixedThreadPoolBuilder::default()` 的默认配置构建（worker 数量取可用并行度、无界队列、默认线程名前缀）。若 worker 线程创建失败则会 panic；需要 `Result` 时请使用 `FixedThreadPoolBuilder::default().build()`。
-- 支持有界或无界队列配置。
-- 动态池支持懒创建 worker，也支持预启动 core worker。
-- 动态池支持 keep-alive 与可选 core 线程超时。
-- 支持配置 worker 线程名前缀和栈大小。
-- 支持 worker 与 task 生命周期 hook，用于轻量级观测。
-- 提供 `ThreadPoolStats`，用于观察线程池配置和运行时计数。
-- 共享 `ExecutorService` 生命周期方法，包括 `shutdown`、`stop` 和 `wait_termination`。
-- 提供 Criterion benchmark 与测试数据，用于对比 Qubit 线程池、`threadpool` 和 Rayon。
-
-## 线程池模型
-
-`ThreadPool` 采用常见的 core-size / maximum-size 执行器模型。它会懒创建 worker 直到 core size，之后优先排队；当有界队列无法继续接收任务时，再向 maximum size 增长。这适用于负载不均匀，并希望短时间突发可以使用额外线程但不长期保留这些线程的场景。
-
-`FixedThreadPool` 启动并维持固定数量的 worker。它适合容量规划简单、worker 数量需要稳定，或调度可预测性比动态扩缩更重要的场景。
-
-`FixedThreadPool::default()` 与 `FixedThreadPoolBuilder::default().build()` 等价，但构建失败会转为 panic；若需要处理错误，请使用 builder 的 `build()` 并处理 `ExecutorServiceBuilderError`。
-
-内部实现上，两种线程池都使用 lock-free 全局 `Injector`，并通过定向唤醒处理 idle worker。队列消费大致保持 FIFO，但两种线程池都不承诺任务启动或完成的严格顺序。
-
-`ThreadPool` 的运行时尺寸调整接口主要面向显式控制面操作，例如运维限流、临时扩容或故障处置。普通业务代码应优先在构造时确定线程池大小。运行时调整 core size 会影响后续提交和预启动行为，但不会主动为已经排队的任务创建 worker。
-
-## 排队与拒绝
-
-底层 `submit_job` API 返回 `PoolJobSubmissionError`。其中
-`AcceptancePanicked` 表示自定义接纳回调发生 panic，任务不会发布；标准
-`ExecutorService` 方法仍返回 `SubmissionError`。
-
-接纳回调会在提交路径上同步执行，应保持短小。可以在回调中调用同一个线程池的
-`shutdown`，它只关闭接纳并立即返回，不等待当前提交。不能同步调用 `stop`、`join`
-或 `wait_termination`，因为这些操作可能等待当前提交完成并造成死锁；读取 `stats`
-等非阻塞观测是安全的。
-
-线程池可以使用无界队列或有界队列。有界队列能明确表达背压：当线程池无法接收任务时，提交会返回 `SubmissionError::Saturated`，而不是静默增加内存使用。
-
-无界队列在 core worker 达到上限后会继续排队；仅增加 maximum size 不会让突发任务创建额外 worker。如果希望突发时扩展到 maximum，应使用有界队列：
-
-```rust
-let steady = ThreadPool::builder()
-    .core_pool_size(4)
-    .maximum_pool_size(4)
-    .unbounded_queue()
-    .build()?;
-let elastic = ThreadPool::builder()
-    .core_pool_size(4)
-    .maximum_pool_size(8)
-    .queue_capacity(128)
-    .build()?;
-```
-
-`submit` 成功只表示线程池接受了一个 fire-and-forget runnable。需要最终结果时使用 `submit_callable` 获取 `TaskHandle`；还需要状态和启动前取消时，使用 `submit_tracked` 或 `submit_tracked_callable`。
-
-## 生命周期 Hook
-
-`ThreadPoolBuilder` 与 `FixedThreadPoolBuilder` 都支持可选的 worker / task 观测 hook：
-
-- `before_worker_start`
-- `after_worker_stop`
-- `before_task`
-- `after_task`
-
-每个 hook 都会收到稳定的 worker index，并在 worker 线程上执行。hook 发生 panic 时会被捕获并忽略，因此观测代码不会杀死 worker，也不会破坏 executor 计数。hook 位于执行热路径上，应该保持短小。
-
-```rust
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-use qubit_executor::service::ExecutorService;
-use qubit_thread_pool::FixedThreadPool;
-
-let pool = FixedThreadPool::builder()
-    .pool_size(4)
-    .before_task(|worker| {
-        std::hint::black_box(worker);
-    })
-    .after_task(|worker| {
-        std::hint::black_box(worker);
-    })
-    .build()?;
-
-pool.submit(|| Ok::<(), std::io::Error>(()))?;
-pool.shutdown();
-Ok(())
-}
-```
-
-## 关闭行为
-
-`shutdown` 会停止接受新任务，并允许已接受的任务完成。`stop` 会停止接受新任务，并取消仍在队列中或尚未被 worker 领取的工作。通过直接派发给新 worker 的任务可能与 `stop` 并发：接纳成功后提交返回 `Ok(())`，任务随后在 worker 领取边界被决定执行或取消。已经被 worker 领取或正在 OS 线程上运行的任务不会被强制杀死，而是由任务自身代码决定何时结束。`StopReport` 是排队、运行和取消数量的时间点观测，不是精确同步屏障。
-
-对于低层 `submit_job`，`Ok(())` 只表示任务跨过了接纳边界，不表示 run 回调已经开始，也不表示任务最终执行成功。
-
-`shutdown` 关闭接纳、切换生命周期并唤醒 worker 后立即返回，不等待当前提交或已接纳工作。
-`wait_termination` 才是完成屏障：它会阻塞当前线程，直到所有已接纳工作完成或取消。
-不要在同一个线程池正在执行的任务中调用 `join()` 或 `wait_termination()`，除非能够确保有其它 worker 持续推进任务；否则任务可能等待自身完成。
-空闲和终止等待也会包含取消回调，只有队列任务完成取消处理后才会返回。
+需要 Rust 1.94 或更高版本。导入 `ExecutorService` trait 时，必须直接声明 `qubit-executor` 依赖；普通线程池用法不依赖 Tokio 或 Rayon。
 
 ## 快速开始
 
-### 动态线程池
+处理突发阻塞任务的服务可以保留两个 core worker，在队列承压时增长至八个，并拒绝超额提交。下面的最小示例提交一个能返回结果的任务，观察结果后等待线程池平滑终止。
 
 ```rust
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-use std::io;
+    use std::io;
 
-use qubit_executor::service::ExecutorService;
-use qubit_thread_pool::ThreadPool;
+    use qubit_executor::service::ExecutorService;
+    use qubit_thread_pool::ThreadPool;
 
-let pool = ThreadPool::builder()
-    .core_pool_size(2)
-    .maximum_pool_size(8)
-    .queue_capacity(128)
-    .thread_name_prefix("app-worker")
-    .build()?;
+    let pool = ThreadPool::builder()
+        .core_pool_size(2)
+        .maximum_pool_size(8)
+        .queue_capacity(128)
+        .thread_name_prefix("app-worker")
+        .build()?;
 
-let handle = pool.submit_callable(|| Ok::<usize, io::Error>(40 + 2))?;
-assert_eq!(handle.get()?, 42);
-pool.shutdown();
-Ok(())
+    let handle = pool.submit_callable(|| Ok::<usize, io::Error>(40 + 2))?;
+    assert_eq!(handle.get()?, 42);
+    pool.shutdown();
+    pool.wait_termination();
+    Ok(())
 }
 ```
 
-### 固定大小线程池
+容量长期稳定时，可使用
+`FixedThreadPool::builder().pool_size(4).queue_capacity(128).build()?`，
+在创建时预启动 worker。`FixedThreadPool::default()` 按可用并行度选择 worker 数量，并使用无界队列；若需要处理创建 worker 的错误，应使用 builder，避免默认构造失败时 panic。
 
-```rust
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-use std::io;
+## 选择线程池
 
-use qubit_executor::service::ExecutorService;
-use qubit_thread_pool::FixedThreadPool;
+| 线程池 | 适用场景 | worker 策略 |
+| --- | --- | --- |
+| `ThreadPool` | 阻塞工作量变化明显，需要为突发流量预留扩容空间。 | 按需增长到 core size，随后排队；有界队列承压时再增长到 maximum size。 |
+| `FixedThreadPool` | worker 数量需要保持稳定。 | 创建时启动配置数量的 worker，运行期间不调整规模。 |
 
-let pool = FixedThreadPool::builder()
-    .pool_size(4)
-    .queue_capacity(256)
-    .build()?;
+两者都支持线程名称/栈配置、worker/task hook、`ThreadPoolStats`、callable 结果和 tracked 任务。动态池还支持预启动、keep-alive 和可选的 core 超时。两个池都不调度异步 future，不实现 CPU 分治调度，也不保证严格的任务启动或完成顺序。
 
-let handle = pool.submit_callable(|| Ok::<usize, io::Error>(6 * 7))?;
-assert_eq!(handle.get()?, 42);
-pool.shutdown();
-Ok(())
-}
-```
+## 排队与背压
 
-若使用与 `FixedThreadPoolBuilder::default()` 相同的默认配置，也可写 `let pool = FixedThreadPool::default();`，等价于 `FixedThreadPoolBuilder::default().build()`，但若 worker 线程无法创建则会 panic。
+有界队列通过 `SubmissionError::Saturated` 明确反馈过载，应用可以限流、按自身策略重试或调整容量。无界队列可能持续占用内存；仅增加 maximum size 不会使动态池突破 core size 扩容。队列容量不是未完成任务总数的上限：运行中的任务不占队列槽位，动态扩容还可以额外预留任务槽位。
 
-## 如何选择 Executor
+不需要结果时使用 `submit`；需要结果时使用 `submit_callable`；还需要状态与执行前取消时使用 tracked 提交。底层 `ThreadPool::submit_job` 返回 `PoolJobSubmissionError`，其中包含 `AcceptancePanicked`；接纳失败不会调用 run 或 cancel。回调的使用限制见用户手册。
 
-当服务包含 blocking 工作、流量有突发性，并且需要 core/maximum worker 调优时，使用 `ThreadPool`。当目标 worker 数量稳定且不应动态增长时，使用 `FixedThreadPool`。当你需要延迟或 deadline 任务提交时，使用 `qubit-executor` 中的 scheduled executor service。
+## shutdown 与 stop
 
-CPU 密集型、适合 divide-and-conquer 的工作，优先使用 `qubit-rayon-executor`。Tokio 应用中的 Tokio blocking 任务或 async IO future，优先使用 `qubit-tokio-executor`。应用层需要统一路由这些执行域时，使用 `qubit-execution-services`。
+`shutdown()` 关闭接纳入口后返回，不等待提交或已接纳任务结束；随后调用 `wait_termination()` 才能完成平滑关闭。`stop()` 会等待正在接纳的提交，并取消尚未跨过 worker 领取边界的任务，无法强制终止运行中的工作，也不是终止屏障。`join()` 等待任务处理完毕，但不关闭接纳入口。这些等待包含取消回调，不能从同一个池的任务中调用。统计信息和 `StopReport` 用于监控，不是同步屏障。
 
 ## 延伸阅读
 
-升级时请阅读 [0.9 到 0.10 迁移指南](doc/migration_0.9_to_0.10.zh_CN.md)。
-
-需要从配置到关闭流程的完整说明时，请阅读[英文用户手册](doc/user_guide.md)或[中文版用户手册](doc/user_guide.zh_CN.md)，其中包含队列策略、生命周期处理和诊断方法。API 细节见 [docs.rs](https://docs.rs/qubit-thread-pool)。
-
-## Benchmark
-
-本 crate 包含随线程池代码从原 concurrent 模块迁移出来的 Criterion benchmark。这些 benchmark 用代表性的提交模式，对比 Qubit 线程池实现与 `threadpool`、Rayon 等常见开源实现。
-
-运行 benchmark：
-
-```bash
-cargo bench --bench thread_pool_bench
-```
-
-提交模式 benchmark 会对比 `ThreadPool.submit`、`ThreadPool.submit_tracked`、`FixedThreadPool.submit`、`FixedThreadPool.submit_tracked`、外部 `threadpool` crate 和 Rayon，并覆盖 `cpu_light`、`cpu_medium`、`cpu_heavy` 三类任务。CPU 任务耗时使用确定性的钟形分布生成，避免所有任务几乎同时完成，从而更容易体现调度、队列竞争与唤醒行为差异。
-
-`thread_pool_idle_wakeup` 分组则单独测量 `ThreadPool` 与 `FixedThreadPool`
-中一个预启动空闲 worker 接收无操作任务的路径。计时范围从提交开始到任务完成，
-worker 回到空闲状态的等待不计入结果。
-
-benchmark 输入与历史对比数据保存在 `test-data` 下。
-
-### 历史本地运行结果
-
-最新一次本地运行在 2026-05-11 执行
-`cargo bench --bench thread_pool_bench -- thread_pool_submit_modes`，环境为
-Apple M3 Max、16 个硬件线程、Rust 1.94.1。下表为
-`thread_pool_submit_modes` 的 Criterion mean wall-clock time，数值越低越好。
-每个 case 提交 2,000 个任务。`submit_tracked` case 使用与 `submit` 相同的
-channel completion 等待方式，避免把 handle wait 成本混入提交模式对比。
-
-#### `cpu_light`
-
-| Workers | `ThreadPool.submit` | `ThreadPool.submit_tracked` | `FixedThreadPool.submit` | `FixedThreadPool.submit_tracked` | `threadpool.execute` | Rayon |
-| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 1 | 0.444 ms | 0.546 ms | 0.388 ms | 0.439 ms | 0.386 ms | 0.144 ms |
-| 4 | 0.726 ms | 1.285 ms | 0.560 ms | 0.981 ms | 0.740 ms | 0.082 ms |
-| 8 | 1.758 ms | 4.561 ms | 0.967 ms | 1.402 ms | 1.065 ms | 0.142 ms |
-
-#### `cpu_medium`
-
-| Workers | `ThreadPool.submit` | `ThreadPool.submit_tracked` | `FixedThreadPool.submit` | `FixedThreadPool.submit_tracked` | `threadpool.execute` | Rayon |
-| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 1 | 2.031 ms | 2.133 ms | 2.029 ms | 2.115 ms | 2.037 ms | 1.439 ms |
-| 4 | 1.354 ms | 1.057 ms | 1.321 ms | 1.296 ms | 1.455 ms | 0.425 ms |
-| 8 | 1.902 ms | 3.868 ms | 0.959 ms | 1.280 ms | 2.022 ms | 0.391 ms |
-
-#### `cpu_heavy`
-
-| Workers | `ThreadPool.submit` | `ThreadPool.submit_tracked` | `FixedThreadPool.submit` | `FixedThreadPool.submit_tracked` | `threadpool.execute` | Rayon |
-| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 1 | 14.256 ms | 14.360 ms | 14.251 ms | 14.198 ms | 14.157 ms | 11.078 ms |
-| 4 | 4.384 ms | 4.588 ms | 4.715 ms | 4.533 ms | 4.594 ms | 3.311 ms |
-| 8 | 3.505 ms | 3.502 ms | 3.391 ms | 3.993 ms | 4.335 ms | 2.965 ms |
+[中文版用户手册](doc/user_guide.zh_CN.md)和[英文用户手册](doc/user_guide.md)详细说明回调、队列策略、生命周期及诊断方法。另可参阅[当前设计](doc/design.zh_CN.md)、[性能与历史测量](doc/performance.zh_CN.md)、[0.9 到 0.10 迁移指南](doc/migration_0.9_to_0.10.zh_CN.md)以及 [API 文档](https://docs.rs/qubit-thread-pool)。
 
 ## 测试
 

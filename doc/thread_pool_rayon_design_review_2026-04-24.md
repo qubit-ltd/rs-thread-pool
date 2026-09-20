@@ -1,5 +1,9 @@
 # ThreadPool vs Rayon Design Review (2026-04-24)
 
+> 历史快照，不是当前架构规范。当前规范见[中文版设计](design.zh_CN.md)或
+> [English design](design.md)。Historical snapshot, not the current architecture
+> specification; follow the linked current design documents.
+
 > Historical note: this review predates the 0.10 implementation. The current
 > pool already uses a global `crossbeam_deque::Injector`; the old paths and
 > lock descriptions below are retained for historical context and are not a

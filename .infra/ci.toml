@@ -10,4 +10,7 @@ fuzz_max_len = 4096
 fuzz_version = "0.13.2"
 coverage_cfg_clippy = false
 audit_cached_fallback = true
+# This matrix checks loom-model as an ordinary feature without cfg(loom).
+# The advanced CI job separately runs the production admission/accounting models:
+# RUSTFLAGS="--cfg loom" cargo test --features loom-model --lib loom_ --locked
 matrix = ".infra/ci/cargo-matrix.json"

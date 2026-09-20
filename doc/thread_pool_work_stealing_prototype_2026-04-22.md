@@ -1,5 +1,9 @@
 # ThreadPool Work-Stealing Prototype Report (2026-04-22)
 
+> 历史快照，不是当前架构规范。当前规范见[中文版设计](design.zh_CN.md)或
+> [English design](design.md)。Historical snapshot, not the current architecture
+> specification; follow the linked current design documents.
+
 ## 目标
 
 在不破坏现有 API 和测试语义的前提下，引入“worker 本地队列 + steal”能力，并通过迭代将吞吐回归到重构前基线附近。

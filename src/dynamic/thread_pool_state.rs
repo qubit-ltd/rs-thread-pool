@@ -47,8 +47,8 @@ impl ThreadPoolState {
     ///
     /// # Returns
     ///
-    /// A [`ThreadPoolState`] ready to be wrapped by
-    /// [`ThreadPoolInner::state`](super::thread_pool_inner::ThreadPoolInner::state).
+    /// A [`ThreadPoolState`] ready to be protected by the monitor in
+    /// [`ThreadPoolInner`](super::thread_pool_inner::ThreadPoolInner).
     ///
     /// # Note
     ///

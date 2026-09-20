@@ -1,5 +1,9 @@
 # ThreadPool Dataset Benchmark Notes (updated 2026-04-24)
 
+> 历史快照，不是当前架构规范。当前规范见[中文版设计](design.zh_CN.md)或
+> [English design](design.md)。Historical snapshot, not the current architecture
+> specification; follow the linked current design documents.
+
 ## Goal
 
 Use public datasets (instead of fully synthetic fixed-cost tasks) to evaluate ThreadPool vs Rayon on:
