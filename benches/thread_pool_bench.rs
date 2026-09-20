@@ -328,27 +328,34 @@ fn run_fixed_cpu_batch_end_to_end(pool_size: usize, task_count: usize, inner_ite
     wait_for_termination(&pool);
 }
 
-/// Creates, uses, and drops an external pool within one benchmark sample.
+/// Creates an external pool, completes one task batch, then requests worker
+/// shutdown by dropping the pool.
+///
+/// This does not wait for the external pool's workers to terminate.
 ///
 /// # Parameters
 ///
 /// * `pool_size` - Number of workers created for the sample.
 /// * `task_count` - Number of tasks submitted in the sample.
 /// * `inner_iters` - Center CPU-work iteration count for each task.
-fn run_external_cpu_batch_end_to_end(pool_size: usize, task_count: usize, inner_iters: usize) {
+fn run_external_cpu_batch_through_drop_request(pool_size: usize, task_count: usize, inner_iters: usize) {
     let pool = ExternalThreadPool::new(pool_size);
     submit_external_cpu_batch(&pool, task_count, inner_iters);
+    pool.join();
     drop(pool);
 }
 
-/// Creates, uses, and drops a Rayon pool within one benchmark sample.
+/// Creates a Rayon pool, completes one task batch, then requests worker
+/// shutdown by dropping the pool.
+///
+/// This does not wait for Rayon workers to terminate.
 ///
 /// # Parameters
 ///
 /// * `pool_size` - Number of workers created for the sample.
 /// * `task_count` - Number of tasks submitted in the sample.
 /// * `inner_iters` - Center CPU-work iteration count for each task.
-fn run_rayon_cpu_batch_end_to_end(pool_size: usize, task_count: usize, inner_iters: usize) {
+fn run_rayon_cpu_batch_through_drop_request(pool_size: usize, task_count: usize, inner_iters: usize) {
     let pool = ThreadPoolBuilder::new()
         .num_threads(pool_size)
         .build()
@@ -418,8 +425,8 @@ fn bench_thread_pool_idle_wakeup(c: &mut Criterion) {
     wait_for_termination(&fixed.pool);
 }
 
-/// Compares batch submission and completion after each pool has reached its
-/// steady state.
+/// Compares task submission and completion on pools created outside the timed
+/// iterations.
 fn bench_thread_pool_steady_state(c: &mut Criterion) {
     let mut group = c.benchmark_group("thread_pool_steady_state");
     let workers = [1usize, 4, 8];
@@ -450,6 +457,7 @@ fn bench_thread_pool_steady_state(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new("external", worker_count), &worker_count, |b, &_wc| {
             b.iter(|| submit_external_cpu_batch(&external, task_count, inner_iters))
         });
+        external.join();
         drop(external);
 
         let rayon = ThreadPoolBuilder::new()
@@ -464,7 +472,9 @@ fn bench_thread_pool_steady_state(c: &mut Criterion) {
     group.finish();
 }
 
-/// Compares pool construction, batch execution, and pool teardown costs.
+/// Compares pool construction, task completion, shutdown, and worker
+/// termination costs for pool implementations with an observable termination
+/// barrier.
 fn bench_thread_pool_end_to_end(c: &mut Criterion) {
     let mut group = c.benchmark_group("thread_pool_end_to_end");
     let workers = [1usize, 4, 8];
@@ -482,15 +492,28 @@ fn bench_thread_pool_end_to_end(c: &mut Criterion) {
             &worker_count,
             |b, &wc| b.iter(|| run_fixed_cpu_batch_end_to_end(wc, task_count, inner_iters)),
         );
+    }
+    group.finish();
+}
+
+/// Measures construction, task completion, and pool drop requests for
+/// implementations whose worker termination cannot be observed.
+fn bench_thread_pool_drop_request(c: &mut Criterion) {
+    let mut group = c.benchmark_group("thread_pool_drop_request");
+    let workers = [1usize, 4, 8];
+    let inner_iters = 256usize;
+    let task_count = 2_000usize;
+    group.throughput(Throughput::Elements(task_count as u64));
+    for worker_count in workers {
         group.bench_with_input(
-            BenchmarkId::new("external_lifecycle", worker_count),
+            BenchmarkId::new("external_drop_request", worker_count),
             &worker_count,
-            |b, &wc| b.iter(|| run_external_cpu_batch_end_to_end(wc, task_count, inner_iters)),
+            |b, &wc| b.iter(|| run_external_cpu_batch_through_drop_request(wc, task_count, inner_iters)),
         );
         group.bench_with_input(
-            BenchmarkId::new("rayon_lifecycle", worker_count),
+            BenchmarkId::new("rayon_drop_request", worker_count),
             &worker_count,
-            |b, &wc| b.iter(|| run_rayon_cpu_batch_end_to_end(wc, task_count, inner_iters)),
+            |b, &wc| b.iter(|| run_rayon_cpu_batch_through_drop_request(wc, task_count, inner_iters)),
         );
     }
     group.finish();
@@ -500,6 +523,7 @@ criterion_group!(
     name = benches;
     config = Criterion::default().sample_size(20);
     targets = bench_thread_pool_steady_state, bench_thread_pool_end_to_end,
-        bench_thread_pool_granularity, bench_thread_pool_idle_wakeup
+        bench_thread_pool_drop_request, bench_thread_pool_granularity,
+        bench_thread_pool_idle_wakeup
 );
 criterion_main!(benches);
