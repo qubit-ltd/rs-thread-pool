@@ -28,56 +28,6 @@ use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
 use threadpool::ThreadPool as ExternalThreadPool;
 
-/// Workload kind used by cross-implementation submission benchmarks.
-#[derive(Clone, Copy)]
-enum Workload {
-    /// Small CPU-bound task.
-    Light,
-    /// Medium CPU-bound task.
-    Medium,
-    /// Larger CPU-bound task.
-    Heavy,
-}
-
-impl Workload {
-    /// Returns the benchmark name for this workload.
-    fn name(self) -> &'static str {
-        match self {
-            Self::Light => "cpu_light",
-            Self::Medium => "cpu_medium",
-            Self::Heavy => "cpu_heavy",
-        }
-    }
-
-    /// Returns the center iteration count for this workload.
-    fn base_iters(self) -> usize {
-        match self {
-            Self::Light => 128,
-            Self::Medium => 2_048,
-            Self::Heavy => 16_384,
-        }
-    }
-
-    /// Returns the deterministic seed for this workload's task distribution.
-    fn seed(self) -> u64 {
-        match self {
-            Self::Light => 0x9e37_79b9_7f4a_7c15,
-            Self::Medium => 0xbf58_476d_1ce4_e5b9,
-            Self::Heavy => 0x94d0_49bb_1331_11eb,
-        }
-    }
-}
-
-/// Returns the workload set used by the submission mode benchmark.
-fn benchmark_workloads() -> [Workload; 3] {
-    [Workload::Light, Workload::Medium, Workload::Heavy]
-}
-
-/// Runs one batch of light CPU tasks and waits until the pool terminates.
-fn run_cpu_light_batch(pool_size: usize, task_count: usize) {
-    run_cpu_work_batch(pool_size, task_count, 128);
-}
-
 /// Performs a deterministic amount of CPU work for one task.
 fn compute_cpu_work(inner_iters: usize) -> usize {
     let mut acc = 0usize;
@@ -128,11 +78,6 @@ fn compute_distributed_cpu_work(base_iters: usize, task_index: usize, seed: u64)
     compute_cpu_work(inner_iters)
 }
 
-/// Executes one benchmark workload and returns its deterministic result.
-fn run_workload(workload: Workload, task_index: usize) -> usize {
-    compute_distributed_cpu_work(workload.base_iters(), task_index, workload.seed())
-}
-
 /// Waits until an executor service has fully terminated.
 fn wait_for_termination<P>(pool: &P)
 where
@@ -164,11 +109,7 @@ impl<P> IdleWakeupFixture<P> {
     /// A fixture ready to measure idle-worker wake-ups.
     fn new(pool: P, idle_worker_count: fn(&P) -> usize) -> Self {
         let (sender, receiver) = mpsc::channel();
-        let fixture = Self {
-            pool,
-            sender,
-            receiver,
-        };
+        let fixture = Self { pool, sender, receiver };
         fixture.wait_for_idle_worker(idle_worker_count);
         fixture
     }
@@ -186,16 +127,10 @@ impl<P> IdleWakeupFixture<P> {
     /// # Returns
     ///
     /// The duration from submission until task completion.
-    fn round_trip(
-        &self,
-        submit: fn(&P, mpsc::Sender<()>),
-        idle_worker_count: fn(&P) -> usize,
-    ) -> Duration {
+    fn round_trip(&self, submit: fn(&P, mpsc::Sender<()>), idle_worker_count: fn(&P) -> usize) -> Duration {
         let started = std::time::Instant::now();
         submit(&self.pool, self.sender.clone());
-        self.receiver
-            .recv()
-            .expect("benchmark task should signal completion");
+        self.receiver.recv().expect("benchmark task should signal completion");
         let elapsed = started.elapsed();
         self.wait_for_idle_worker(idle_worker_count);
         elapsed
@@ -271,37 +206,21 @@ fn fixed_idle_worker_count(pool: &FixedThreadPool) -> usize {
     pool.stats().idle_workers
 }
 
-/// Runs one batch of CPU tasks with configurable per-task work and waits until
-/// the pool terminates.
-fn run_cpu_work_batch(pool_size: usize, task_count: usize, inner_iters: usize) {
-    let pool = ThreadPool::new(pool_size).expect("thread pool should be created");
-    run_cpu_work_batch_on_pool(&pool, task_count, inner_iters);
-    pool.shutdown();
-    wait_for_termination(&pool);
-}
-
-/// Runs one batch of CPU tasks on a prestarted dynamic pool.
-fn run_prestarted_cpu_work_batch(pool_size: usize, task_count: usize, inner_iters: usize) {
-    let pool = ThreadPool::builder()
-        .pool_size(pool_size)
-        .prestart_core_threads()
-        .build()
-        .expect("thread pool should be created");
-    run_cpu_work_batch_on_pool(&pool, task_count, inner_iters);
-    pool.shutdown();
-    wait_for_termination(&pool);
-}
-
-/// Runs one CPU work batch on an already created dynamic pool.
-fn run_cpu_work_batch_on_pool(pool: &ThreadPool, task_count: usize, inner_iters: usize) {
+/// Submits one CPU work batch to an existing dynamic pool and waits for every
+/// task to finish.
+///
+/// # Parameters
+///
+/// * `pool` - The pre-existing dynamic pool that accepts the tasks.
+/// * `task_count` - Number of tasks submitted in this batch.
+/// * `inner_iters` - Center CPU-work iteration count for each task.
+fn submit_dynamic_cpu_batch(pool: &ThreadPool, task_count: usize, inner_iters: usize) {
     let mut handles = Vec::with_capacity(task_count);
     let seed = inner_iters as u64;
     for task_index in 0..task_count {
-        let iterations = inner_iters;
-        let index = task_index;
         let handle = pool
             .submit_callable(move || {
-                Ok::<usize, Infallible>(compute_distributed_cpu_work(iterations, index, seed))
+                Ok::<usize, Infallible>(compute_distributed_cpu_work(inner_iters, task_index, seed))
             })
             .expect("task should be accepted");
         handles.push(handle);
@@ -313,12 +232,64 @@ fn run_cpu_work_batch_on_pool(pool: &ThreadPool, task_count: usize, inner_iters:
     black_box(sum);
 }
 
-/// Runs one batch with Rayon using equivalent task count and per-task work.
-fn run_rayon_cpu_work_batch(worker_count: usize, task_count: usize, inner_iters: usize) {
-    let pool = ThreadPoolBuilder::new()
-        .num_threads(worker_count)
-        .build()
-        .expect("rayon thread pool should be created");
+/// Submits one CPU work batch to an existing fixed pool and waits for every
+/// task to finish.
+///
+/// # Parameters
+///
+/// * `pool` - The pre-existing fixed pool that accepts the tasks.
+/// * `task_count` - Number of tasks submitted in this batch.
+/// * `inner_iters` - Center CPU-work iteration count for each task.
+fn submit_fixed_cpu_batch(pool: &FixedThreadPool, task_count: usize, inner_iters: usize) {
+    let seed = inner_iters as u64;
+    let mut handles = Vec::with_capacity(task_count);
+    for task_index in 0..task_count {
+        handles.push(
+            pool.submit_callable(move || {
+                Ok::<usize, Infallible>(compute_distributed_cpu_work(inner_iters, task_index, seed))
+            })
+            .expect("task should be accepted"),
+        );
+    }
+    let sum = handles.into_iter().fold(0usize, |sum, handle| {
+        sum.wrapping_add(handle.get().expect("task should complete"))
+    });
+    black_box(sum);
+}
+
+/// Submits one CPU work batch to an external pool and waits for every task to
+/// finish.
+///
+/// # Parameters
+///
+/// * `pool` - The pre-existing external pool that executes the tasks.
+/// * `task_count` - Number of tasks submitted in this batch.
+/// * `inner_iters` - Center CPU-work iteration count for each task.
+fn submit_external_cpu_batch(pool: &ExternalThreadPool, task_count: usize, inner_iters: usize) {
+    let (sender, receiver) = mpsc::channel();
+    let seed = inner_iters as u64;
+    for task_index in 0..task_count {
+        let sender = sender.clone();
+        pool.execute(move || {
+            sender
+                .send(compute_distributed_cpu_work(inner_iters, task_index, seed))
+                .expect("result should be received");
+        })
+    }
+    drop(sender);
+    let sum = receiver.into_iter().take(task_count).fold(0usize, usize::wrapping_add);
+    black_box(sum);
+}
+
+/// Submits one CPU work batch to a Rayon pool and waits for every task to
+/// finish.
+///
+/// # Parameters
+///
+/// * `pool` - The pre-existing Rayon pool that executes the tasks.
+/// * `task_count` - Number of tasks submitted in this batch.
+/// * `inner_iters` - Center CPU-work iteration count for each task.
+fn submit_rayon_cpu_batch(pool: &rayon::ThreadPool, task_count: usize, inner_iters: usize) {
     let seed = inner_iters as u64;
     let sum = pool.install(|| {
         (0..task_count)
@@ -329,191 +300,61 @@ fn run_rayon_cpu_work_batch(worker_count: usize, task_count: usize, inner_iters:
     black_box(sum);
 }
 
-/// Runs one batch on the dynamic Qubit pool through `submit`.
-fn run_dynamic_submit_batch(pool_size: usize, task_count: usize, workload: Workload) {
-    let pool = ThreadPool::new(pool_size).expect("thread pool should be created");
-    run_dynamic_submit_batch_on_pool(&pool, task_count, workload);
+/// Creates, uses, and shuts down a dynamic pool within one benchmark sample.
+///
+/// # Parameters
+///
+/// * `pool_size` - Number of workers created for the sample.
+/// * `task_count` - Number of tasks submitted in the sample.
+/// * `inner_iters` - Center CPU-work iteration count for each task.
+fn run_dynamic_cpu_batch_end_to_end(pool_size: usize, task_count: usize, inner_iters: usize) {
+    let pool = ThreadPool::new(pool_size).expect("dynamic pool should be created");
+    submit_dynamic_cpu_batch(&pool, task_count, inner_iters);
     pool.shutdown();
     wait_for_termination(&pool);
 }
 
-/// Runs one batch on the prestarted dynamic Qubit pool through `submit`.
-fn run_dynamic_prestarted_submit_batch(pool_size: usize, task_count: usize, workload: Workload) {
-    let pool = ThreadPool::builder()
-        .pool_size(pool_size)
-        .prestart_core_threads()
-        .build()
-        .expect("thread pool should be created");
-    run_dynamic_submit_batch_on_pool(&pool, task_count, workload);
+/// Creates, uses, and shuts down a fixed pool within one benchmark sample.
+///
+/// # Parameters
+///
+/// * `pool_size` - Number of workers created for the sample.
+/// * `task_count` - Number of tasks submitted in the sample.
+/// * `inner_iters` - Center CPU-work iteration count for each task.
+fn run_fixed_cpu_batch_end_to_end(pool_size: usize, task_count: usize, inner_iters: usize) {
+    let pool = FixedThreadPool::new(pool_size).expect("fixed pool should be created");
+    submit_fixed_cpu_batch(&pool, task_count, inner_iters);
     pool.shutdown();
     wait_for_termination(&pool);
 }
 
-/// Runs one dynamic submit batch on an already created pool.
-fn run_dynamic_submit_batch_on_pool(pool: &ThreadPool, task_count: usize, workload: Workload) {
-    let (sender, receiver) = mpsc::channel();
-    for task_index in 0..task_count {
-        let sender = sender.clone();
-        pool.submit(move || {
-            let _ignored = sender.send(run_workload(workload, task_index));
-            Ok::<(), Infallible>(())
-        })
-        .expect("task should be accepted");
-    }
-    drop(sender);
-    let sum = receiver
-        .into_iter()
-        .take(task_count)
-        .fold(0usize, usize::wrapping_add);
-    black_box(sum);
-}
-
-/// Runs one batch on the dynamic Qubit pool through `submit_tracked`.
-fn run_dynamic_submit_tracked_batch(pool_size: usize, task_count: usize, workload: Workload) {
-    let pool = ThreadPool::new(pool_size).expect("thread pool should be created");
-    let (sender, receiver) = mpsc::channel();
-    let mut handles = Vec::with_capacity(task_count);
-    for task_index in 0..task_count {
-        let sender = sender.clone();
-        let handle = pool
-            .submit_tracked(move || {
-                let _ignored = sender.send(run_workload(workload, task_index));
-                Ok::<(), Infallible>(())
-            })
-            .expect("task should be accepted");
-        handles.push(handle);
-    }
-    drop(sender);
-    let sum = receiver
-        .into_iter()
-        .take(task_count)
-        .fold(0usize, usize::wrapping_add);
-    black_box(sum);
-    black_box(handles.len());
-    pool.shutdown();
-    wait_for_termination(&pool);
-}
-
-/// Runs one batch on the fixed Qubit pool through `submit`.
-fn run_fixed_submit_batch(pool_size: usize, task_count: usize, workload: Workload) {
-    let pool = FixedThreadPool::new(pool_size).expect("fixed thread pool should be created");
-    let (sender, receiver) = mpsc::channel();
-    for task_index in 0..task_count {
-        let sender = sender.clone();
-        pool.submit(move || {
-            let _ignored = sender.send(run_workload(workload, task_index));
-            Ok::<(), Infallible>(())
-        })
-        .expect("task should be accepted");
-    }
-    drop(sender);
-    let sum = receiver
-        .into_iter()
-        .take(task_count)
-        .fold(0usize, usize::wrapping_add);
-    black_box(sum);
-    pool.shutdown();
-    wait_for_termination(&pool);
-}
-
-/// Runs one batch on the fixed Qubit pool through `submit_tracked`.
-fn run_fixed_submit_tracked_batch(pool_size: usize, task_count: usize, workload: Workload) {
-    let pool = FixedThreadPool::new(pool_size).expect("fixed thread pool should be created");
-    let (sender, receiver) = mpsc::channel();
-    let mut handles = Vec::with_capacity(task_count);
-    for task_index in 0..task_count {
-        let sender = sender.clone();
-        let handle = pool
-            .submit_tracked(move || {
-                let _ignored = sender.send(run_workload(workload, task_index));
-                Ok::<(), Infallible>(())
-            })
-            .expect("task should be accepted");
-        handles.push(handle);
-    }
-    drop(sender);
-    let sum = receiver
-        .into_iter()
-        .take(task_count)
-        .fold(0usize, usize::wrapping_add);
-    black_box(sum);
-    black_box(handles.len());
-    pool.shutdown();
-    wait_for_termination(&pool);
-}
-
-/// Runs one batch with the external `threadpool` crate through `execute`.
-fn run_external_threadpool_submit_batch(pool_size: usize, task_count: usize, workload: Workload) {
+/// Creates, uses, and drops an external pool within one benchmark sample.
+///
+/// # Parameters
+///
+/// * `pool_size` - Number of workers created for the sample.
+/// * `task_count` - Number of tasks submitted in the sample.
+/// * `inner_iters` - Center CPU-work iteration count for each task.
+fn run_external_cpu_batch_end_to_end(pool_size: usize, task_count: usize, inner_iters: usize) {
     let pool = ExternalThreadPool::new(pool_size);
-    let (sender, receiver) = mpsc::channel();
-    for task_index in 0..task_count {
-        let sender = sender.clone();
-        pool.execute(move || {
-            let _ignored = sender.send(run_workload(workload, task_index));
-        });
-    }
-    drop(sender);
-    let sum = receiver
-        .into_iter()
-        .take(task_count)
-        .fold(0usize, usize::wrapping_add);
-    black_box(sum);
+    submit_external_cpu_batch(&pool, task_count, inner_iters);
+    drop(pool);
 }
 
-/// Runs one batch with Rayon using equivalent task count and workload.
-fn run_rayon_submit_batch(worker_count: usize, task_count: usize, workload: Workload) {
+/// Creates, uses, and drops a Rayon pool within one benchmark sample.
+///
+/// # Parameters
+///
+/// * `pool_size` - Number of workers created for the sample.
+/// * `task_count` - Number of tasks submitted in the sample.
+/// * `inner_iters` - Center CPU-work iteration count for each task.
+fn run_rayon_cpu_batch_end_to_end(pool_size: usize, task_count: usize, inner_iters: usize) {
     let pool = ThreadPoolBuilder::new()
-        .num_threads(worker_count)
+        .num_threads(pool_size)
         .build()
-        .expect("rayon thread pool should be created");
-    pool.install(|| {
-        (0..task_count).into_par_iter().for_each(|task_index| {
-            black_box(run_workload(workload, task_index));
-        });
-    });
-}
-
-/// Benchmarks throughput under different worker counts and task types.
-fn bench_thread_pool_throughput(c: &mut Criterion) {
-    let mut group = c.benchmark_group("thread_pool_throughput");
-    let workers = [1usize, 2, 4, 8];
-    let task_count = 2_000usize;
-    group.throughput(Throughput::Elements(task_count as u64));
-    for worker_count in workers {
-        group.bench_with_input(
-            BenchmarkId::new("cpu_light_tasks", worker_count),
-            &worker_count,
-            |b, &wc| b.iter(|| run_cpu_light_batch(wc, task_count)),
-        );
-    }
-    group.finish();
-}
-
-/// Compares thread pool throughput against Rayon on the same workload model.
-fn bench_thread_pool_vs_rayon(c: &mut Criterion) {
-    let mut group = c.benchmark_group("thread_pool_vs_rayon");
-    let workers = [1usize, 4, 8];
-    let granularities = [256usize, 2_048];
-    let total_iters = 2_048_000usize;
-    for worker_count in workers {
-        for inner_iters in granularities {
-            let task_count = total_iters / inner_iters;
-            group.throughput(Throughput::Elements(task_count as u64));
-            let thread_pool_id = format!("thread_pool/workers={worker_count}/iters={inner_iters}");
-            group.bench_with_input(
-                BenchmarkId::from_parameter(thread_pool_id),
-                &worker_count,
-                |b, &wc| b.iter(|| run_cpu_work_batch(wc, task_count, inner_iters)),
-            );
-            let rayon_id = format!("rayon/workers={worker_count}/iters={inner_iters}");
-            group.bench_with_input(
-                BenchmarkId::from_parameter(rayon_id),
-                &worker_count,
-                |b, &wc| b.iter(|| run_rayon_cpu_work_batch(wc, task_count, inner_iters)),
-            );
-        }
-    }
-    group.finish();
+        .expect("rayon pool should be created");
+    submit_rayon_cpu_batch(&pool, task_count, inner_iters);
+    drop(pool);
 }
 
 /// Benchmarks scheduling overhead vs task granularity under fixed total work.
@@ -528,7 +369,7 @@ fn bench_thread_pool_granularity(c: &mut Criterion) {
             let id = format!("workers={worker_count}/iters={inner_iters}");
             group.throughput(Throughput::Elements(task_count as u64));
             group.bench_with_input(BenchmarkId::from_parameter(id), &worker_count, |b, &wc| {
-                b.iter(|| run_cpu_work_batch(wc, task_count, inner_iters))
+                b.iter(|| run_dynamic_cpu_batch_end_to_end(wc, task_count, inner_iters))
             });
         }
     }
@@ -550,8 +391,7 @@ fn bench_thread_pool_idle_wakeup(c: &mut Criterion) {
         bencher.iter_custom(|iterations| {
             let mut elapsed = Duration::ZERO;
             for _ in 0..iterations {
-                elapsed +=
-                    dynamic.round_trip(submit_dynamic_idle_wakeup, dynamic_idle_worker_count);
+                elapsed += dynamic.round_trip(submit_dynamic_idle_wakeup, dynamic_idle_worker_count);
             }
             elapsed
         });
@@ -578,87 +418,80 @@ fn bench_thread_pool_idle_wakeup(c: &mut Criterion) {
     wait_for_termination(&fixed.pool);
 }
 
-/// Compares dynamic, fixed, Rayon, and external thread-pool implementations.
-fn bench_thread_pool_implementations(c: &mut Criterion) {
-    let mut group = c.benchmark_group("thread_pool_implementations");
+/// Compares batch submission and completion after each pool has reached its
+/// steady state.
+fn bench_thread_pool_steady_state(c: &mut Criterion) {
+    let mut group = c.benchmark_group("thread_pool_steady_state");
+    let workers = [1usize, 4, 8];
+    let inner_iters = 256usize;
+    let task_count = 2_000usize;
+    group.throughput(Throughput::Elements(task_count as u64));
+    for worker_count in workers {
+        let dynamic = ThreadPool::builder()
+            .core_pool_size(worker_count)
+            .maximum_pool_size(worker_count)
+            .prestart_core_threads()
+            .build()
+            .expect("dynamic pool should be created");
+        group.bench_with_input(BenchmarkId::new("dynamic", worker_count), &worker_count, |b, &_wc| {
+            b.iter(|| submit_dynamic_cpu_batch(&dynamic, task_count, inner_iters))
+        });
+        dynamic.shutdown();
+        wait_for_termination(&dynamic);
+
+        let fixed = FixedThreadPool::new(worker_count).expect("fixed pool should be created");
+        group.bench_with_input(BenchmarkId::new("fixed", worker_count), &worker_count, |b, &_wc| {
+            b.iter(|| submit_fixed_cpu_batch(&fixed, task_count, inner_iters))
+        });
+        fixed.shutdown();
+        wait_for_termination(&fixed);
+
+        let external = ExternalThreadPool::new(worker_count);
+        group.bench_with_input(BenchmarkId::new("external", worker_count), &worker_count, |b, &_wc| {
+            b.iter(|| submit_external_cpu_batch(&external, task_count, inner_iters))
+        });
+        drop(external);
+
+        let rayon = ThreadPoolBuilder::new()
+            .num_threads(worker_count)
+            .build()
+            .expect("rayon pool should be created");
+        group.bench_with_input(BenchmarkId::new("rayon", worker_count), &worker_count, |b, &_wc| {
+            b.iter(|| submit_rayon_cpu_batch(&rayon, task_count, inner_iters))
+        });
+        drop(rayon);
+    }
+    group.finish();
+}
+
+/// Compares pool construction, batch execution, and pool teardown costs.
+fn bench_thread_pool_end_to_end(c: &mut Criterion) {
+    let mut group = c.benchmark_group("thread_pool_end_to_end");
     let workers = [1usize, 4, 8];
     let inner_iters = 256usize;
     let task_count = 2_000usize;
     group.throughput(Throughput::Elements(task_count as u64));
     for worker_count in workers {
         group.bench_with_input(
-            BenchmarkId::new("dynamic_thread_pool", worker_count),
+            BenchmarkId::new("dynamic_lifecycle", worker_count),
             &worker_count,
-            |b, &wc| b.iter(|| run_cpu_work_batch(wc, task_count, inner_iters)),
+            |b, &wc| b.iter(|| run_dynamic_cpu_batch_end_to_end(wc, task_count, inner_iters)),
         );
         group.bench_with_input(
-            BenchmarkId::new("dynamic_prestarted_thread_pool", worker_count),
+            BenchmarkId::new("fixed_lifecycle", worker_count),
             &worker_count,
-            |b, &wc| b.iter(|| run_prestarted_cpu_work_batch(wc, task_count, inner_iters)),
+            |b, &wc| b.iter(|| run_fixed_cpu_batch_end_to_end(wc, task_count, inner_iters)),
         );
         group.bench_with_input(
-            BenchmarkId::new("fixed_thread_pool", worker_count),
+            BenchmarkId::new("external_lifecycle", worker_count),
             &worker_count,
-            |b, &wc| b.iter(|| run_fixed_cpu_work_batch(wc, task_count, inner_iters)),
+            |b, &wc| b.iter(|| run_external_cpu_batch_end_to_end(wc, task_count, inner_iters)),
         );
         group.bench_with_input(
-            BenchmarkId::new("external_threadpool", worker_count),
+            BenchmarkId::new("rayon_lifecycle", worker_count),
             &worker_count,
-            |b, &wc| b.iter(|| run_external_threadpool_cpu_work_batch(wc, task_count, inner_iters)),
+            |b, &wc| b.iter(|| run_rayon_cpu_batch_end_to_end(wc, task_count, inner_iters)),
         );
-        group.bench_with_input(
-            BenchmarkId::new("rayon", worker_count),
-            &worker_count,
-            |b, &wc| b.iter(|| run_rayon_cpu_work_batch(wc, task_count, inner_iters)),
-        );
-    }
-    group.finish();
-}
-
-/// Compares `submit`, `submit_tracked`, external `threadpool`, and Rayon by
-/// task type.
-fn bench_thread_pool_submit_modes(c: &mut Criterion) {
-    let mut group = c.benchmark_group("thread_pool_submit_modes");
-    let workers = [1usize, 4, 8];
-    let task_count = 2_000usize;
-    group.throughput(Throughput::Elements(task_count as u64));
-    for workload in benchmark_workloads() {
-        for worker_count in workers {
-            let case = format!("{}/workers={worker_count}", workload.name());
-            group.bench_with_input(
-                BenchmarkId::new("dynamic_submit", &case),
-                &worker_count,
-                |b, &wc| b.iter(|| run_dynamic_submit_batch(wc, task_count, workload)),
-            );
-            group.bench_with_input(
-                BenchmarkId::new("dynamic_prestarted_submit", &case),
-                &worker_count,
-                |b, &wc| b.iter(|| run_dynamic_prestarted_submit_batch(wc, task_count, workload)),
-            );
-            group.bench_with_input(
-                BenchmarkId::new("dynamic_submit_tracked", &case),
-                &worker_count,
-                |b, &wc| b.iter(|| run_dynamic_submit_tracked_batch(wc, task_count, workload)),
-            );
-            group.bench_with_input(
-                BenchmarkId::new("fixed_submit", &case),
-                &worker_count,
-                |b, &wc| b.iter(|| run_fixed_submit_batch(wc, task_count, workload)),
-            );
-            group.bench_with_input(
-                BenchmarkId::new("fixed_submit_tracked", &case),
-                &worker_count,
-                |b, &wc| b.iter(|| run_fixed_submit_tracked_batch(wc, task_count, workload)),
-            );
-            group.bench_with_input(
-                BenchmarkId::new("external_threadpool_execute", &case),
-                &worker_count,
-                |b, &wc| b.iter(|| run_external_threadpool_submit_batch(wc, task_count, workload)),
-            );
-            group.bench_with_input(BenchmarkId::new("rayon", &case), &worker_count, |b, &wc| {
-                b.iter(|| run_rayon_submit_batch(wc, task_count, workload))
-            });
-        }
     }
     group.finish();
 }
@@ -666,51 +499,7 @@ fn bench_thread_pool_submit_modes(c: &mut Criterion) {
 criterion_group!(
     name = benches;
     config = Criterion::default().sample_size(20);
-    targets = bench_thread_pool_throughput, bench_thread_pool_granularity,
-        bench_thread_pool_vs_rayon, bench_thread_pool_implementations,
-        bench_thread_pool_submit_modes, bench_thread_pool_idle_wakeup
+    targets = bench_thread_pool_steady_state, bench_thread_pool_end_to_end,
+        bench_thread_pool_granularity, bench_thread_pool_idle_wakeup
 );
 criterion_main!(benches);
-
-/// Runs one batch of CPU tasks on the fixed-size Qubit pool.
-fn run_fixed_cpu_work_batch(pool_size: usize, task_count: usize, inner_iters: usize) {
-    let pool = FixedThreadPool::new(pool_size).expect("fixed thread pool should be created");
-    let mut handles = Vec::with_capacity(task_count);
-    let seed = inner_iters as u64;
-    for task_index in 0..task_count {
-        let iterations = inner_iters;
-        let index = task_index;
-        let handle = pool
-            .submit_callable(move || {
-                Ok::<usize, Infallible>(compute_distributed_cpu_work(iterations, index, seed))
-            })
-            .expect("task should be accepted");
-        handles.push(handle);
-    }
-    let mut sum = 0usize;
-    for handle in handles {
-        sum = sum.wrapping_add(handle.get().expect("task should complete"));
-    }
-    black_box(sum);
-    pool.shutdown();
-    wait_for_termination(&pool);
-}
-
-/// Runs one batch with the external `threadpool` crate.
-fn run_external_threadpool_cpu_work_batch(pool_size: usize, task_count: usize, inner_iters: usize) {
-    let pool = ExternalThreadPool::new(pool_size);
-    let (sender, receiver) = std::sync::mpsc::channel();
-    let seed = inner_iters as u64;
-    for task_index in 0..task_count {
-        let sender = sender.clone();
-        pool.execute(move || {
-            let _ = sender.send(compute_distributed_cpu_work(inner_iters, task_index, seed));
-        });
-    }
-    drop(sender);
-    let sum = receiver
-        .into_iter()
-        .take(task_count)
-        .fold(0usize, usize::wrapping_add);
-    black_box(sum);
-}
