@@ -26,45 +26,28 @@ use crate::PoolJob;
 use crate::PoolJobSubmissionError;
 use crate::ThreadPoolHooks;
 use crate::ThreadPoolStats;
-use crate::internal::AdmissionGate;
+use crate::internal::PoolAccounting;
 
 /// Shared state for a fixed-size thread pool.
-pub struct FixedThreadPoolInner {
+pub(crate) struct FixedThreadPoolInner {
     /// Number of workers in this fixed pool.
-    pub pool_size: usize,
+    pool_size: usize,
     /// Mutable lifecycle and worker counters.
-    pub state: ParkingLotMonitor<FixedThreadPoolState>,
-    /// Admission gate used by submitters.
-    pub admission: AdmissionGate,
+    pub(super) state: ParkingLotMonitor<FixedThreadPoolState>,
+    /// Shared admission and task counters.
+    accounting: PoolAccounting,
     /// Whether immediate shutdown has requested workers to stop taking jobs.
-    pub stop_now: AtomicBool,
-    /// Submit calls that have passed the first admission check.
+    stop_now: AtomicBool,
     /// Number of workers currently blocked or about to block waiting for work.
-    pub idle_worker_count: AtomicUsize,
+    idle_worker_count: AtomicUsize,
     /// Number of idle-worker wakeups already requested but not yet consumed.
-    pub pending_worker_wakes: AtomicUsize,
+    pending_worker_wakes: AtomicUsize,
     /// Number of callers waiting for in-flight submitters to leave admission.
-    pub submit_waiter_count: AtomicUsize,
+    submit_waiter_count: AtomicUsize,
     /// Number of callers waiting for accepted work to become idle.
-    pub idle_waiter_count: AtomicUsize,
+    idle_waiter_count: AtomicUsize,
     /// Lock-free queue for externally submitted jobs.
-    pub(crate) global_queue: Injector<PoolJob>,
-    /// Optional maximum number of queued jobs.
-    pub queue_capacity: Option<usize>,
-    /// Number of reserved queue slots not yet started or cancelled.
-    pub queue_slot_count: AtomicUsize,
-    /// Number of jobs published to the queue and not yet started or cancelled.
-    pub queued_task_count: AtomicUsize,
-    /// Number of jobs currently running.
-    pub running_task_count: AtomicUsize,
-    /// Number of queued-job cancellation callbacks currently running.
-    pub cancelling_task_count: AtomicUsize,
-    /// Total number of accepted jobs.
-    pub submitted_task_count: AtomicUsize,
-    /// Total number of finished worker-held jobs.
-    pub completed_task_count: AtomicUsize,
-    /// Total number of queued jobs cancelled by immediate shutdown.
-    pub cancelled_task_count: AtomicUsize,
+    global_queue: Injector<PoolJob>,
     /// Worker and task lifecycle hooks.
     hooks: ThreadPoolHooks,
 }
@@ -89,21 +72,13 @@ impl FixedThreadPoolInner {
         Self {
             pool_size,
             state: ParkingLotMonitor::new(FixedThreadPoolState::new()),
-            admission: AdmissionGate::new(),
+            accounting: PoolAccounting::new(queue_capacity),
             stop_now: AtomicBool::new(false),
             idle_worker_count: AtomicUsize::new(0),
             pending_worker_wakes: AtomicUsize::new(0),
             submit_waiter_count: AtomicUsize::new(0),
             idle_waiter_count: AtomicUsize::new(0),
             global_queue: Injector::new(),
-            queue_capacity,
-            queue_slot_count: AtomicUsize::new(0),
-            queued_task_count: AtomicUsize::new(0),
-            running_task_count: AtomicUsize::new(0),
-            cancelling_task_count: AtomicUsize::new(0),
-            submitted_task_count: AtomicUsize::new(0),
-            completed_task_count: AtomicUsize::new(0),
-            cancelled_task_count: AtomicUsize::new(0),
             hooks,
         }
     }
@@ -114,7 +89,7 @@ impl FixedThreadPoolInner {
     ///
     /// Worker and task lifecycle hooks.
     #[inline]
-    pub fn hooks(&self) -> &ThreadPoolHooks {
+    pub(crate) fn hooks(&self) -> &ThreadPoolHooks {
         &self.hooks
     }
 
@@ -124,7 +99,7 @@ impl FixedThreadPoolInner {
     ///
     /// Number of workers owned by this pool.
     #[inline]
-    pub fn pool_size(&self) -> usize {
+    pub(crate) fn pool_size(&self) -> usize {
         self.pool_size
     }
 
@@ -134,8 +109,8 @@ impl FixedThreadPoolInner {
     ///
     /// Number of accepted tasks waiting to run.
     #[inline]
-    pub fn queued_count(&self) -> usize {
-        self.queued_task_count.load(Ordering::Acquire)
+    pub(crate) fn queued_count(&self) -> usize {
+        self.accounting.queued_count()
     }
 
     /// Returns the running task count.
@@ -144,8 +119,8 @@ impl FixedThreadPoolInner {
     ///
     /// Number of tasks currently held by workers.
     #[inline]
-    pub fn running_count(&self) -> usize {
-        self.running_task_count.load(Ordering::Acquire)
+    pub(crate) fn running_count(&self) -> usize {
+        self.accounting.running_count()
     }
 
     /// Returns the number of in-flight submit calls.
@@ -154,8 +129,8 @@ impl FixedThreadPoolInner {
     ///
     /// Number of submit calls that may still publish or roll back a queued job.
     #[inline]
-    pub fn inflight_count(&self) -> usize {
-        self.admission.inflight_count()
+    pub(crate) fn inflight_count(&self) -> usize {
+        self.accounting.inflight_count()
     }
 
     /// Attempts to enter submit admission.
@@ -168,7 +143,7 @@ impl FixedThreadPoolInner {
     ///
     /// Returns [`SubmissionError::Shutdown`] when admission is closed.
     fn begin_submit(&self) -> Result<FixedSubmitGuard<'_>, SubmissionError> {
-        if self.admission.try_enter() {
+        if self.accounting.try_enter() {
             Ok(FixedSubmitGuard { inner: self })
         } else {
             Err(SubmissionError::Shutdown)
@@ -181,22 +156,12 @@ impl FixedThreadPoolInner {
     ///
     /// `true` if one queued slot was reserved, otherwise `false`.
     fn reserve_queue_slot(&self) -> bool {
-        if let Some(capacity) = self.queue_capacity {
-            return self
-                .queue_slot_count
-                .fetch_update(Ordering::AcqRel, Ordering::Acquire, |current| {
-                    (current < capacity).then_some(current + 1)
-                })
-                .is_ok();
-        }
-        self.queue_slot_count.fetch_add(1, Ordering::Release);
-        true
+        self.accounting.try_reserve_bounded_slot()
     }
 
     /// Releases one reserved queue slot that never became runnable.
     fn release_queue_slot(&self) {
-        let previous = self.queue_slot_count.fetch_sub(1, Ordering::Release);
-        debug_assert!(previous > 0, "fixed pool queue slot counter underflow");
+        self.accounting.rollback_reserved_slot();
     }
 
     /// Submits one job to this fixed pool.
@@ -223,7 +188,6 @@ impl FixedThreadPoolInner {
             self.notify_waiters_after_atomic_change();
             return Err(PoolJobSubmissionError::AcceptancePanicked);
         }
-        self.submitted_task_count.fetch_add(1, Ordering::Release);
         self.enqueue_job(job);
         Ok(())
     }
@@ -234,7 +198,7 @@ impl FixedThreadPoolInner {
     ///
     /// * `job` - Job whose queued slot has already been reserved.
     fn enqueue_job(&self, job: PoolJob) {
-        self.queued_task_count.fetch_add(1, Ordering::Release);
+        self.accounting.publish_accepted_job();
         self.global_queue.push(job);
         self.wake_one_idle_worker();
     }
@@ -265,12 +229,12 @@ impl FixedThreadPoolInner {
     ///
     /// `true` when at least one idle worker should leave the wait path and
     /// retry taking work.
-    pub fn has_pending_worker_wake(&self) -> bool {
+    pub(crate) fn has_pending_worker_wake(&self) -> bool {
         self.pending_worker_wakes.load(Ordering::Acquire) > 0
     }
 
     /// Consumes one requested idle-worker wakeup if one exists.
-    pub fn consume_pending_worker_wake(&self) {
+    fn consume_pending_worker_wake(&self) {
         let _ = self.pending_worker_wakes.fetch_update(
             Ordering::AcqRel,
             Ordering::Acquire,
@@ -284,8 +248,33 @@ impl FixedThreadPoolInner {
     ///
     /// `true` when an idle waiter may need notification after an in-flight
     /// submitter leaves admission.
-    pub fn has_idle_waiters(&self) -> bool {
+    fn has_idle_waiters(&self) -> bool {
         self.idle_waiter_count.load(Ordering::Acquire) > 0
+    }
+
+    /// Wakes monitor waiters after the last submitter leaves admission.
+    fn notify_submitter_departure(&self) {
+        if !self.accounting.is_admission_open() || self.has_idle_waiters() {
+            self.notify_waiters_after_atomic_change();
+        }
+    }
+
+    /// Returns whether workers may still expect new submissions.
+    pub(crate) fn is_admission_open(&self) -> bool {
+        self.accounting.is_admission_open()
+    }
+
+    /// Marks a worker as idle in the atomic wake-up state.
+    pub(crate) fn mark_worker_idle(&self) {
+        self.idle_worker_count.fetch_add(1, Ordering::AcqRel);
+    }
+
+    /// Removes an idle worker and consumes its pending wake token.
+    /// Panics in debug builds if no worker is marked idle.
+    pub(crate) fn unmark_worker_idle(&self) {
+        let previous = self.idle_worker_count.fetch_sub(1, Ordering::AcqRel);
+        debug_assert!(previous > 0, "fixed pool idle worker counter underflow");
+        self.consume_pending_worker_wake();
     }
 
     /// Notifies monitor waiters after an atomic-only condition change.
@@ -294,7 +283,7 @@ impl FixedThreadPoolInner {
     /// by the lifecycle monitor. Taking the monitor lock before notifying
     /// closes the condition-variable lost-wakeup window for waiters that check
     /// those atomic predicates while holding the same monitor.
-    pub fn notify_waiters_after_atomic_change(&self) {
+    fn notify_waiters_after_atomic_change(&self) {
         self.state.lock().notify_all();
     }
 
@@ -337,7 +326,7 @@ impl FixedThreadPoolInner {
     /// # Returns
     ///
     /// `Some(job)` when the job may run, otherwise `None`.
-    pub(crate) fn accept_claimed_job(&self, job: PoolJob) -> Option<PoolJob> {
+    fn accept_claimed_job(&self, job: PoolJob) -> Option<PoolJob> {
         if self.stop_now.load(Ordering::Acquire) {
             self.cancel_claimed_job(job);
             return None;
@@ -348,11 +337,7 @@ impl FixedThreadPoolInner {
 
     /// Marks one claimed queued job as running.
     fn mark_queued_job_running(&self) {
-        let previous = self.queued_task_count.fetch_sub(1, Ordering::Release);
-        debug_assert!(previous > 0, "fixed pool queued counter underflow");
-        let previous = self.queue_slot_count.fetch_sub(1, Ordering::Release);
-        debug_assert!(previous > 0, "fixed pool queue slot counter underflow");
-        self.running_task_count.fetch_add(1, Ordering::Release);
+        self.accounting.claim_queued_job();
     }
 
     /// Cancels one job claimed after immediate shutdown started.
@@ -360,7 +345,7 @@ impl FixedThreadPoolInner {
     /// # Parameters
     ///
     /// * `job` - Queued job that must not be run.
-    pub(crate) fn cancel_claimed_job(&self, job: PoolJob) {
+    fn cancel_claimed_job(&self, job: PoolJob) {
         self.begin_cancel_queued_job();
         job.cancel();
         self.finish_cancelled_job();
@@ -368,40 +353,32 @@ impl FixedThreadPoolInner {
 
     /// Moves one claimed queued job into cancellation callback execution.
     fn begin_cancel_queued_job(&self) {
-        let previous = self.queued_task_count.fetch_sub(1, Ordering::Release);
-        debug_assert!(previous > 0, "fixed pool queued counter underflow");
-        self.cancelling_task_count.fetch_add(1, Ordering::Release);
+        self.accounting.begin_cancel_queued_job();
     }
 
     /// Completes one queued-job cancellation callback and releases its slot.
     fn finish_cancelled_job(&self) {
-        let previous = self.cancelling_task_count.fetch_sub(1, Ordering::Release);
-        debug_assert!(previous > 0, "fixed pool cancelling task counter underflow");
-        let previous = self.queue_slot_count.fetch_sub(1, Ordering::Release);
-        debug_assert!(previous > 0, "fixed pool queue slot counter underflow");
-        self.cancelled_task_count.fetch_add(1, Ordering::Release);
+        self.accounting.finish_cancelled_job();
         self.notify_waiters_after_atomic_change();
     }
 
     /// Marks one running job as finished.
-    pub fn finish_running_job(&self) {
-        let previous = self.running_task_count.fetch_sub(1, Ordering::Release);
-        debug_assert!(previous > 0, "fixed pool running counter underflow");
-        self.completed_task_count.fetch_add(1, Ordering::Release);
-        if previous == 1 && self.queued_count() == 0 {
+    pub(crate) fn finish_running_job(&self) {
+        self.accounting.finish_running_job();
+        if self.accounting.is_idle() {
             self.notify_waiters_after_atomic_change();
         }
     }
 
     /// Reserves one worker slot before spawning a worker thread.
-    pub fn reserve_worker_slot(&self) {
+    pub(crate) fn reserve_worker_slot(&self) {
         self.state.with_write(|state| {
             state.live_workers += 1;
         });
     }
 
     /// Rolls back one worker slot after spawn failure.
-    pub fn rollback_worker_slot(&self) {
+    pub(crate) fn rollback_worker_slot(&self) {
         self.state.with_write(|state| {
             state.live_workers = state
                 .live_workers
@@ -411,8 +388,8 @@ impl FixedThreadPoolInner {
     }
 
     /// Stops the pool after a build-time worker spawn failure.
-    pub fn stop_after_failed_build(&self) {
-        self.admission.close();
+    pub(crate) fn stop_after_failed_build(&self) {
+        self.accounting.close_admission();
         self.stop_now.store(true, Ordering::Release);
         self.state.with_write_notify_all(|state| {
             state.lifecycle = ExecutorServiceLifecycle::Stopping;
@@ -420,13 +397,13 @@ impl FixedThreadPoolInner {
     }
 
     /// Blocks until the pool is fully terminated.
-    pub fn wait_for_termination(&self) {
+    pub(crate) fn wait_for_termination(&self) {
         self.state
             .wait_until_ready(|state| self.is_terminated_locked(state));
     }
 
     /// Waits for termination for at most `timeout`.
-    pub fn wait_for_termination_timeout(&self, timeout: Duration) -> bool {
+    pub(crate) fn wait_for_termination_timeout(&self, timeout: Duration) -> bool {
         let started = Instant::now();
         loop {
             let remaining = timeout.saturating_sub(started.elapsed());
@@ -449,7 +426,7 @@ impl FixedThreadPoolInner {
     /// This method waits for in-flight submissions, queued tasks, and running
     /// tasks to drain. It does not request shutdown and does not wait for fixed
     /// worker threads to exit.
-    pub fn wait_until_idle(&self) {
+    pub(crate) fn wait_until_idle(&self) {
         self.idle_waiter_count.fetch_add(1, Ordering::AcqRel);
         let mut state = self.state.lock();
         while !self.is_idle_locked() {
@@ -460,8 +437,8 @@ impl FixedThreadPoolInner {
     }
 
     /// Requests graceful shutdown.
-    pub fn shutdown(&self) {
-        self.admission.close();
+    pub(crate) fn shutdown(&self) {
+        self.accounting.close_admission();
         let mut state = self.state.lock();
         if state.lifecycle == ExecutorServiceLifecycle::Running {
             state.lifecycle = ExecutorServiceLifecycle::ShuttingDown;
@@ -492,10 +469,9 @@ impl FixedThreadPoolInner {
     /// Count-based shutdown report. The queued and cancelled counts describe
     /// jobs drained by this stop request; the running count is only the
     /// best-effort snapshot described above.
-    pub fn stop(&self) -> StopReport {
-        let cancelled_before_stop = self.cancelled_task_count.load(Ordering::Acquire);
-        let cancelling_before_stop = self.cancelling_task_count.load(Ordering::Acquire);
-        self.admission.close();
+    pub(crate) fn stop(&self) -> StopReport {
+        let before_stop = self.accounting.snapshot();
+        self.accounting.close_admission();
         self.stop_now.store(true, Ordering::Release);
         let (jobs, queued, running) = {
             let mut state = self.state.lock();
@@ -520,14 +496,9 @@ impl FixedThreadPoolInner {
             for _ in 0..drained {
                 self.begin_cancel_queued_job();
             }
-            let cancelling_since_stop = self
-                .cancelling_task_count
-                .load(Ordering::Acquire)
-                .saturating_sub(cancelling_before_stop);
-            let cancelled_since_stop = self
-                .cancelled_task_count
-                .load(Ordering::Acquire)
-                .saturating_sub(cancelled_before_stop);
+            let counters = self.accounting.snapshot();
+            let cancelling_since_stop = counters.cancelling_tasks.saturating_sub(before_stop.cancelling_tasks);
+            let cancelled_since_stop = counters.cancelled_tasks.saturating_sub(before_stop.cancelled_tasks);
             let queued = if is_new_stop {
                 drained + cancelling_since_stop.saturating_sub(drained) + cancelled_since_stop
             } else {
@@ -571,7 +542,7 @@ impl FixedThreadPoolInner {
     /// # Returns
     ///
     /// `true` when lifecycle is not running.
-    pub fn is_not_running(&self) -> bool {
+    pub(crate) fn is_not_running(&self) -> bool {
         self.state
             .with_read(|state| state.lifecycle != ExecutorServiceLifecycle::Running)
     }
@@ -582,7 +553,7 @@ impl FixedThreadPoolInner {
     ///
     /// [`ExecutorServiceLifecycle::Terminated`] after all accepted work and
     /// workers are gone, otherwise the stored lifecycle state.
-    pub fn lifecycle(&self) -> ExecutorServiceLifecycle {
+    pub(crate) fn lifecycle(&self) -> ExecutorServiceLifecycle {
         self.state.with_read(|state| {
             if self.is_terminated_locked(state) {
                 ExecutorServiceLifecycle::Terminated
@@ -597,7 +568,7 @@ impl FixedThreadPoolInner {
     /// # Returns
     ///
     /// `true` after shutdown and after all workers and jobs are gone.
-    pub fn is_terminated(&self) -> bool {
+    pub(crate) fn is_terminated(&self) -> bool {
         self.state
             .with_read(|state| self.is_terminated_locked(state))
     }
@@ -612,12 +583,7 @@ impl FixedThreadPoolInner {
     ///
     /// `true` when the pool is terminal.
     fn is_terminated_locked(&self, state: &FixedThreadPoolState) -> bool {
-        state.lifecycle != ExecutorServiceLifecycle::Running
-            && state.live_workers == 0
-            && self.queue_slot_count.load(Ordering::Acquire) == 0
-            && self.running_count() == 0
-            && self.cancelling_task_count.load(Ordering::Acquire) == 0
-            && self.inflight_count() == 0
+        state.lifecycle != ExecutorServiceLifecycle::Running && state.live_workers == 0 && self.accounting.is_idle()
     }
 
     /// Checks whether all accepted work has drained.
@@ -627,23 +593,16 @@ impl FixedThreadPoolInner {
     /// `true` when no submitter is still admitting work, no queued slot
     /// remains, and no worker-held task is running.
     fn is_idle_locked(&self) -> bool {
-        self.queue_slot_count.load(Ordering::Acquire) == 0
-            && self.running_count() == 0
-            && self.cancelling_task_count.load(Ordering::Acquire) == 0
-            && self.inflight_count() == 0
+        self.accounting.is_idle()
     }
 
-    /// Returns a point-in-time stats snapshot.
+    /// Returns a best-effort stats snapshot.
     ///
     /// # Returns
     ///
     /// Snapshot using fixed pool size for both core and maximum sizes.
-    pub fn stats(&self) -> ThreadPoolStats {
-        let queued_tasks = self.queued_count();
-        let running_tasks = self.running_count();
-        let submitted_tasks = self.submitted_task_count.load(Ordering::Relaxed);
-        let completed_tasks = self.completed_task_count.load(Ordering::Relaxed);
-        let cancelled_tasks = self.cancelled_task_count.load(Ordering::Relaxed);
+    pub(crate) fn stats(&self) -> ThreadPoolStats {
+        let counters = self.accounting.snapshot();
         self.state.with_read(|state| ThreadPoolStats {
             lifecycle: if self.is_terminated_locked(state) {
                 ExecutorServiceLifecycle::Terminated
@@ -654,11 +613,11 @@ impl FixedThreadPoolInner {
             maximum_pool_size: self.pool_size,
             live_workers: state.live_workers,
             idle_workers: state.idle_workers,
-            queued_tasks,
-            running_tasks,
-            submitted_tasks,
-            completed_tasks,
-            cancelled_tasks,
+            queued_tasks: counters.queued_tasks,
+            running_tasks: counters.running_tasks,
+            submitted_tasks: counters.submitted_tasks,
+            completed_tasks: counters.completed_tasks,
+            cancelled_tasks: counters.cancelled_tasks,
             terminated: self.is_terminated_locked(state),
         })
     }
@@ -732,7 +691,7 @@ mod tests {
         // Hold `stop()` between publishing `stop_now` and taking its report
         // snapshots. This simulates a submitter that had already crossed
         // admission before immediate shutdown began.
-        assert!(inner.admission.try_enter());
+        assert!(inner.accounting.try_enter());
         let stop_inner = Arc::clone(&inner);
         let stop_thread = thread::spawn(move || stop_inner.stop());
         wait_until(|| {
@@ -756,7 +715,7 @@ mod tests {
 
         // Let `stop()` continue. The report must include the cancellation that
         // happened above, even though the global queue is already empty.
-        assert!(inner.admission.leave() || !inner.admission.is_open());
+        assert!(inner.accounting.leave() || !inner.accounting.is_admission_open());
         inner.notify_waiters_after_atomic_change();
         let report = stop_thread
             .join()
@@ -765,7 +724,7 @@ mod tests {
         assert_eq!(report.queued, 1);
         assert_eq!(report.running, 0);
         assert_eq!(report.cancelled, 1);
-        assert_eq!(inner.cancelled_task_count.load(Ordering::Acquire), 1);
+        assert_eq!(inner.accounting.snapshot().cancelled_tasks, 1);
     }
 
     #[test]
@@ -835,7 +794,7 @@ mod tests {
             .join()
             .expect("termination wait should finish after cancellation");
         assert_eq!(report.cancelled, 1);
-        assert_eq!(inner.cancelled_task_count.load(Ordering::Acquire), 1);
+        assert_eq!(inner.accounting.snapshot().cancelled_tasks, 1);
         assert!(inner.is_terminated());
     }
 
@@ -867,9 +826,9 @@ mod tests {
             Err(crate::PoolJobSubmissionError::AcceptancePanicked)
         ));
         assert_eq!(inner.queued_count(), 0);
-        assert_eq!(inner.queue_slot_count.load(Ordering::Acquire), 0);
-        assert_eq!(inner.submitted_task_count.load(Ordering::Acquire), 0);
-        assert_eq!(inner.completed_task_count.load(Ordering::Acquire), 0);
+        assert!(inner.accounting.is_idle());
+        assert_eq!(inner.accounting.snapshot().submitted_tasks, 0);
+        assert_eq!(inner.accounting.snapshot().completed_tasks, 0);
         assert_eq!(ran.load(Ordering::Relaxed), 0);
         assert_eq!(cancelled.load(Ordering::Relaxed), 0);
     }

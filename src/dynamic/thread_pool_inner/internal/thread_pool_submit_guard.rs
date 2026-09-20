@@ -17,9 +17,8 @@ impl Drop for ThreadPoolSubmitGuard<'_> {
     /// Leaves submit accounting and wakes waiters if this was the last
     /// submitter.
     fn drop(&mut self) {
-        let last = self.inner.admission.leave();
-        if last && (!self.inner.admission.is_open() || self.inner.has_idle_waiters()) {
-            self.inner.notify_waiters_after_atomic_change();
+        if self.inner.accounting.leave() {
+            self.inner.notify_submitter_departure();
         }
     }
 }

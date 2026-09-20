@@ -16,9 +16,8 @@ pub(crate) struct FixedSubmitGuard<'a> {
 impl Drop for FixedSubmitGuard<'_> {
     /// Leaves submit accounting and wakes waiters if needed.
     fn drop(&mut self) {
-        let last = self.inner.admission.leave();
-        if last && (!self.inner.admission.is_open() || self.inner.has_idle_waiters()) {
-            self.inner.notify_waiters_after_atomic_change();
+        if self.inner.accounting.leave() {
+            self.inner.notify_submitter_departure();
         }
     }
 }

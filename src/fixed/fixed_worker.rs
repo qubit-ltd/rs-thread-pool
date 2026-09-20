@@ -7,7 +7,6 @@
 // =============================================================================
 use std::hint::spin_loop;
 use std::sync::Arc;
-use std::sync::atomic::Ordering;
 
 use qubit_executor::service::ExecutorServiceLifecycle;
 
@@ -21,7 +20,7 @@ use crate::ThreadPoolHooks;
 const IDLE_SPIN_LIMIT: usize = 256;
 
 /// Worker loop entry point for fixed-size thread pools.
-pub struct FixedWorker;
+pub(crate) struct FixedWorker;
 
 impl FixedWorker {
     /// Runs one fixed-pool worker loop.
@@ -146,7 +145,7 @@ fn spin_for_fixed_pool_work(inner: &FixedThreadPoolInner) -> bool {
         if inner.queued_count() > 0 || inner.has_pending_worker_wake() {
             return true;
         }
-        if !inner.admission.is_open() {
+        if !inner.is_admission_open() {
             return false;
         }
         spin_loop();
@@ -162,7 +161,7 @@ fn spin_for_fixed_pool_work(inner: &FixedThreadPoolInner) -> bool {
 /// * `state` - Locked mutable state containing authoritative idle workers.
 fn mark_fixed_worker_idle(inner: &FixedThreadPoolInner, state: &mut FixedThreadPoolState) {
     state.idle_workers += 1;
-    inner.idle_worker_count.fetch_add(1, Ordering::AcqRel);
+    inner.mark_worker_idle();
 }
 
 /// Marks a fixed-pool worker as no longer idle.
@@ -176,9 +175,7 @@ fn unmark_fixed_worker_idle(inner: &FixedThreadPoolInner, state: &mut FixedThrea
         .idle_workers
         .checked_sub(1)
         .expect("fixed pool idle worker counter underflow");
-    let previous = inner.idle_worker_count.fetch_sub(1, Ordering::AcqRel);
-    debug_assert!(previous > 0, "fixed pool idle worker counter underflow");
-    inner.consume_pending_worker_wake();
+    inner.unmark_worker_idle();
 }
 
 /// Marks one fixed-pool worker as exited.

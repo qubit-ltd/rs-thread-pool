@@ -153,12 +153,12 @@ impl ThreadPool {
         self.inner.read_state(|state| state.maximum_pool_size)
     }
 
-    /// Returns a point-in-time snapshot of pool counters.
+    /// Returns a best-effort snapshot of pool counters.
     ///
     /// # Returns
     ///
-    /// A snapshot containing worker, queue, and task counters observed under
-    /// the pool state lock.
+    /// Monitor-protected worker and lifecycle fields with independently loaded
+    /// task counters. See [`ThreadPoolStats`] for synchronization limitations.
     #[must_use]
     #[inline]
     pub fn stats(&self) -> ThreadPoolStats {

@@ -7,11 +7,12 @@
 // =============================================================================
 use qubit_executor::service::ExecutorServiceLifecycle;
 
-/// Point-in-time counters reported by [`crate::ThreadPool`].
+/// Best-effort monitoring counters reported by dynamic and fixed thread pools.
 ///
-/// The snapshot is intended for monitoring and tests. It is not a stable
-/// synchronization primitive; concurrent submissions and completions may make
-/// the next snapshot different immediately after this one is returned.
+/// Lifecycle and worker fields are read while holding the pool monitor. Task
+/// counters are loaded independently from atomics and may describe adjacent,
+/// rather than identical, logical instants. Use task handles, `join`, or
+/// `wait_termination` instead of cross-field equalities for synchronization.
 ///
 /// # Examples
 ///

@@ -37,4 +37,10 @@ fn test_thread_pool_state_reports_queue_saturation_and_shutdown_cancellation() {
     release_tx.send(()).unwrap();
     running.get().unwrap();
     pool.wait_termination();
+
+    let stats = pool.stats();
+    assert_eq!(stats.submitted_tasks, 2);
+    assert_eq!(stats.completed_tasks, 1);
+    assert_eq!(stats.cancelled_tasks, 1);
+    assert!(stats.terminated);
 }

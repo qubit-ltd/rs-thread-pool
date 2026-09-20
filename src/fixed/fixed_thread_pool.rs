@@ -181,11 +181,12 @@ impl FixedThreadPool {
         self.inner.state.with_read(|state| state.live_workers)
     }
 
-    /// Returns a point-in-time stats snapshot.
+    /// Returns a best-effort stats snapshot.
     ///
     /// # Returns
     ///
-    /// Snapshot containing queue, worker, and lifecycle counters.
+    /// Monitor-protected worker and lifecycle fields with independently loaded
+    /// task counters. See [`ThreadPoolStats`] for synchronization limitations.
     #[must_use]
     #[inline]
     pub fn stats(&self) -> ThreadPoolStats {

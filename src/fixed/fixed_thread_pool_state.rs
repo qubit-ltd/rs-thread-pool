@@ -8,13 +8,13 @@
 use qubit_executor::service::ExecutorServiceLifecycle;
 
 /// Mutable state protected by the fixed pool monitor.
-pub struct FixedThreadPoolState {
+pub(crate) struct FixedThreadPoolState {
     /// Current lifecycle state.
-    pub lifecycle: ExecutorServiceLifecycle,
+    pub(super) lifecycle: ExecutorServiceLifecycle,
     /// Number of worker loops that have not exited.
-    pub live_workers: usize,
+    pub(super) live_workers: usize,
     /// Number of workers currently blocked waiting for work.
-    pub idle_workers: usize,
+    pub(super) idle_workers: usize,
 }
 
 impl FixedThreadPoolState {

@@ -8,7 +8,7 @@
 //! Worker runtime identity for fixed-size pools.
 
 /// Worker-owned runtime metadata.
-pub struct FixedWorkerRuntime {
+pub(crate) struct FixedWorkerRuntime {
     /// Stable worker index.
     worker_index: usize,
 }
@@ -23,7 +23,7 @@ impl FixedWorkerRuntime {
     /// # Returns
     ///
     /// Runtime metadata for the worker loop.
-    pub fn new(worker_index: usize) -> Self {
+    pub(crate) fn new(worker_index: usize) -> Self {
         Self { worker_index }
     }
 
@@ -34,7 +34,7 @@ impl FixedWorkerRuntime {
     /// Stable worker index for this runtime.
     #[must_use]
     #[inline]
-    pub fn worker_index(&self) -> usize {
+    pub(crate) fn worker_index(&self) -> usize {
         self.worker_index
     }
 }
