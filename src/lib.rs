@@ -16,6 +16,7 @@ pub mod fixed;
 mod internal;
 mod pool_job;
 mod pool_job_submission_error;
+mod pool_job_ticket;
 mod thread_pool_hooks;
 mod thread_pool_stats;
 
