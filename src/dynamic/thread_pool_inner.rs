@@ -662,17 +662,15 @@ impl ThreadPoolInner {
     /// A report containing queued jobs cancelled and jobs running at the time
     /// of the request.
     pub(crate) fn stop(&self) -> StopReport {
-        let before_stop = self.accounting.snapshot();
         self.accounting.close_admission();
         self.stop_now.store(true, Ordering::Release);
         let (jobs, queued, running) = {
             let mut state = self.lock_state();
             self.stop_now.store(true, Ordering::Release);
-            let is_new_stop = matches!(
+            if matches!(
                 state.lifecycle,
                 ExecutorServiceLifecycle::Running | ExecutorServiceLifecycle::ShuttingDown
-            );
-            if is_new_stop {
+            ) {
                 state.lifecycle = ExecutorServiceLifecycle::Stopping;
             }
             if self.inflight_count() > 0 {
@@ -686,16 +684,8 @@ impl ThreadPoolInner {
             let running = self.running_count();
             let jobs = self.drain_visible_queued_jobs();
             let drained = jobs.len();
-            let counters = self.accounting.snapshot();
-            let cancelling_since_stop = counters.cancelling_tasks.saturating_sub(before_stop.cancelling_tasks);
-            let cancelled_since_stop = counters.cancelled_tasks.saturating_sub(before_stop.cancelled_tasks);
-            let queued = if is_new_stop {
-                drained + cancelling_since_stop.saturating_sub(drained) + cancelled_since_stop
-            } else {
-                drained
-            };
             state.notify_all();
-            (jobs, queued, running)
+            (jobs, drained, running)
         };
         for job in jobs {
             job.cancel();

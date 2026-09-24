@@ -61,6 +61,59 @@ fn test_thread_pool_stop_cancels_queued_tasks() {
 }
 
 #[test]
+fn test_thread_pool_stop_does_not_report_ticket_cancellation_as_its_own() {
+    let pool = Arc::new(ThreadPool::new(1).expect("thread pool should be created"));
+    let (worker_started_tx, worker_started_rx) = mpsc::channel();
+    let (release_worker_tx, release_worker_rx) = mpsc::channel();
+    pool.submit_job(PoolJob::new(
+        Box::new(move || {
+            worker_started_tx.send(()).expect("worker should start");
+            release_worker_rx.recv().expect("worker should be released");
+        }),
+        Box::new(|| {}),
+    ))
+    .expect("blocking job should be accepted");
+    worker_started_rx
+        .recv_timeout(Duration::from_secs(2))
+        .expect("worker should start");
+
+    let (cancel_started_tx, cancel_started_rx) = mpsc::channel();
+    let (release_cancel_tx, release_cancel_rx) = mpsc::channel();
+    let (job, ticket) = pool.prepare_cancellable_job(
+        Box::new(|| {}),
+        Box::new(|| panic!("cancelled job must not run")),
+        Box::new(move || {
+            cancel_started_tx.send(()).expect("cancellation should start");
+            release_cancel_rx.recv().expect("cancellation should be released");
+        }),
+    );
+    pool.submit_job(job).expect("ticketed job should be accepted");
+    let (cancel_result_tx, cancel_result_rx) = mpsc::channel();
+    std::thread::spawn(move || {
+        cancel_result_tx
+            .send(ticket.cancel_queued())
+            .expect("cancellation result should be received");
+    });
+    cancel_started_rx
+        .recv_timeout(Duration::from_secs(2))
+        .expect("ticket should remove the job and start cancellation");
+
+    let report = pool.stop();
+    assert_eq!(report.queued, 0);
+    assert_eq!(report.cancelled, 0);
+    assert_eq!(report.running, 1);
+
+    release_cancel_tx.send(()).expect("cancellation should be released");
+    assert!(
+        cancel_result_rx
+            .recv_timeout(Duration::from_secs(2))
+            .expect("ticket cancellation should finish")
+    );
+    release_worker_tx.send(()).expect("worker should be released");
+    assert!(pool.wait_termination_timeout(Duration::from_secs(2)));
+}
+
+#[test]
 fn test_thread_pool_stop_is_idempotent_from_stopping() {
     let pool = ThreadPool::new(1).expect("thread pool should be created");
 
