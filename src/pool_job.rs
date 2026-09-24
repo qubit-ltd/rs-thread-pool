@@ -226,10 +226,15 @@ impl PoolJob {
     /// Cancels this queued job if it has not been run first.
     ///
     /// Consumes the job and invokes the cancellation callback at most once.
+    /// Contains panics from both cancellation and destruction of unused run
+    /// captures so callers can always finish accounting and wake ticket
+    /// waiters.
     pub(crate) fn cancel(self) {
-        if let PoolJobInner::Completable(task) = self.inner {
-            task.cancel();
-        }
+        let _ignored = catch_unwind(AssertUnwindSafe(|| {
+            if let PoolJobInner::Completable(task) = self.inner {
+                task.cancel();
+            }
+        }));
     }
 }
 
@@ -436,5 +441,84 @@ mod tests {
             assert_eq!(stats.queued_tasks, 0);
             assert_eq!(stats.running_tasks, 0);
         }
+    }
+
+    /// Panics while releasing a queued run closure rather than while calling
+    /// cancel.
+    struct PanickingRunCapture;
+
+    impl Drop for PanickingRunCapture {
+        fn drop(&mut self) {
+            panic!("reserved cancellation run capture destructor panicked");
+        }
+    }
+
+    #[test]
+    fn test_ticket_reserved_cancellation_contains_capture_drop_panic_and_wakes_waiter() {
+        let pool = Arc::new(ThreadPool::new(1).expect("pool builds"));
+        let (started_tx, started_rx) = mpsc::channel();
+        let (release_tx, release_rx) = mpsc::channel();
+        let (cancelled_tx, cancelled_rx) = mpsc::channel();
+        let capture = PanickingRunCapture;
+        let (job, ticket) = pool.prepare_cancellable_job(
+            Box::new(move || {
+                started_tx.send(()).expect("accept starts");
+                release_rx.recv().expect("accept released");
+            }),
+            Box::new(move || drop(capture)),
+            Box::new(move || cancelled_tx.send(()).expect("cancel observed")),
+        );
+        let entry = Arc::clone(&ticket.entry);
+        let (submitted_tx, submitted_rx) = mpsc::channel();
+        let submit_pool = Arc::clone(&pool);
+        thread::spawn(move || {
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| submit_pool.submit_job(job)));
+            submitted_tx.send(result).expect("submit result");
+        });
+        started_rx.recv_timeout(Duration::from_secs(2)).expect("accept starts");
+        let (result_tx, result_rx) = mpsc::channel();
+        thread::spawn(move || result_tx.send(ticket.cancel_queued()).expect("cancel result"));
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while !matches!(
+            *entry.lock(),
+            QueuedJobState::Accepting {
+                cancel_requested: true,
+                ..
+            }
+        ) {
+            assert!(
+                Instant::now() < deadline,
+                "ticket reserves cancellation before accept returns"
+            );
+            thread::yield_now();
+        }
+        release_tx.send(()).expect("release acceptance");
+        let submission = submitted_rx
+            .recv_timeout(Duration::from_secs(2))
+            .expect("submit finishes");
+        // Close admission even when the reproduction unwinds in the submitter.
+        pool.shutdown();
+        assert!(
+            submission.is_ok(),
+            "capture Drop panic must not escape reserved cancellation"
+        );
+        submission
+            .expect("submitter does not unwind")
+            .expect("job was accepted");
+        assert!(
+            result_rx
+                .recv_timeout(Duration::from_secs(2))
+                .expect("reserved ticket must wake")
+        );
+        assert!(matches!(*entry.lock(), QueuedJobState::Cancelled));
+        cancelled_rx.try_recv().expect("cancellation callback ran once");
+        assert!(cancelled_rx.try_recv().is_err());
+        assert!(pool.wait_termination_timeout(Duration::from_secs(2)));
+        let stats = pool.stats();
+        assert_eq!(stats.submitted_tasks, 1);
+        assert_eq!(stats.cancelled_tasks, 1);
+        assert_eq!(stats.completed_tasks, 0);
+        assert_eq!(stats.queued_tasks, 0);
+        assert_eq!(stats.running_tasks, 0);
     }
 }

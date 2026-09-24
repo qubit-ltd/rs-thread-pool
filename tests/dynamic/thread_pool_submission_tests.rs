@@ -615,3 +615,45 @@ fn test_ticket_cancel_callback_can_submit_to_same_queue() {
     pool.shutdown();
     assert!(pool.wait_termination_timeout(Duration::from_secs(2)));
 }
+
+/// A run capture whose destructor exercises the cancellation unwind boundary.
+struct TicketPanickingDrop;
+
+impl Drop for TicketPanickingDrop {
+    fn drop(&mut self) {
+        panic!("cancelled run capture destructor panicked");
+    }
+}
+
+#[test]
+fn test_ticket_cancel_contains_run_capture_drop_panic_and_finishes_accounting() {
+    let pool = ThreadPool::builder()
+        .pool_size(1)
+        .queue_capacity(1)
+        .build()
+        .expect("pool builds");
+    let release = block_ticket_worker(&pool);
+    let (cancel_tx, cancel_rx) = mpsc::channel();
+    let capture = TicketPanickingDrop;
+    let (job, ticket) = pool.prepare_cancellable_job(
+        Box::new(|| {}),
+        Box::new(move || drop(capture)),
+        Box::new(move || cancel_tx.send(()).expect("cancellation observed")),
+    );
+    pool.submit_job(job).expect("ticket job accepted");
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| ticket.cancel_queued()));
+    release.send(()).expect("release blocker");
+    pool.shutdown();
+    assert!(result.is_ok(), "capture Drop panic must remain inside the job boundary");
+    assert!(result.expect("cancellation does not unwind"));
+    assert!(!ticket.cancel_queued(), "cancellation remains one-shot");
+    cancel_rx.try_recv().expect("cancellation callback ran once");
+    assert!(cancel_rx.try_recv().is_err());
+    assert!(pool.wait_termination_timeout(Duration::from_secs(2)));
+    let stats = pool.stats();
+    assert_eq!(stats.submitted_tasks, 2);
+    assert_eq!(stats.completed_tasks, 1);
+    assert_eq!(stats.cancelled_tasks, 1);
+    assert_eq!(stats.queued_tasks, 0);
+    assert_eq!(stats.running_tasks, 0);
+}
