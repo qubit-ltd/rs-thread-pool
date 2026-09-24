@@ -496,19 +496,33 @@ fn test_ticket_cancel_races_worker_claim_and_stop_once() {
                 Box::new(move || outcome_tx.send("cancel").expect("cancel observed")),
             );
             pool.submit_job(job).expect("job accepted");
-            let barrier = Arc::new(std::sync::Barrier::new(2));
+            let barrier = Arc::new(std::sync::Barrier::new(3));
             let cancel_barrier = Arc::clone(&barrier);
-            let canceller = std::thread::spawn(move || {
+            let (cancel_result_tx, cancel_result_rx) = mpsc::channel();
+            std::thread::spawn(move || {
                 cancel_barrier.wait();
-                ticket.cancel_queued()
+                cancel_result_tx.send(ticket.cancel_queued()).expect("cancel result");
+            });
+            let action_barrier = Arc::clone(&barrier);
+            let action_pool = Arc::clone(&pool);
+            let action_release = release.clone();
+            let (action_tx, action_rx) = mpsc::channel();
+            std::thread::spawn(move || {
+                action_barrier.wait();
+                if stop {
+                    action_pool.stop();
+                } else {
+                    action_release.send(()).expect("release worker");
+                }
+                action_tx.send(()).expect("competing action result");
             });
             barrier.wait();
-            if stop {
-                pool.stop();
-            } else {
-                release.send(()).expect("release worker");
-            }
-            let cancelled = canceller.join().expect("canceller finishes");
+            action_rx
+                .recv_timeout(Duration::from_secs(2))
+                .expect("competing action finishes");
+            let cancelled = cancel_result_rx
+                .recv_timeout(Duration::from_secs(2))
+                .expect("canceller finishes");
             if stop {
                 release.send(()).expect("release worker");
             }
@@ -545,20 +559,29 @@ fn test_ticket_cancel_during_accept_waits_and_releases_captures() {
         Box::new(move || cancel_tx.send(()).expect("cancel observed")),
     );
     let submit_pool = Arc::clone(&pool);
-    let submitter = std::thread::spawn(move || submit_pool.submit_job(job));
+    let (submitted_tx, submitted_rx) = mpsc::channel();
+    std::thread::spawn(move || submitted_tx.send(submit_pool.submit_job(job)).expect("submit result"));
     accepted_rx
         .recv_timeout(Duration::from_secs(2))
         .expect("acceptance starts");
     let barrier = Arc::new(std::sync::Barrier::new(2));
     let cancel_barrier = Arc::clone(&barrier);
-    let canceller = std::thread::spawn(move || {
+    let (cancel_result_tx, cancel_result_rx) = mpsc::channel();
+    std::thread::spawn(move || {
         cancel_barrier.wait();
-        ticket.cancel_queued()
+        cancel_result_tx.send(ticket.cancel_queued()).expect("cancel result");
     });
     barrier.wait();
     release_tx.send(()).expect("release acceptance");
-    assert!(canceller.join().expect("canceller finishes"));
-    submitter.join().expect("submitter finishes").expect("job accepted");
+    assert!(
+        cancel_result_rx
+            .recv_timeout(Duration::from_secs(2))
+            .expect("canceller finishes")
+    );
+    submitted_rx
+        .recv_timeout(Duration::from_secs(2))
+        .expect("submitter finishes")
+        .expect("job accepted");
     drop_rx.try_recv().expect("capture released");
     cancel_rx.try_recv().expect("cancel callback completed");
     assert_eq!(pool.stats().queued_tasks, 0);

@@ -324,15 +324,31 @@ fn test_ticket_cancellation_keeps_join_and_shutdown_busy_until_callback_returns(
         .expect("cancellation starts");
     release_worker_tx.send(()).expect("release worker");
     pool.shutdown();
+    // Remove the running worker as an alternative reason for either wait to block.
+    super::mod_tests::wait_until(|| pool.live_worker_count() == 0);
+    assert_eq!(pool.stats().running_tasks, 0);
+    assert_eq!(pool.stats().completed_tasks, 1);
     let join_pool = Arc::clone(&pool);
+    let (joining_tx, joining_rx) = mpsc::channel();
     let (joined_tx, joined_rx) = mpsc::channel();
     std::thread::spawn(move || {
+        joining_tx.send(()).expect("join caller starts");
         join_pool.join();
         joined_tx.send(()).expect("join result");
     });
+    joining_rx
+        .recv_timeout(Duration::from_secs(2))
+        .expect("join caller starts");
+    assert!(
+        !pool.is_terminated(),
+        "only the cancellation callback keeps the pool active"
+    );
     assert!(!pool.wait_termination_timeout(Duration::from_millis(20)));
     assert!(
-        joined_rx.try_recv().is_err(),
+        matches!(
+            joined_rx.recv_timeout(Duration::from_millis(20)),
+            Err(mpsc::RecvTimeoutError::Timeout)
+        ),
         "join must retain cancellation accounting"
     );
     release_cancel_tx.send(()).expect("release cancel callback");
