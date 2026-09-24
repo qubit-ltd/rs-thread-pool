@@ -657,10 +657,15 @@ impl ThreadPoolInner {
 
     /// Requests abrupt shutdown and cancels queued jobs.
     ///
+    /// The report's `queued` and `cancelled` counts include only jobs that
+    /// this call removes from the queue and cancels. A concurrent ticket
+    /// cancellation that removes a job first is not included. The `running`
+    /// count is a snapshot taken after in-flight submissions have finished.
+    ///
     /// # Returns
     ///
-    /// A report containing queued jobs cancelled and jobs running at the time
-    /// of the request.
+    /// A report containing jobs cancelled by this stop call and a snapshot of
+    /// jobs running after in-flight submissions have finished.
     pub(crate) fn stop(&self) -> StopReport {
         self.accounting.close_admission();
         self.stop_now.store(true, Ordering::Release);
@@ -994,8 +999,11 @@ impl ThreadPoolInner {
 mod tests {
     use std::sync::Arc;
     use std::sync::Barrier;
+    use std::sync::atomic::Ordering;
+    use std::sync::mpsc;
     use std::thread;
     use std::time::Duration;
+    use std::time::Instant;
 
     use qubit_executor::service::ExecutorServiceLifecycle;
     use qubit_executor::service::SubmissionError;
@@ -1005,6 +1013,84 @@ mod tests {
     use super::ThreadPoolInner;
     use crate::PoolJob;
     use crate::PoolJobSubmissionError;
+
+    #[test]
+    fn test_stop_report_excludes_ticket_cancellation_after_stop_snapshot() {
+        let inner = Arc::new(ThreadPoolInner::new(
+            ThreadPoolConfig {
+                core_pool_size: 1,
+                maximum_pool_size: 1,
+                queue_capacity: Some(1),
+                thread_name_prefix: String::from("stop-report-test"),
+                stack_size: None,
+                keep_alive: Duration::from_secs(1),
+                allow_core_thread_timeout: false,
+            },
+            ThreadPoolHooks::default(),
+        ));
+        let (worker_started_tx, worker_started_rx) = mpsc::channel();
+        let (release_worker_tx, release_worker_rx) = mpsc::channel();
+        inner
+            .submit(PoolJob::new(
+                Box::new(move || {
+                    worker_started_tx.send(()).expect("worker should start");
+                    release_worker_rx.recv().expect("worker should be released");
+                }),
+                Box::new(|| {}),
+            ))
+            .expect("blocking job should be accepted");
+        worker_started_rx
+            .recv_timeout(Duration::from_secs(2))
+            .expect("worker should start");
+
+        let (cancel_started_tx, cancel_started_rx) = mpsc::channel();
+        let (release_cancel_tx, release_cancel_rx) = mpsc::channel();
+        let (job, ticket) = PoolJob::prepare_cancellable(
+            &inner,
+            Box::new(|| {}),
+            Box::new(|| panic!("cancelled job must not run")),
+            Box::new(move || {
+                cancel_started_tx.send(()).expect("cancellation should start");
+                release_cancel_rx.recv().expect("cancellation should be released");
+            }),
+        );
+        inner.submit(job).expect("ticketed job should be accepted");
+
+        // Hold stop after its report baseline is taken, then race an independent
+        // ticket cancellation into the old implementation's counter delta.
+        assert!(inner.accounting.try_enter(), "in-flight gate should open");
+        let stop_inner = Arc::clone(&inner);
+        let stop_thread = thread::spawn(move || stop_inner.stop());
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while (!inner.stop_now.load(Ordering::Acquire) || inner.submit_waiter_count.load(Ordering::Acquire) == 0)
+            && Instant::now() < deadline
+        {
+            thread::yield_now();
+        }
+        assert!(
+            inner.stop_now.load(Ordering::Acquire) && inner.submit_waiter_count.load(Ordering::Acquire) > 0,
+            "stop should wait after publishing its stop request",
+        );
+
+        let cancel_thread = thread::spawn(move || ticket.cancel_queued());
+        cancel_started_rx
+            .recv_timeout(Duration::from_secs(2))
+            .expect("ticket cancellation should start after stop's snapshot");
+
+        let _was_last_submitter = inner.accounting.leave();
+        inner.notify_waiters_after_atomic_change();
+        let report = stop_thread
+            .join()
+            .expect("stop should return a report without the ticket cancellation");
+        assert_eq!(report.queued, 0);
+        assert_eq!(report.cancelled, 0);
+        assert_eq!(report.running, 1);
+
+        release_cancel_tx.send(()).expect("cancellation should be released");
+        assert!(cancel_thread.join().expect("ticket cancellation should finish"));
+        release_worker_tx.send(()).expect("worker should be released");
+        assert!(inner.wait_for_termination_timeout(Duration::from_secs(2)));
+    }
 
     #[test]
     fn test_submit_with_state_lock_rejects_stopping_state() {
