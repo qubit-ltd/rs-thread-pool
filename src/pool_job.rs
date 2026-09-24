@@ -223,6 +223,12 @@ impl PoolJob {
         }
     }
 
+    /// Drops a rejected job without running callbacks, containing capture
+    /// destructor panics so rejection keeps its original error result.
+    pub(crate) fn discard(self) {
+        let _ignored = catch_unwind(AssertUnwindSafe(|| drop(self)));
+    }
+
     /// Cancels this queued job if it has not been run first.
     ///
     /// Consumes the job and invokes the cancellation callback at most once.
@@ -520,5 +526,75 @@ mod tests {
         assert_eq!(stats.completed_tasks, 0);
         assert_eq!(stats.queued_tasks, 0);
         assert_eq!(stats.running_tasks, 0);
+    }
+
+    #[test]
+    fn test_ticket_rejection_contains_capture_drop_panic() {
+        for rejection in 0..3 {
+            for run_capture_panics in [true, false] {
+                let pool = ThreadPool::builder()
+                    .pool_size(1)
+                    .queue_capacity(1)
+                    .prestart_core_threads()
+                    .build()
+                    .expect("pool builds");
+                let (started_tx, started_rx) = mpsc::channel();
+                let (release_tx, release_rx) = mpsc::channel();
+                if rejection == 2 {
+                    pool.submit_job(super::PoolJob::new(
+                        Box::new(move || {
+                            started_tx.send(()).expect("blocking worker starts");
+                            release_rx.recv().expect("blocking worker released");
+                        }),
+                        Box::new(|| {}),
+                    ))
+                    .expect("blocking job accepted");
+                    started_rx.recv_timeout(Duration::from_secs(2)).expect("worker starts");
+                    pool.submit_job(super::PoolJob::new(Box::new(|| {}), Box::new(|| {})))
+                        .expect("queue fills");
+                }
+                let capture = PanickingRunCapture;
+                let panicking: Box<dyn FnOnce() + Send> = Box::new(move || drop(capture));
+                let ignored: Box<dyn FnOnce() + Send> = Box::new(|| {});
+                let (run, cancel) = if run_capture_panics {
+                    (panicking, ignored)
+                } else {
+                    (ignored, panicking)
+                };
+                let (job, ticket) =
+                    pool.prepare_cancellable_job(Box::new(|| panic!("acceptance callback panics")), run, cancel);
+                if rejection == 1 {
+                    pool.shutdown();
+                }
+                let submission = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| pool.submit_job(job)));
+                pool.shutdown();
+                if rejection == 2 {
+                    release_tx.send(()).expect("release blocking worker");
+                }
+                assert!(
+                    submission.is_ok(),
+                    "rejected captures must not replace the submission error with unwind"
+                );
+                let expected = match rejection {
+                    0 => PoolJobSubmissionError::AcceptancePanicked,
+                    1 => PoolJobSubmissionError::Rejected(qubit_executor::service::SubmissionError::Shutdown),
+                    _ => PoolJobSubmissionError::Rejected(qubit_executor::service::SubmissionError::Saturated),
+                };
+                assert_eq!(submission.expect("submission does not unwind"), Err(expected));
+                assert!(!ticket.cancel_queued());
+                if rejection == 0 {
+                    assert!(matches!(*ticket.entry.lock(), QueuedJobState::Rejected));
+                } else {
+                    assert!(matches!(*ticket.entry.lock(), QueuedJobState::Prepared));
+                }
+                assert!(pool.wait_termination_timeout(Duration::from_secs(2)));
+                let stats = pool.stats();
+                assert_eq!(stats.submitted_tasks, if rejection == 2 { 2 } else { 0 });
+                assert_eq!(stats.cancelled_tasks, 0);
+                assert_eq!(stats.completed_tasks, stats.submitted_tasks);
+                assert_eq!(stats.queued_tasks, 0);
+                assert_eq!(stats.running_tasks, 0);
+            }
+        }
     }
 }

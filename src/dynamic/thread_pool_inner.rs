@@ -269,6 +269,7 @@ impl ThreadPoolInner {
                 entry.changed.notify_all();
             }
             self.notify_waiters_after_atomic_change();
+            job.discard();
             return Err(PoolJobSubmissionError::AcceptancePanicked);
         }
         let mut queue = self
@@ -371,7 +372,13 @@ impl ThreadPoolInner {
     /// [`PoolJobSubmissionError::AcceptancePanicked`] if acceptance panics.
     pub(crate) fn submit(self: &Arc<Self>, job: PoolJob) -> Result<(), PoolJobSubmissionError> {
         job.assert_pool(self);
-        let _guard = self.begin_submit()?;
+        let _guard = match self.begin_submit() {
+            Ok(guard) => guard,
+            Err(error) => {
+                job.discard();
+                return Err(error.into());
+            }
+        };
         self.submit_with_state_lock(job)
     }
 
@@ -391,6 +398,18 @@ impl ThreadPoolInner {
     /// or [`SubmissionError::WorkerSpawnFailed`] according to the dynamic
     /// admission state observed under the monitor.
     fn submit_with_state_lock(self: &Arc<Self>, job: PoolJob) -> Result<(), PoolJobSubmissionError> {
+        if let Err(error) = self.reserve_submission_with_state_lock() {
+            // Destructors are user code too: release the state monitor first.
+            job.discard();
+            return Err(error);
+        }
+        self.accept_and_enqueue_reserved_job(job)
+    }
+
+    /// Reserves admission capacity under the state monitor without taking job
+    /// ownership, so rejected captures are always destroyed outside the lock.
+    /// Returns Shutdown, Saturated, or WorkerSpawnFailed if reservation fails.
+    fn reserve_submission_with_state_lock(self: &Arc<Self>) -> Result<(), PoolJobSubmissionError> {
         let mut state = self.lock_state();
         if state.lifecycle != ExecutorServiceLifecycle::Running {
             return Err(PoolJobSubmissionError::Rejected(SubmissionError::Shutdown));
@@ -399,26 +418,22 @@ impl ThreadPoolInner {
             let worker = self.reserve_worker_locked(&mut state);
             self.spawn_reserved_worker_locked(&mut state, worker)?;
             self.reserve_worker_handoff_slot();
-            drop(state);
-            return self.accept_and_enqueue_reserved_job(job);
+            return Ok(());
         }
         if state.live_workers == 0 {
             let worker = self.reserve_worker_locked(&mut state);
             self.spawn_reserved_worker_locked(&mut state, worker)?;
             self.reserve_worker_handoff_slot();
-            drop(state);
-            return self.accept_and_enqueue_reserved_job(job);
+            return Ok(());
         }
         if self.reserve_queue_slot() {
-            drop(state);
-            return self.accept_and_enqueue_reserved_job(job);
+            return Ok(());
         }
         if state.live_workers < state.maximum_pool_size {
             let worker = self.reserve_worker_locked(&mut state);
             self.spawn_reserved_worker_locked(&mut state, worker)?;
             self.reserve_worker_handoff_slot();
-            drop(state);
-            self.accept_and_enqueue_reserved_job(job)
+            Ok(())
         } else {
             Err(PoolJobSubmissionError::Rejected(SubmissionError::Saturated))
         }
