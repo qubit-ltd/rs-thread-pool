@@ -57,6 +57,19 @@ pub struct ThreadPool {
 }
 
 impl ThreadPool {
+    /// Waits asynchronously until shutdown or stop has finished all work.
+    ///
+    /// The wait does not occupy a worker or Tokio blocking thread. Dropping
+    /// the future cancels only this wait, without changing the pool lifecycle.
+    #[cfg(feature = "async-wait")]
+    pub async fn await_termination(&self) {
+        let mut receiver = self.inner.subscribe_termination();
+        receiver
+            .wait_for(|terminated| *terminated)
+            .await
+            .expect("pool state outlives a borrowed termination wait");
+    }
+
     /// Wraps initialized shared state in the public pool handle.
     ///
     /// This constructor is restricted to the validated builder path.

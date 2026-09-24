@@ -34,12 +34,14 @@ doctest = true
 
 [features]
 default = []
+async-wait = ["dep:tokio"]
 loom-model = ["dep:loom"]
 
 [dependencies]
 crossbeam-deque = "^0.8"
 loom = { version = "^0.7", optional = true }
 thiserror = "^2.0"
+tokio = { version = "^1.53", features = ["sync"], optional = true }
 
 qubit-argument = "0.4"
 qubit-executor = "0.8"

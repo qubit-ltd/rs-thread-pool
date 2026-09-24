@@ -22,6 +22,8 @@ use qubit_executor::service::StopReport;
 use qubit_executor::service::SubmissionError;
 use qubit_lock::ParkingLotMonitor;
 use qubit_lock::ParkingLotMonitorGuard;
+#[cfg(feature = "async-wait")]
+use tokio::sync::watch;
 
 pub(super) use self::internal::ReservedWorker;
 pub(super) use self::internal::ThreadPoolSubmitGuard;
@@ -63,6 +65,9 @@ pub(crate) struct ThreadPoolInner {
     stack_size: Option<usize>,
     /// Worker and task lifecycle hooks.
     hooks: ThreadPoolHooks,
+    /// Monotonic termination notification for asynchronous waiters.
+    #[cfg(feature = "async-wait")]
+    termination_tx: watch::Sender<bool>,
 }
 
 impl ThreadPoolInner {
@@ -93,6 +98,24 @@ impl ThreadPoolInner {
             thread_name_prefix,
             stack_size,
             hooks,
+            #[cfg(feature = "async-wait")]
+            termination_tx: watch::channel(false).0,
+        }
+    }
+
+    /// Subscribes to the terminal state without losing a concurrent transition.
+    #[cfg(feature = "async-wait")]
+    pub(crate) fn subscribe_termination(&self) -> watch::Receiver<bool> {
+        let state = self.lock_state();
+        self.publish_termination_locked(&state);
+        self.termination_tx.subscribe()
+    }
+
+    /// Publishes terminal state while the caller holds the pool state lock.
+    #[cfg(feature = "async-wait")]
+    fn publish_termination_locked(&self, state: &ThreadPoolState) {
+        if self.is_terminated_locked(state) {
+            self.termination_tx.send_replace(true);
         }
     }
 
@@ -652,6 +675,8 @@ impl ThreadPoolInner {
         if state.lifecycle == ExecutorServiceLifecycle::Running {
             state.lifecycle = ExecutorServiceLifecycle::ShuttingDown;
         }
+        #[cfg(feature = "async-wait")]
+        self.publish_termination_locked(&state);
         state.notify_all();
     }
 
@@ -689,6 +714,8 @@ impl ThreadPoolInner {
             let running = self.running_count();
             let jobs = self.drain_visible_queued_jobs();
             let drained = jobs.len();
+            #[cfg(feature = "async-wait")]
+            self.publish_termination_locked(&state);
             state.notify_all();
             (jobs, drained, running)
         };
@@ -954,7 +981,10 @@ impl ThreadPoolInner {
 
     /// Notifies waiters after an atomic-only condition change.
     fn notify_waiters_after_atomic_change(&self) {
-        self.lock_state().notify_all();
+        let state = self.lock_state();
+        #[cfg(feature = "async-wait")]
+        self.publish_termination_locked(&state);
+        state.notify_all();
     }
 
     /// Notifies termination waiters when the state is terminal.
@@ -964,6 +994,8 @@ impl ThreadPoolInner {
     /// * `state` - Current pool state observed while holding the state lock.
     pub(crate) fn notify_if_terminated(&self, state: &ThreadPoolState) {
         if self.is_terminated_locked(state) {
+            #[cfg(feature = "async-wait")]
+            self.publish_termination_locked(state);
             self.state_monitor.notify_all();
         }
     }
@@ -975,6 +1007,8 @@ impl ThreadPoolInner {
     /// * `state` - Current pool state observed while holding the state lock.
     pub(crate) fn notify_if_idle_or_terminated(&self, state: &ThreadPoolState) {
         if self.is_idle_snapshot() || self.is_terminated_locked(state) {
+            #[cfg(feature = "async-wait")]
+            self.publish_termination_locked(state);
             self.state_monitor.notify_all();
         }
     }
