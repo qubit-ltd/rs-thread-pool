@@ -291,3 +291,58 @@ fn test_thread_pool_wait_termination_waits_for_custom_cancel_callback() {
         "termination must wait until cancel callback completes",
     );
 }
+
+#[test]
+fn test_ticket_cancellation_keeps_join_and_shutdown_busy_until_callback_returns() {
+    let pool = Arc::new(ThreadPool::new(1).expect("pool builds"));
+    let (started_tx, started_rx) = mpsc::channel();
+    let (release_worker_tx, release_worker_rx) = mpsc::channel();
+    pool.submit_job(PoolJob::new(
+        Box::new(move || {
+            started_tx.send(()).expect("worker starts");
+            release_worker_rx.recv().expect("worker released");
+        }),
+        Box::new(|| {}),
+    ))
+    .expect("blocker accepted");
+    started_rx.recv_timeout(Duration::from_secs(2)).expect("worker starts");
+    let (cancelling_tx, cancelling_rx) = mpsc::channel();
+    let (release_cancel_tx, release_cancel_rx) = mpsc::channel();
+    let (job, ticket) = pool.prepare_cancellable_job(
+        Box::new(|| {}),
+        Box::new(|| {}),
+        Box::new(move || {
+            cancelling_tx.send(()).expect("cancellation starts");
+            release_cancel_rx.recv().expect("cancellation released");
+        }),
+    );
+    pool.submit_job(job).expect("job accepted");
+    let (cancelled_tx, cancelled_rx) = mpsc::channel();
+    std::thread::spawn(move || cancelled_tx.send(ticket.cancel_queued()).expect("cancellation result"));
+    cancelling_rx
+        .recv_timeout(Duration::from_secs(2))
+        .expect("cancellation starts");
+    release_worker_tx.send(()).expect("release worker");
+    pool.shutdown();
+    let join_pool = Arc::clone(&pool);
+    let (joined_tx, joined_rx) = mpsc::channel();
+    std::thread::spawn(move || {
+        join_pool.join();
+        joined_tx.send(()).expect("join result");
+    });
+    assert!(!pool.wait_termination_timeout(Duration::from_millis(20)));
+    assert!(
+        joined_rx.try_recv().is_err(),
+        "join must retain cancellation accounting"
+    );
+    release_cancel_tx.send(()).expect("release cancel callback");
+    assert!(
+        cancelled_rx
+            .recv_timeout(Duration::from_secs(2))
+            .expect("cancellation finishes")
+    );
+    joined_rx.recv_timeout(Duration::from_secs(2)).expect("join finishes");
+    assert!(pool.wait_termination_timeout(Duration::from_secs(2)));
+    assert_eq!(pool.stats().cancelled_tasks, 1);
+    assert_eq!(pool.stats().completed_tasks, 1);
+}

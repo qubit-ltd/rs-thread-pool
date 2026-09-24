@@ -393,3 +393,225 @@ fn test_lazy_pool_acceptance_runs_on_submitter_thread() {
     pool.wait_termination();
     assert_eq!(observed_thread, Some(submitter_thread));
 }
+
+/// Signals when a queued callback's captured value is released.
+struct TicketDropProbe(mpsc::Sender<()>);
+
+impl Drop for TicketDropProbe {
+    fn drop(&mut self) {
+        let _ = self.0.send(());
+    }
+}
+
+/// Occupies the only worker until the returned sender releases it.
+fn block_ticket_worker(pool: &ThreadPool) -> mpsc::Sender<()> {
+    let (started_tx, started_rx) = mpsc::channel();
+    let (release_tx, release_rx) = mpsc::channel();
+    pool.submit_job(PoolJob::new(
+        Box::new(move || {
+            started_tx.send(()).expect("worker starts");
+            release_rx.recv().expect("worker released");
+        }),
+        Box::new(|| {}),
+    ))
+    .expect("blocker accepted");
+    started_rx.recv_timeout(Duration::from_secs(2)).expect("worker starts");
+    release_tx
+}
+
+#[test]
+fn test_ticket_cancel_releases_capture_capacity_and_preserves_fifo() {
+    let pool = ThreadPool::builder()
+        .pool_size(1)
+        .queue_capacity(1)
+        .build()
+        .expect("pool builds");
+    let release = block_ticket_worker(&pool);
+    let (drop_tx, drop_rx) = mpsc::channel();
+    let probe = TicketDropProbe(drop_tx);
+    let (cancel_tx, cancel_rx) = mpsc::channel();
+    let (job, ticket) = pool.prepare_cancellable_job(
+        Box::new(|| {}),
+        Box::new(move || drop(probe)),
+        Box::new(move || cancel_tx.send(()).expect("cancellation observed")),
+    );
+    assert!(!ticket.cancel_queued(), "unaccepted jobs cannot be cancelled");
+    pool.submit_job(job).expect("ticket job accepted");
+    assert!(matches!(
+        pool.submit_job(PoolJob::new(Box::new(|| {}), Box::new(|| {}))),
+        Err(qubit_thread_pool::PoolJobSubmissionError::Rejected(
+            qubit_executor::service::SubmissionError::Saturated
+        ))
+    ));
+    assert!(ticket.cancel_queued());
+    drop_rx.try_recv().expect("capture dropped before cancellation returns");
+    cancel_rx.try_recv().expect("callback ran before cancellation returns");
+    assert!(!ticket.cancel_queued());
+    assert_eq!(pool.stats().queued_tasks, 0);
+    assert_eq!(pool.stats().cancelled_tasks, 1);
+    pool.submit_job(PoolJob::new(Box::new(|| {}), Box::new(|| {})))
+        .expect("capacity immediately reusable");
+    release.send(()).expect("release blocker");
+    pool.shutdown();
+    assert!(pool.wait_termination_timeout(Duration::from_secs(2)));
+    assert_eq!(pool.stats().completed_tasks, 2);
+}
+
+#[test]
+fn test_ticket_removal_preserves_remaining_fifo_order() {
+    let pool = ThreadPool::new(1).expect("pool builds");
+    let release = block_ticket_worker(&pool);
+    let (order_tx, order_rx) = mpsc::channel();
+    let mut tickets = Vec::new();
+    for index in 0..5 {
+        let order_tx = order_tx.clone();
+        let (job, ticket) = pool.prepare_cancellable_job(
+            Box::new(|| {}),
+            Box::new(move || {
+                order_tx.send(index).expect("record run order");
+            }),
+            Box::new(|| {}),
+        );
+        pool.submit_job(job).expect("job accepted");
+        tickets.push(ticket);
+    }
+    assert!(tickets[2].cancel_queued());
+    release.send(()).expect("release blocker");
+    pool.shutdown();
+    assert!(pool.wait_termination_timeout(Duration::from_secs(2)));
+    assert_eq!(order_rx.try_iter().collect::<Vec<_>>(), vec![0, 1, 3, 4]);
+}
+
+#[test]
+fn test_ticket_cancel_races_worker_claim_and_stop_once() {
+    for stop in [false, true] {
+        for _ in 0..32 {
+            let pool = Arc::new(ThreadPool::new(1).expect("pool builds"));
+            let release = block_ticket_worker(&pool);
+            let (outcome_tx, outcome_rx) = mpsc::channel();
+            let run_tx = outcome_tx.clone();
+            let (job, ticket) = pool.prepare_cancellable_job(
+                Box::new(|| {}),
+                Box::new(move || run_tx.send("run").expect("run observed")),
+                Box::new(move || outcome_tx.send("cancel").expect("cancel observed")),
+            );
+            pool.submit_job(job).expect("job accepted");
+            let barrier = Arc::new(std::sync::Barrier::new(2));
+            let cancel_barrier = Arc::clone(&barrier);
+            let canceller = std::thread::spawn(move || {
+                cancel_barrier.wait();
+                ticket.cancel_queued()
+            });
+            barrier.wait();
+            if stop {
+                pool.stop();
+            } else {
+                release.send(()).expect("release worker");
+            }
+            let cancelled = canceller.join().expect("canceller finishes");
+            if stop {
+                release.send(()).expect("release worker");
+            }
+            pool.shutdown();
+            assert!(pool.wait_termination_timeout(Duration::from_secs(2)));
+            let outcomes = outcome_rx.try_iter().collect::<Vec<_>>();
+            assert_eq!(outcomes.len(), 1);
+            if cancelled {
+                assert_eq!(outcomes, vec!["cancel"]);
+            }
+            let stats = pool.stats();
+            assert_eq!(stats.queued_tasks, 0);
+            assert_eq!(stats.running_tasks, 0);
+            assert_eq!(stats.completed_tasks + stats.cancelled_tasks, stats.submitted_tasks);
+        }
+    }
+}
+
+#[test]
+fn test_ticket_cancel_during_accept_waits_and_releases_captures() {
+    let pool = Arc::new(ThreadPool::new(1).expect("pool builds"));
+    let release_worker = block_ticket_worker(&pool);
+    let (accepted_tx, accepted_rx) = mpsc::channel();
+    let (release_tx, release_rx) = mpsc::channel();
+    let (drop_tx, drop_rx) = mpsc::channel();
+    let probe = TicketDropProbe(drop_tx);
+    let (cancel_tx, cancel_rx) = mpsc::channel();
+    let (job, ticket) = pool.prepare_cancellable_job(
+        Box::new(move || {
+            accepted_tx.send(()).expect("acceptance starts");
+            release_rx.recv().expect("acceptance released");
+        }),
+        Box::new(move || drop(probe)),
+        Box::new(move || cancel_tx.send(()).expect("cancel observed")),
+    );
+    let submit_pool = Arc::clone(&pool);
+    let submitter = std::thread::spawn(move || submit_pool.submit_job(job));
+    accepted_rx
+        .recv_timeout(Duration::from_secs(2))
+        .expect("acceptance starts");
+    let barrier = Arc::new(std::sync::Barrier::new(2));
+    let cancel_barrier = Arc::clone(&barrier);
+    let canceller = std::thread::spawn(move || {
+        cancel_barrier.wait();
+        ticket.cancel_queued()
+    });
+    barrier.wait();
+    release_tx.send(()).expect("release acceptance");
+    assert!(canceller.join().expect("canceller finishes"));
+    submitter.join().expect("submitter finishes").expect("job accepted");
+    drop_rx.try_recv().expect("capture released");
+    cancel_rx.try_recv().expect("cancel callback completed");
+    assert_eq!(pool.stats().queued_tasks, 0);
+    release_worker.send(()).expect("release worker");
+    pool.shutdown();
+    assert!(pool.wait_termination_timeout(Duration::from_secs(2)));
+}
+
+#[test]
+fn test_ticket_acceptance_panic_and_rejection_never_cancel() {
+    let pool = ThreadPool::new(1).expect("pool builds");
+    let (job, ticket) = pool.prepare_cancellable_job(
+        Box::new(|| panic!("acceptance fails")),
+        Box::new(|| panic!("must not run")),
+        Box::new(|| panic!("must not cancel")),
+    );
+    assert_eq!(
+        pool.submit_job(job),
+        Err(qubit_thread_pool::PoolJobSubmissionError::AcceptancePanicked)
+    );
+    assert!(!ticket.cancel_queued());
+    assert_eq!(pool.stats().submitted_tasks, 0);
+    let (job, ticket) =
+        pool.prepare_cancellable_job(Box::new(|| panic!("must not accept")), Box::new(|| {}), Box::new(|| {}));
+    pool.shutdown();
+    assert!(pool.submit_job(job).is_err());
+    assert!(!ticket.cancel_queued());
+    assert!(pool.wait_termination_timeout(Duration::from_secs(2)));
+}
+
+#[test]
+fn test_ticket_cancel_callback_can_submit_to_same_queue() {
+    let pool = Arc::new(ThreadPool::new(1).expect("pool builds"));
+    let release = block_ticket_worker(&pool);
+    let cancel_pool = Arc::clone(&pool);
+    let (job, ticket) = pool.prepare_cancellable_job(
+        Box::new(|| {}),
+        Box::new(|| {}),
+        Box::new(move || {
+            cancel_pool
+                .submit_job(PoolJob::new(Box::new(|| {}), Box::new(|| {})))
+                .expect("reentrant submit");
+        }),
+    );
+    pool.submit_job(job).expect("accepted");
+    let (done_tx, done_rx) = mpsc::channel();
+    std::thread::spawn(move || done_tx.send(ticket.cancel_queued()).expect("cancel result"));
+    assert!(
+        done_rx
+            .recv_timeout(Duration::from_secs(2))
+            .expect("queue lock released before callback")
+    );
+    release.send(()).expect("release worker");
+    pool.shutdown();
+    assert!(pool.wait_termination_timeout(Duration::from_secs(2)));
+}

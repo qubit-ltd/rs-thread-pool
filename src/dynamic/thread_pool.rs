@@ -23,6 +23,7 @@ use super::thread_pool_inner::ThreadPoolInner;
 use crate::ExecutorServiceBuilderError;
 use crate::PoolJob;
 use crate::PoolJobSubmissionError;
+use crate::PoolJobTicket;
 use crate::ThreadPoolStats;
 
 /// OS thread pool implementing [`ExecutorService`].
@@ -165,6 +166,39 @@ impl ThreadPool {
         self.inner.stats()
     }
 
+    /// Prepares callbacks and a ticket that can remove the accepted queued job.
+    ///
+    /// Submit the returned job only with this pool's [`Self::submit_job`].
+    /// Preparing does not reserve capacity or invoke any callback. `accept`
+    /// runs after admission succeeds; `run` runs if a worker claims the job;
+    /// `cancel` runs if its ticket or `stop` cancels it first. Callback panic
+    /// handling follows [`PoolJob::with_accept`].
+    ///
+    /// Ticket cancellation during acceptance waits for its result. On success,
+    /// the submitting thread executes `cancel` before publishing to the queue.
+    /// All callbacks execute outside pool and queue locks. Acceptance and
+    /// cancellation callbacks must not call `stop`, `join`, or
+    /// `wait_termination` on this pool, since those may wait for the callback.
+    ///
+    /// # Parameters
+    ///
+    /// * `accept` - Callback invoked after admission succeeds.
+    /// * `run` - Callback invoked when a worker claims the accepted job.
+    /// * `cancel` - Callback invoked when queued cancellation wins.
+    ///
+    /// # Returns
+    ///
+    /// The unsubmitted job and a cloneable ticket. Successful ticket
+    /// cancellation releases captures and queue capacity before returning.
+    pub fn prepare_cancellable_job(
+        &self,
+        accept: Box<dyn FnOnce() + Send + 'static>,
+        run: Box<dyn FnOnce() + Send + 'static>,
+        cancel: Box<dyn FnOnce() + Send + 'static>,
+    ) -> (PoolJob, PoolJobTicket) {
+        PoolJob::prepare_cancellable(&self.inner, accept, run, cancel)
+    }
+
     /// Submits a custom pool job.
     ///
     /// This low-level extension point is intended for higher-level services
@@ -198,6 +232,10 @@ impl ThreadPool {
     /// the job, or [`PoolJobSubmissionError::AcceptancePanicked`] when the
     /// acceptance callback panics. In the latter case the job is neither
     /// run nor cancelled.
+    ///
+    /// # Panics
+    ///
+    /// Panics if a ticketed job was prepared by a different dynamic pool.
     #[inline]
     pub fn submit_job(&self, job: PoolJob) -> Result<(), PoolJobSubmissionError> {
         self.inner.submit(job)

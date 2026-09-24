@@ -24,6 +24,7 @@ pub use dynamic::ThreadPoolBuilder;
 pub use fixed::FixedThreadPool;
 pub use fixed::FixedThreadPoolBuilder;
 pub use pool_job::PoolJob;
+pub use pool_job::PoolJobTicket;
 pub use pool_job_submission_error::PoolJobSubmissionError;
 pub use thread_pool_hooks::ThreadPoolHooks;
 pub use thread_pool_stats::ThreadPoolStats;

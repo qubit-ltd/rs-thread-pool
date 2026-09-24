@@ -5,7 +5,9 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+use std::collections::VecDeque;
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
@@ -15,8 +17,6 @@ use std::time::Instant;
 
 mod internal;
 
-use crossbeam_deque::Injector;
-use crossbeam_deque::Steal;
 use qubit_executor::service::ExecutorServiceLifecycle;
 use qubit_executor::service::StopReport;
 use qubit_executor::service::SubmissionError;
@@ -34,6 +34,8 @@ use crate::PoolJobSubmissionError;
 use crate::ThreadPoolHooks;
 use crate::ThreadPoolStats;
 use crate::internal::PoolAccounting;
+use crate::pool_job::QueuedJob;
+use crate::pool_job::QueuedJobState;
 
 /// Shared state for a thread pool.
 pub(crate) struct ThreadPoolInner {
@@ -53,8 +55,8 @@ pub(crate) struct ThreadPoolInner {
     submit_waiter_count: AtomicUsize,
     /// Number of callers waiting for accepted work to become idle.
     idle_waiter_count: AtomicUsize,
-    /// Global FIFO-ish submission queue for worker consumption.
-    global_queue: Injector<PoolJob>,
+    /// Removable FIFO; always lock this before an entry ownership mutex.
+    global_queue: Mutex<VecDeque<Arc<QueuedJob>>>,
     /// Prefix used for naming newly spawned workers.
     thread_name_prefix: String,
     /// Optional stack size in bytes for newly spawned workers.
@@ -87,7 +89,7 @@ impl ThreadPoolInner {
             pending_worker_wakes: AtomicUsize::new(0),
             submit_waiter_count: AtomicUsize::new(0),
             idle_waiter_count: AtomicUsize::new(0),
-            global_queue: Injector::new(),
+            global_queue: Mutex::new(VecDeque::new()),
             thread_name_prefix,
             stack_size,
             hooks,
@@ -252,16 +254,80 @@ impl ThreadPoolInner {
     ///
     /// Returns [`PoolJobSubmissionError::AcceptancePanicked`] if the acceptance
     /// callback panics, releasing the reserved slot without publishing the job.
-    fn accept_and_enqueue_reserved_job(&self, job: PoolJob) -> Result<(), PoolJobSubmissionError> {
+    fn accept_and_enqueue_reserved_job(&self, mut job: PoolJob) -> Result<(), PoolJobSubmissionError> {
+        let entry = job.take_queue_entry();
+        if let Some(entry) = &entry {
+            *entry.lock() = QueuedJobState::Accepting {
+                owner: thread::current().id(),
+                cancel_requested: false,
+            };
+        }
         if job.accept().is_err() {
             self.release_queue_slot();
+            if let Some(entry) = &entry {
+                *entry.lock() = QueuedJobState::Rejected;
+                entry.changed.notify_all();
+            }
             self.notify_waiters_after_atomic_change();
             return Err(PoolJobSubmissionError::AcceptancePanicked);
         }
+        let mut queue = self
+            .global_queue
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         self.accounting.publish_accepted_job();
-        self.global_queue.push(job);
+        if let Some(entry) = entry {
+            let mut state = entry.lock();
+            if matches!(
+                *state,
+                QueuedJobState::Accepting {
+                    cancel_requested: true,
+                    ..
+                }
+            ) {
+                *state = QueuedJobState::Cancelling;
+                self.begin_cancel_queued_job();
+                drop(state);
+                drop(queue);
+                job.cancel();
+                self.finish_cancelled_job();
+                *entry.lock() = QueuedJobState::Cancelled;
+                entry.changed.notify_all();
+                return Ok(());
+            }
+            *state = QueuedJobState::Queued(job);
+            drop(state);
+            queue.push_back(entry);
+        } else {
+            queue.push_back(Arc::new(QueuedJob::new(job)));
+        }
+        drop(queue);
         self.wake_one_idle_worker();
         Ok(())
+    }
+
+    /// Removes `entry` and cancels its callbacks once, returning whether it
+    /// won. Queue removal and accounting occur before invoking user code
+    /// outside locks.
+    pub(crate) fn cancel_queued_entry(&self, entry: &Arc<QueuedJob>) -> bool {
+        let job = {
+            let mut queue = self
+                .global_queue
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            let Some(index) = queue.iter().position(|queued| Arc::ptr_eq(queued, entry)) else {
+                return false;
+            };
+            let Some(job) = entry.take_queued() else {
+                return false;
+            };
+            queue.remove(index);
+            self.begin_cancel_queued_job();
+            job
+        };
+        job.cancel();
+        self.finish_cancelled_job();
+        true
     }
 
     /// Submits a job into the queue.
@@ -304,6 +370,7 @@ impl ThreadPoolInner {
     /// [`PoolJobSubmissionError::Rejected`]. Returns
     /// [`PoolJobSubmissionError::AcceptancePanicked`] if acceptance panics.
     pub(crate) fn submit(self: &Arc<Self>, job: PoolJob) -> Result<(), PoolJobSubmissionError> {
+        job.assert_pool(self);
         let _guard = self.begin_submit()?;
         self.submit_with_state_lock(job)
     }
@@ -468,54 +535,17 @@ impl ThreadPoolInner {
     ///
     /// `Some(job)` when the queue has work, otherwise `None`.
     pub(crate) fn try_take_queued_job(&self) -> Option<PoolJob> {
+        let mut queue = self
+            .global_queue
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         if self.stop_now.load(Ordering::Acquire) {
             return None;
         }
-        Self::steal_one(&self.global_queue).and_then(|job| self.accept_claimed_job(job))
-    }
-
-    /// Steals one job from a crossbeam injector with retry on contention.
-    ///
-    /// # Parameters
-    ///
-    /// * `queue` - Injector to steal from.
-    ///
-    /// # Returns
-    ///
-    /// `Some(job)` when the injector contains work, otherwise `None`.
-    fn steal_one(queue: &Injector<PoolJob>) -> Option<PoolJob> {
-        loop {
-            match queue.steal() {
-                Steal::Success(job) => return Some(job),
-                Steal::Empty => return None,
-                Steal::Retry => continue,
-            }
-        }
-    }
-
-    /// Accepts a claimed queued job or cancels it after immediate shutdown.
-    ///
-    /// # Parameters
-    ///
-    /// * `job` - Job claimed from the global queue.
-    ///
-    /// # Returns
-    ///
-    /// `Some(job)` when the job may run.
-    fn accept_claimed_job(&self, job: PoolJob) -> Option<PoolJob> {
-        if self.stop_now.load(Ordering::Acquire) {
-            self.begin_cancel_queued_job();
-            job.cancel();
-            self.finish_cancelled_job();
-            return None;
-        }
-        self.mark_queued_job_running();
-        Some(job)
-    }
-
-    /// Marks one claimed queued job as running.
-    fn mark_queued_job_running(&self) {
+        let entry = queue.pop_front()?;
+        let job = entry.take_queued()?;
         self.accounting.claim_queued_job();
+        Some(job)
     }
 
     /// Marks a worker as idle in lock-free wake-up state.
@@ -576,9 +606,16 @@ impl ThreadPoolInner {
     ///
     /// Drained queued jobs.
     fn drain_visible_queued_jobs(&self) -> Vec<PoolJob> {
-        let mut jobs = Vec::new();
-        while let Some(job) = Self::steal_one(&self.global_queue) {
-            jobs.push(job);
+        let mut queue = self
+            .global_queue
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut jobs = Vec::with_capacity(queue.len());
+        while let Some(entry) = queue.pop_front() {
+            if let Some(job) = entry.take_queued() {
+                self.begin_cancel_queued_job();
+                jobs.push(job);
+            }
         }
         jobs
     }
@@ -634,9 +671,6 @@ impl ThreadPoolInner {
             let running = self.running_count();
             let jobs = self.drain_visible_queued_jobs();
             let drained = jobs.len();
-            for _ in 0..drained {
-                self.begin_cancel_queued_job();
-            }
             let counters = self.accounting.snapshot();
             let cancelling_since_stop = counters.cancelling_tasks.saturating_sub(before_stop.cancelling_tasks);
             let cancelled_since_stop = counters.cancelled_tasks.saturating_sub(before_stop.cancelled_tasks);
