@@ -446,8 +446,10 @@ impl ExecutorService for ThreadPool {
     ///
     /// # Returns
     ///
-    /// A report containing the number of queued jobs cancelled and the number
-    /// of jobs running at the time of the request.
+    /// A report whose queued and cancelled counts include only jobs removed
+    /// and cancelled by this stop call. A job removed first by a ticket
+    /// cancellation is not included. The running count is sampled after
+    /// in-flight submissions finish.
     #[inline]
     fn stop(&self) -> StopReport {
         self.inner.stop()
