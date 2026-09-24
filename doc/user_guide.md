@@ -1,6 +1,6 @@
 # Qubit Thread Pool User Guide
 
-[中文版](user_guide.zh_CN.md) · Applies to `qubit-thread-pool` 0.10.0 and Rust 1.94 or later.
+[中文版](user_guide.zh_CN.md) · Applies to `qubit-thread-pool` 0.11.0 and Rust 1.94 or later.
 
 ## Purpose and Audience
 
@@ -39,7 +39,7 @@ Add the crate with the version selected for your project:
 
 ```toml
 [dependencies]
-qubit-thread-pool = "0.10"
+qubit-thread-pool = "0.11"
 qubit-executor = "0.8"
 ```
 

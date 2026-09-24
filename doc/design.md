@@ -1,6 +1,6 @@
 # Qubit Thread Pool Design
 
-[中文版](design.zh_CN.md) · Current design for version 0.10.0.
+[中文版](design.zh_CN.md) · Current design for version 0.11.0.
 
 ## Scope
 
@@ -159,10 +159,13 @@ on work whose progress depends on themselves.
 ## Monitoring snapshots
 
 `ThreadPoolStats` combines monitor-protected lifecycle/worker data with
-independently loaded task counters. `StopReport` includes best-effort
-observations, including worker-side cancellation racing with stop. Neither
-object is an atomic transaction, a strict ordering guarantee or a completion
-barrier. Use lifecycle waits for synchronization, and task handles for results.
+independently loaded task counters. For the dynamic pool, `StopReport` counts
+jobs removed and cancelled by that stop call; a concurrent ticket cancellation
+is reported by its ticket, not attributed to stop. The fixed pool retains its
+existing best-effort report for worker-side cancellation racing with stop.
+Neither object is an atomic transaction, a strict ordering guarantee or a
+completion barrier. Use lifecycle waits for synchronization, and task handles
+for results.
 
 ## Downstream extension points
 

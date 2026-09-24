@@ -13,7 +13,7 @@ Qubit Thread Pool 用 OS 线程执行同步 Rust 任务，支持有界接纳、�
 
 ```toml
 [dependencies]
-qubit-thread-pool = "0.10"
+qubit-thread-pool = "0.11"
 qubit-executor = "0.8"
 ```
 

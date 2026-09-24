@@ -1,6 +1,6 @@
 # Qubit Thread Pool 设计
 
-[English](design.md) · 本文描述 0.10.0 版本的当前设计。
+[English](design.md) · 本文描述 0.11.0 版本的当前设计。
 
 ## 范围
 
@@ -76,7 +76,7 @@ shutdown 关闭接纳入口，持 monitor 切换生命周期并唤醒 worker，�
 
 ## 监控快照
 
-`ThreadPoolStats` 合并 monitor 保护的生命周期/worker 状态与独立读取的任务计数。`StopReport` 也是尽力观测，包含 stop 竞争期间 worker 侧取消的情况。两者都不是原子事务、严格顺序保证或完成屏障。同步应使用生命周期等待，任务结果应通过句柄观察。
+`ThreadPoolStats` 合并 monitor 保护的生命周期/worker 状态与独立读取的任务计数。动态池的 `StopReport` 统计本次 stop 实际移出队列并取消的任务；并发 ticket 取消由 ticket 自身报告，不归入 stop。固定池保留原有尽力观测口径，可能包含 stop 竞争期间 worker 侧取消的情况。两者都不是原子事务、严格顺序保证或完成屏障。同步应使用生命周期等待，任务结果应通过句柄观察。
 
 ## 下游扩展点
 

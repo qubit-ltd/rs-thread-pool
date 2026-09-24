@@ -15,7 +15,7 @@ blocking work away from request threads without adding an async runtime.
 
 ```toml
 [dependencies]
-qubit-thread-pool = "0.10"
+qubit-thread-pool = "0.11"
 qubit-executor = "0.8"
 ```
 
