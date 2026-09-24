@@ -75,7 +75,51 @@ worker 数量长期稳定时选择 `FixedThreadPool`；它会预启动配置数�
 
 文档转换服务应在请求入口处理 `Saturated`：限制并发、返回过载响应，或在池外按有界退避策略重试。不要忙等重试，也不要让所有 worker 都阻塞在向同一个满队列提交依赖任务的操作上。槽位还覆盖接纳中和取消中的工作，因此监控中的队列数量低于容量，并不保证下次提交成功。
 
-需要状态和执行前取消时，使用 `submit_tracked` 或 `submit_tracked_callable`。worker hook（`before_worker_start`、`after_worker_stop`、`before_task`、`after_task`）用于观测，不宜承担阻塞协调。线程名称与栈配置作用于新创建的线程；处理任务结果时应与监控计数分开。
+只需关联任务状态并在执行前请求取消时，使用 `submit_tracked` 或 `submit_tracked_callable`。若下游注册表还需要从动态池队列中移除已接纳任务，可改用 ticket 化的自定义任务：
+
+```rust
+use std::io;
+use std::sync::mpsc;
+
+use qubit_executor::service::ExecutorService;
+use qubit_thread_pool::ThreadPool;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let pool = ThreadPool::builder()
+        .core_pool_size(1)
+        .maximum_pool_size(1)
+        .queue_capacity(1)
+        .build()?;
+    let (started_tx, started_rx) = mpsc::channel();
+    let (release_tx, release_rx) = mpsc::channel();
+    let running = pool.submit_tracked(move || {
+        started_tx.send(()).map_err(io::Error::other)?;
+        release_rx.recv().map_err(io::Error::other)?;
+        Ok::<(), io::Error>(())
+    })?;
+    started_rx.recv()?;
+
+    let (job, ticket) = pool.prepare_cancellable_job(
+        Box::new(|| {}),
+        Box::new(|| panic!("已取消的排队任务不应执行")),
+        Box::new(|| {}),
+    );
+    pool.submit_job(job)?;
+    assert!(ticket.cancel_queued());
+    assert_eq!(pool.stats().queued_tasks, 0);
+    assert_eq!(pool.stats().cancelled_tasks, 1);
+
+    release_tx.send(())?;
+    running.get()?;
+    pool.shutdown();
+    pool.wait_termination();
+    Ok(())
+}
+```
+
+克隆得到的 `PoolJobTicket` 共享同一次取消机会。只有赢得取消竞争的调用才返回 `true`；任务尚未接纳、接纳失败、已取消或已被 worker 领取时，返回 `false`。成功取消会等到 cancel 回调执行完、回调捕获的值释放，再释放排队槽位并更新线程池计数后返回。回调在池锁和队列锁之外执行。若取消请求遇到接纳进行中，接纳成功后由提交线程完成取消；若在接纳回调中调用 ticket，则立即返回 `false`，不会等待自身。该 ticket API 只适用于动态 `ThreadPool`，不改变 `FixedThreadPool`；它也无法中断已由 worker 领取的任务。
+
+worker hook（`before_worker_start`、`after_worker_stop`、`before_task`、`after_task`）用于观测，不宜承担阻塞协调。线程名称与栈配置作用于新创建的线程；处理任务结果时应与监控计数分开。
 
 ## 错误与诊断
 

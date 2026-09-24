@@ -63,6 +63,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 有界队列通过 `SubmissionError::Saturated` 明确反馈过载，应用可以限流、按自身策略重试或调整容量。无界队列可能持续占用内存；仅增加 maximum size 不会使动态池突破 core size 扩容。队列容量不是未完成任务总数的上限：运行中的任务不占队列槽位，动态扩容还可以额外预留任务槽位。
 
 不需要结果时使用 `submit`；需要结果时使用 `submit_callable`；还需要状态与执行前取消时使用 tracked 提交。底层 `ThreadPool::submit_job` 返回 `PoolJobSubmissionError`，其中包含 `AcceptancePanicked`；接纳失败不会调用 run 或 cancel。回调的使用限制见用户手册。
+下游任务注册表还可以通过 `prepare_cancellable_job` 获取 ticket，在任务仍处于排队状态时将其移出队列。取消时序和回调限制见用户手册。
 
 ## shutdown 与 stop
 

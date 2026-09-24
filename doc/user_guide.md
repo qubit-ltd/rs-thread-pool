@@ -123,7 +123,62 @@ acceptance in progress and cancellation in progress; a monitoring queue count
 below capacity does not guarantee that the next submission will succeed.
 
 Use `submit_tracked` or `submit_tracked_callable` for state and cancellation
-before execution. Worker hooks (`before_worker_start`, `after_worker_stop`,
+before execution when the task handle is sufficient. A downstream registry
+that needs to remove accepted work from the dynamic pool queue can prepare a
+ticketed custom job:
+
+```rust
+use std::io;
+use std::sync::mpsc;
+
+use qubit_executor::service::ExecutorService;
+use qubit_thread_pool::ThreadPool;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let pool = ThreadPool::builder()
+        .core_pool_size(1)
+        .maximum_pool_size(1)
+        .queue_capacity(1)
+        .build()?;
+    let (started_tx, started_rx) = mpsc::channel();
+    let (release_tx, release_rx) = mpsc::channel();
+    let running = pool.submit_tracked(move || {
+        started_tx.send(()).map_err(io::Error::other)?;
+        release_rx.recv().map_err(io::Error::other)?;
+        Ok::<(), io::Error>(())
+    })?;
+    started_rx.recv()?;
+
+    let (job, ticket) = pool.prepare_cancellable_job(
+        Box::new(|| {}),
+        Box::new(|| panic!("cancelled queued job must not run")),
+        Box::new(|| {}),
+    );
+    pool.submit_job(job)?;
+    assert!(ticket.cancel_queued());
+    assert_eq!(pool.stats().queued_tasks, 0);
+    assert_eq!(pool.stats().cancelled_tasks, 1);
+
+    release_tx.send(())?;
+    running.get()?;
+    pool.shutdown();
+    pool.wait_termination();
+    Ok(())
+}
+```
+
+Cloned `PoolJobTicket` values share one cancellation right. `cancel_queued()`
+returns `true` only when that call wins; it returns `false` for unaccepted,
+rejected, already cancelled or worker-claimed work. A successful call waits
+for the cancel callback and captured values to be dropped, then releases the
+queued slot and updates pool counters before returning. The callback runs
+outside pool and queue locks. If cancellation is requested while acceptance is
+in progress, the submitter performs it after acceptance succeeds; cancellation
+from the acceptance callback itself returns `false` rather than waiting on
+itself. This ticket API applies to dynamic `ThreadPool`; `FixedThreadPool` is
+unchanged. Cancellation does not interrupt a job already claimed by a worker.
+
+Worker hooks (`before_worker_start`, `after_worker_stop`,
 `before_task`, `after_task`) are for observation, not blocking coordination.
 Name and stack configuration applies to newly created threads. Keep task
 result handling separate from monitoring counters.

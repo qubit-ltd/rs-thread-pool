@@ -17,8 +17,8 @@ experiments are not the architecture specification.
 | Pool inner and state | Pool-specific worker policy, monitor, lifecycle and notifications. |
 | `AdmissionGate` | One atomic closed bit and in-flight submission count. |
 | `PoolAccounting` | Shared slot reservations and queued/running/cancelling/completed counters. |
-| `PoolJob` | Detached jobs or cancellable jobs with acceptance, run and cancel callbacks. |
-| Global `Injector<PoolJob>` | The single publication queue used by all workers in each pool. |
+| `PoolJob` / `PoolJobTicket` | Callback ownership plus an optional one-shot handle for removing a queued dynamic job. |
+| Dynamic FIFO / fixed `Injector` | Removable `Arc<QueuedJob>` entries for dynamic workers; the fixed pool keeps its crossbeam injector. |
 | Worker loop / hooks | Claim jobs, contain unwinding panics, account completion and retire. |
 
 Neither pool has worker-local queues or private initial-job delivery. Dynamic
@@ -38,8 +38,10 @@ admission and any required worker creation succeed. Rejection invokes none of
 accept/run/cancel. An acceptance panic releases the slot and returns
 `PoolJobSubmissionError::AcceptancePanicked`; neither run nor cancel executes.
 After acceptance succeeds, accounting records submitted and queued work before
-the job enters the global queue. Leaving the guard releases admission even on
-an error path. `Ok(())` means accepted, not started or successfully completed.
+the job enters its pool queue. The dynamic queue keeps removable entry identity
+for ticketed jobs; fixed-pool publication remains unchanged. Leaving the guard
+releases admission even on an error path. `Ok(())` means accepted, not started
+or successfully completed.
 
 An accept callback may call `shutdown` on its own pool: shutdown closes
 admission without waiting for that callback. It must not call `stop`, `join`
@@ -58,11 +60,11 @@ core size; a zero-core pool still creates a worker to make progress.
 
 The configured capacity limits ordinary waiting-slot admission, not total
 accepted jobs or memory. A successful worker-growth path reserves a handoff
-slot independently of that limit, then publishes to the same global queue;
-that job is not tied to the new worker. Slots include accepted or provisional
-queued work and cancellation callbacks until their completion. Running jobs
-release their slots at claim. `queued_count()` therefore need not equal the
-number of reserved slots.
+slot independently of that limit, then publishes to the dynamic FIFO; that job
+is not tied to the new worker. Slots include accepted or provisional queued
+work and cancellation callbacks until their completion. Running jobs release
+their slots at claim. `queued_count()` therefore need not equal the number of
+reserved slots.
 
 Fixed pools prestart their configured workers and never grow. Dynamic idle
 workers may retire according to keep-alive, core timeout and maximum-size
@@ -72,16 +74,20 @@ prestart operations; they do not eagerly start workers for existing queues.
 
 ## Worker claim and cancellation
 
-Workers steal from the global injector, retrying contention. They check
-`stop_now` before stealing and again at the claim decision. If stop is
-observed at that decision, the worker cancels the job; otherwise it claims
-running ownership and runs it. A stop racing after this decision cannot
-revoke the running job, even if user code has not yet begun.
+Fixed workers steal from the fixed pool's injector, retrying contention;
+dynamic workers take the next entry from their removable FIFO. Workers check
+`stop_now` before and again at the claim decision. If stop is observed at that
+decision, the worker cancels the job; otherwise it claims running ownership and
+runs it. A stop racing after this decision cannot revoke the running job, even
+if user code has not yet begun.
 
-Stop also drains visible queued jobs after in-flight submitters leave.
-Ownership is consumed by exactly one run or cancel path. Cancellation may run
-on the stop caller or on a worker. Cancellation retains its slot until the
-callback finishes, including contained unwinding panics.
+Stop also drains visible queued jobs after in-flight submitters leave. A
+dynamic `PoolJobTicket::cancel_queued` competes for the same queued ownership:
+it removes the entry if a worker or stop has not claimed it. Ownership is
+consumed by exactly one run or cancel path. Ticket or stop cancellation may
+run on the cancelling caller, submitting thread, stop caller or a worker,
+depending on the race. Cancellation retains its slot until the callback and
+captured-value destruction finish, including contained unwinding panics.
 
 ## Lifecycle state machine
 
@@ -124,7 +130,8 @@ task on the same pool: its own running count prevents it from becoming idle.
 A contained task error or panic still finishes worker accounting;
 `completed_tasks` is not a count of successful business results. A tracked
 task cancelled through its handle may still pass through worker accounting;
-pool cancellation counters describe the pool's queued-job cancellation path.
+`cancelled_tasks` counts accepted jobs cancelled while queued, whether by a
+ticket or immediate shutdown.
 
 ## Waiting and notification
 
@@ -160,8 +167,19 @@ barrier. Use lifecycle waits for synchronization, and task handles for results.
 ## Downstream extension points
 
 Use `ExecutorService` for runnable, callable and tracked submission.
-`ThreadPool::submit_job` plus `PoolJob::with_accept` allows downstream
-registries to publish acceptance and choose their own run/cancel bookkeeping.
+`ThreadPool::prepare_cancellable_job` returns an unsubmitted `PoolJob` and a
+cloneable `PoolJobTicket`; after submitting that job to its originating dynamic
+pool, `cancel_queued()` returns `true` only if that call takes queued ownership.
+It returns `false` before acceptance, after rejection, or if another caller,
+worker or stop has taken the job. A successful cancellation finishes the
+cancel callback, releases its captures and queue slot, and updates accounting
+before returning. It waits for acceptance in progress without holding pool
+locks; if acceptance succeeds, the submitter performs cancellation before
+publishing the entry. All callbacks execute outside pool and queue locks.
+The ticket does not interrupt a worker-claimed task and does not apply to
+`FixedThreadPool`. For other downstream work,
+`ThreadPool::submit_job` plus `PoolJob::with_accept` allows registries to
+publish acceptance and choose their own run/cancel bookkeeping.
 Match `PoolJobSubmissionError::Rejected(SubmissionError)` separately from
 `AcceptancePanicked`; an acceptance callback that mutates external state
 before panicking must arrange its own recovery.

@@ -52,7 +52,7 @@ pub struct ThreadPoolStats {
     /// queued cancellation.
     pub completed_tasks: usize,
 
-    /// Number of queued jobs cancelled by immediate shutdown.
+    /// Number of accepted queued jobs cancelled by a ticket or immediate shutdown.
     pub cancelled_tasks: usize,
 
     /// Whether the pool has fully terminated.

@@ -14,8 +14,8 @@
 | 线程池 inner 与 state | 保存各自的 worker 策略、monitor、生命周期和通知逻辑。 |
 | `AdmissionGate` | 用一个原子值保存关闭位和正在接纳的提交数。 |
 | `PoolAccounting` | 统一管理槽位预留，以及排队、运行、取消中和完成计数。 |
-| `PoolJob` | 封装不保留结果的任务，或带接纳、执行和取消回调的任务。 |
-| 全局 `Injector<PoolJob>` | 每个池内所有 worker 共用的唯一任务发布队列。 |
+| `PoolJob` / `PoolJobTicket` | 管理回调所有权；ticket 可一次性竞争移除动态池中的排队任务。 |
+| 动态 FIFO / 固定池 `Injector` | 动态 worker 使用可移除的 `Arc<QueuedJob>` 条目；固定池仍使用 crossbeam injector。 |
 | worker 循环与 hook | 领取任务、隔离展开式 panic、登记完成并退出。 |
 
 两个池都没有 worker 本地队列，也没有直接向新 worker 交付首个任务的独立通道。动态池和固定池保留各自的策略；共享计数模块并不是通用调度器。
@@ -24,7 +24,7 @@
 
 提交守卫先进入 `AdmissionGate`。关闭入口是原子操作：之后的提交无法进入，已经进入的提交仍可正常离开。动态池随后持有状态 monitor，检查 `Running`、预留 worker 名额、创建必要的 worker，并预留任务槽位。固定池已有 worker，只需预留槽位。
 
-接纳及必要的 worker 创建成功后，提交线程在状态 monitor 外同步执行接纳回调。接纳前拒绝任务时，accept、run、cancel 都不会调用。接纳回调 panic 时释放槽位，返回 `PoolJobSubmissionError::AcceptancePanicked`，不执行 run 或 cancel。接纳成功后先增加 submitted 和 queued 计数，再发布到全局队列。提交守卫在离开时释放接纳计数，错误路径也不例外。`Ok(())` 仅表示任务已被接纳，不代表已经开始或成功完成。
+接纳及必要的 worker 创建成功后，提交线程在状态 monitor 外同步执行接纳回调。接纳前拒绝任务时，accept、run、cancel 都不会调用。接纳回调 panic 时释放槽位，返回 `PoolJobSubmissionError::AcceptancePanicked`，不执行 run 或 cancel。接纳成功后先增加 submitted 和 queued 计数，再发布到对应线程池的队列。动态队列会保留 ticket 任务的可移除条目标识；固定池的发布方式不变。提交守卫在离开时释放接纳计数，错误路径也不例外。`Ok(())` 仅表示任务已被接纳，不代表已经开始或成功完成。
 
 接纳回调可以调用同一个池的 `shutdown`：它关闭入口，但不等待当前回调。不能调用 `stop`、`join` 或 `wait_termination`，因为这些操作可能等待当前提交本身。所有回调都应保持短小。动态池的提交即使已经进入接纳入口，若在预留资源前持锁观察到关闭，仍会被拒绝。
 
@@ -32,15 +32,15 @@
 
 动态池按以下顺序接纳：先向 core size 增长（没有 worker 时至少创建一个），否则尝试预留有界队列槽位；槽位不足时向 maximum size 增长；仍无法接收时返回 `Saturated`。创建 worker 失败会在调用接纳回调前返回 `WorkerSpawnFailed`，并回滚 worker 名额。无界队列不会触发超出 core size 的压力扩容；core size 为零时仍会创建一个 worker，确保任务可执行。
 
-配置的容量约束普通排队槽位接纳，不是已接纳任务总数或内存的硬上限。成功扩容的路径可以额外预留一个交接槽位，再把任务发布到同一个全局队列；任务不绑定新 worker。槽位覆盖已接纳或尚在接纳的排队工作，以及尚未完成的取消回调。任务转入运行时释放槽位，因此 `queued_count()` 不一定等于已预留槽位数。
+配置的容量约束普通排队槽位接纳，不是已接纳任务总数或内存的硬上限。成功扩容的路径可以额外预留一个交接槽位，再把任务发布到动态 FIFO；任务不绑定新 worker。槽位覆盖已接纳或尚在接纳的排队工作，以及尚未完成的取消回调。任务转入运行时释放槽位，因此 `queued_count()` 不一定等于已预留槽位数。
 
 固定池预启动配置数量的 worker，运行期间不扩容。动态池根据 keep-alive、core 超时策略和 maximum size 调整回收空闲 worker。只剩最后一个允许超时的 worker 时，若仍有提交可能发布任务，该 worker 不会退出。运行时修改 core size 影响后续接纳和显式预启动，不会立即为现有队列创建 worker。
 
 ## worker 领取与取消
 
-worker 从全局 Injector 领取任务，发生竞争时重试。它在领取前和最终领取决策处检查 `stop_now`：决策时已观察到 stop 就取消任务，否则登记运行所有权并执行。stop 若发生在决策之后，即使用户代码尚未开始，也不能撤销该运行任务。
+固定池 worker 从 Injector 领取任务，发生竞争时重试；动态池 worker 从可移除 FIFO 取下一条任务。worker 在领取前和最终领取决策处检查 `stop_now`：决策时已观察到 stop 就取消任务，否则登记运行所有权并执行。stop 若发生在决策之后，即使用户代码尚未开始，也不能撤销该运行任务。
 
-stop 还会等待正在接纳的提交离开，再清空可见的排队任务。任务所有权只会被一个 run 或 cancel 路径消费。取消回调可能在 stop 调用线程或 worker 上执行；只有回调结束才释放槽位，回调发生已捕获的展开式 panic 时也遵循此规则。
+stop 还会等待正在接纳的提交离开，再清空可见的排队任务。动态池的 `PoolJobTicket::cancel_queued` 与 worker、stop 竞争同一份排队所有权；若尚未被它们领取，ticket 会从队列中移除该任务。任务所有权只会被一个 run 或 cancel 路径消费。ticket 或 stop 的取消可能由取消调用者、提交线程、stop 调用线程或 worker 执行，具体取决于竞争结果。只有取消回调及其捕获值释放后才释放槽位；即使发生已捕获的展开式 panic，也会完成计数。
 
 ## 生命周期状态机
 
@@ -62,7 +62,7 @@ shutdown 关闭接纳入口，持 monitor 切换生命周期并唤醒 worker，�
 - 静止状态下满足 `submitted = completed + cancelled`；稳定的中间状态下，尚未结束的任务归属于排队、运行或取消中。各计数分别原子更新，因此任意并发快照不保证跨字段等式成立。
 - 空闲要求正在接纳的提交、预留槽位、运行任务和取消回调全部为零。终止还要求生命周期已关闭，且没有登记中的 worker。
 
-已捕获的任务错误或 panic 仍会结束 worker 计数，因此 `completed_tasks` 不等于业务成功数。通过句柄取消的 tracked 任务仍可能走 worker 计数路径；线程池的取消计数记录的是池自身对排队任务执行的取消路径。
+已捕获的任务错误或 panic 仍会结束 worker 计数，因此 `completed_tasks` 不等于业务成功数。通过句柄取消的 tracked 任务仍可能走 worker 计数路径；`cancelled_tasks` 统计已接纳后仍在排队时被取消的任务，包括 ticket 取消和立即 stop。
 
 ## 等待与通知
 
@@ -80,7 +80,7 @@ shutdown 关闭接纳入口，持 monitor 切换生命周期并唤醒 worker，�
 
 ## 下游扩展点
 
-普通 runnable、callable 和 tracked 提交使用 `ExecutorService`。下游任务注册表可通过 `ThreadPool::submit_job` 和 `PoolJob::with_accept` 发布接纳状态，并自行维护执行与取消状态。处理错误时应区分 `PoolJobSubmissionError::Rejected(SubmissionError)` 和 `AcceptancePanicked`；接纳回调若先修改外部状态再 panic，需要自行安排恢复。
+普通 runnable、callable 和 tracked 提交使用 `ExecutorService`。`ThreadPool::prepare_cancellable_job` 返回尚未提交的 `PoolJob` 与可克隆的 `PoolJobTicket`；任务提交到原动态池后，`cancel_queued()` 只有在调用方赢得排队所有权竞争时才返回 `true`。接纳前、接纳失败，或任务已被其他调用者、worker、stop 领取时，返回 `false`。成功取消会先执行 cancel 回调、释放捕获值和排队槽位并更新计数，再返回。若接纳正在执行，ticket 会在不持有池锁的情况下等待；接纳成功后由提交线程在发布队列前完成取消。所有回调都在池锁与队列锁之外运行。ticket 无法中断已被 worker 领取的任务，也不适用于 `FixedThreadPool`。其他下游任务注册表仍可使用 `ThreadPool::submit_job` 和 `PoolJob::with_accept` 发布接纳状态，并自行维护执行与取消状态。处理错误时应区分 `PoolJobSubmissionError::Rejected(SubmissionError)` 和 `AcceptancePanicked`；接纳回调若先修改外部状态再 panic，需要自行安排恢复。
 
 ## 非目标
 

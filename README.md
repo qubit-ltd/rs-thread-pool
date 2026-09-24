@@ -84,7 +84,9 @@ is excluded, and dynamic worker growth can reserve an additional job slot.
 or tracked submission for state and cancellation before execution.
 Low-level `ThreadPool::submit_job` returns `PoolJobSubmissionError`,
 including `AcceptancePanicked`; acceptance failure invokes neither run nor
-cancel. See the guide for callback restrictions.
+cancel. Downstream registries can use `prepare_cancellable_job` to obtain a
+ticket that removes accepted work while it is still queued; see the guide for
+callback and cancellation semantics.
 
 ## Shutdown and Stop
 
