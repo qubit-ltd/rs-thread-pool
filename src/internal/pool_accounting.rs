@@ -78,6 +78,11 @@ impl PoolAccounting {
         self.running_task_count.load(Ordering::Acquire)
     }
 
+    /// Returns the configured queue limit, or `None` for an unbounded queue.
+    pub(crate) fn queue_capacity(&self) -> Option<usize> {
+        self.queue_capacity
+    }
+
     /// Reserves a queue slot, returning `false` if its optional limit is full.
     pub(crate) fn try_reserve_bounded_slot(&self) -> bool {
         if let Some(capacity) = self.queue_capacity {

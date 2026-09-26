@@ -68,6 +68,9 @@ pub(crate) struct ThreadPoolInner {
     /// Monotonic termination notification for asynchronous waiters.
     #[cfg(feature = "async-wait")]
     termination_tx: watch::Sender<bool>,
+    /// Signals changes that may allow a bounded submission to be retried.
+    #[cfg(feature = "async-wait")]
+    capacity_tx: watch::Sender<u64>,
 }
 
 impl ThreadPoolInner {
@@ -100,6 +103,8 @@ impl ThreadPoolInner {
             hooks,
             #[cfg(feature = "async-wait")]
             termination_tx: watch::channel(false).0,
+            #[cfg(feature = "async-wait")]
+            capacity_tx: watch::channel(0).0,
         }
     }
 
@@ -109,6 +114,19 @@ impl ThreadPoolInner {
         let state = self.lock_state();
         self.publish_termination_locked(&state);
         self.termination_tx.subscribe()
+    }
+
+    /// Subscribes to events that may change queue admission.
+    #[cfg(feature = "async-wait")]
+    pub(crate) fn capacity_changes(&self) -> watch::Receiver<u64> {
+        self.capacity_tx.subscribe()
+    }
+
+    /// Publishes a possibly available queue slot or a lifecycle change.
+    #[cfg(feature = "async-wait")]
+    fn notify_capacity_changed(&self) {
+        self.capacity_tx
+            .send_modify(|generation| *generation = generation.wrapping_add(1));
     }
 
     /// Publishes terminal state while the caller holds the pool state lock.
@@ -257,6 +275,8 @@ impl ThreadPoolInner {
     /// Releases one reserved queued-work slot that never became runnable.
     fn release_queue_slot(&self) {
         self.accounting.rollback_reserved_slot();
+        #[cfg(feature = "async-wait")]
+        self.notify_capacity_changed();
     }
 
     /// Accepts a job whose queue slot has already been reserved and publishes
@@ -583,6 +603,8 @@ impl ThreadPoolInner {
         let entry = queue.pop_front()?;
         let job = entry.take_queued()?;
         self.accounting.claim_queued_job();
+        #[cfg(feature = "async-wait")]
+        self.notify_capacity_changed();
         Some(job)
     }
 
@@ -661,6 +683,8 @@ impl ThreadPoolInner {
     /// Marks one running job as finished.
     pub(crate) fn finish_running_job(&self) {
         self.accounting.finish_running_job();
+        #[cfg(feature = "async-wait")]
+        self.notify_capacity_changed();
         if self.accounting.is_idle() {
             self.notify_waiters_after_atomic_change();
         }
@@ -671,6 +695,8 @@ impl ThreadPoolInner {
     /// The pool rejects later submissions but lets queued work drain.
     pub(crate) fn shutdown(&self) {
         self.accounting.close_admission();
+        #[cfg(feature = "async-wait")]
+        self.notify_capacity_changed();
         let mut state = self.lock_state();
         if state.lifecycle == ExecutorServiceLifecycle::Running {
             state.lifecycle = ExecutorServiceLifecycle::ShuttingDown;
@@ -693,6 +719,8 @@ impl ThreadPoolInner {
     /// jobs running after in-flight submissions have finished.
     pub(crate) fn stop(&self) -> StopReport {
         self.accounting.close_admission();
+        #[cfg(feature = "async-wait")]
+        self.notify_capacity_changed();
         self.stop_now.store(true, Ordering::Release);
         let (jobs, queued, running) = {
             let mut state = self.lock_state();
@@ -734,6 +762,8 @@ impl ThreadPoolInner {
     /// inactive while user cancellation code is still running.
     fn finish_cancelled_job(&self) {
         self.accounting.finish_cancelled_job();
+        #[cfg(feature = "async-wait")]
+        self.notify_capacity_changed();
         if self.is_idle_snapshot() {
             self.notify_waiters_after_atomic_change();
         }
@@ -837,6 +867,7 @@ impl ThreadPoolInner {
                 live_workers: state.live_workers,
                 idle_workers: state.idle_workers,
                 queued_tasks: counters.queued_tasks,
+                queue_capacity: self.accounting.queue_capacity(),
                 running_tasks: counters.running_tasks,
                 submitted_tasks: counters.submitted_tasks,
                 completed_tasks: counters.completed_tasks,

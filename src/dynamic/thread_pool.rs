@@ -179,6 +179,16 @@ impl ThreadPool {
         self.inner.stats()
     }
 
+    /// Subscribes to queue capacity and lifecycle changes.
+    ///
+    /// A notification is advisory. Callers must retry submission and handle
+    /// saturation because another submitter may claim the available slot.
+    #[cfg(feature = "async-wait")]
+    #[must_use]
+    pub fn capacity_changes(&self) -> tokio::sync::watch::Receiver<u64> {
+        self.inner.capacity_changes()
+    }
+
     /// Prepares callbacks and a ticket that can remove the accepted queued job.
     ///
     /// Submit the returned job only with this pool's [`Self::submit_job`].

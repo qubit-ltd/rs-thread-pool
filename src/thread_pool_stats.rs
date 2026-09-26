@@ -33,6 +33,9 @@ pub struct ThreadPoolStats {
     /// Configured maximum pool size.
     pub maximum_pool_size: usize,
 
+    /// Configured queue limit, or `None` when the queue is unbounded.
+    pub queue_capacity: Option<usize>,
+
     /// Number of live worker loops.
     pub live_workers: usize,
 
@@ -66,6 +69,7 @@ impl Default for ThreadPoolStats {
             lifecycle: ExecutorServiceLifecycle::Running,
             core_pool_size: 0,
             maximum_pool_size: 0,
+            queue_capacity: None,
             live_workers: 0,
             idle_workers: 0,
             queued_tasks: 0,

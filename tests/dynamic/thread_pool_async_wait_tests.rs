@@ -14,6 +14,87 @@ use qubit_thread_pool::ThreadPool;
 use tokio::time::timeout;
 
 #[tokio::test]
+async fn test_thread_pool_capacity_changes_when_worker_takes_queued_job() {
+    let pool = ThreadPool::builder()
+        .pool_size(1)
+        .queue_capacity(1)
+        .build()
+        .expect("pool should build");
+    let (started_tx, started_rx) = mpsc::channel();
+    let (release_tx, release_rx) = mpsc::channel();
+    pool.submit(move || {
+        started_tx.send(()).expect("start signal should send");
+        release_rx.recv().expect("release signal should arrive");
+        Ok::<(), io::Error>(())
+    })
+    .expect("running task should be accepted");
+    started_rx.recv().expect("task should start");
+    pool.submit(|| Ok::<(), io::Error>(()))
+        .expect("queue should accept one task");
+    assert!(matches!(
+        pool.submit(|| Ok::<(), io::Error>(())),
+        Err(qubit_executor::service::SubmissionError::Saturated)
+    ));
+    let mut changes = pool.capacity_changes();
+    release_tx.send(()).expect("running task should release");
+    timeout(Duration::from_secs(1), changes.changed())
+        .await
+        .expect("taking queued work should publish capacity change")
+        .expect("pool notification sender should remain open");
+    pool.shutdown();
+    timeout(Duration::from_secs(1), pool.await_termination())
+        .await
+        .expect("pool should terminate");
+}
+
+#[tokio::test]
+async fn test_thread_pool_capacity_changes_on_shutdown() {
+    let pool = ThreadPool::builder()
+        .pool_size(1)
+        .queue_capacity(1)
+        .build()
+        .expect("pool should build");
+    let mut changes = pool.capacity_changes();
+    pool.shutdown();
+    timeout(Duration::from_secs(1), changes.changed())
+        .await
+        .expect("shutdown should publish capacity change")
+        .expect("pool notification sender should remain open");
+    pool.await_termination().await;
+}
+
+#[tokio::test]
+async fn test_thread_pool_capacity_changes_after_queued_ticket_cancellation() {
+    let pool = ThreadPool::builder()
+        .pool_size(1)
+        .queue_capacity(1)
+        .build()
+        .expect("pool should build");
+    let (started_tx, started_rx) = mpsc::channel();
+    let (release_tx, release_rx) = mpsc::channel();
+    pool.submit(move || {
+        started_tx.send(()).expect("start signal should send");
+        release_rx.recv().expect("release signal should arrive");
+        Ok::<(), io::Error>(())
+    })
+    .expect("running task should be accepted");
+    started_rx.recv().expect("task should start");
+    let (job, ticket) = pool.prepare_cancellable_job(Box::new(|| {}), Box::new(|| {}), Box::new(|| {}));
+    pool.submit_job(job).expect("queued task should be accepted");
+    let mut changes = pool.capacity_changes();
+    assert!(ticket.cancel_queued());
+    timeout(Duration::from_secs(1), changes.changed())
+        .await
+        .expect("queued cancellation should publish capacity change")
+        .expect("pool notification sender should remain open");
+    pool.submit(|| Ok::<(), io::Error>(()))
+        .expect("cancelled queue slot should be reusable");
+    let _report = pool.stop();
+    release_tx.send(()).expect("running task should be released");
+    pool.await_termination().await;
+}
+
+#[tokio::test]
 async fn test_thread_pool_await_termination_waits_for_shutdown() {
     let pool = ThreadPool::new(1).expect("pool should build");
     let wait = pool.await_termination();

@@ -605,6 +605,7 @@ impl FixedThreadPoolInner {
             },
             core_pool_size: self.pool_size,
             maximum_pool_size: self.pool_size,
+            queue_capacity: self.accounting.queue_capacity(),
             live_workers: state.live_workers,
             idle_workers: state.idle_workers,
             queued_tasks: counters.queued_tasks,
