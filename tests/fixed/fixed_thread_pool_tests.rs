@@ -174,6 +174,7 @@ fn test_fixed_thread_pool_join_waits_for_running_and_queued_tasks() {
     pool.wait_termination();
 }
 
+#[cfg(not(loom))]
 #[tokio::test]
 async fn test_fixed_thread_pool_handle_can_be_awaited() {
     let pool = FixedThreadPool::new(2).expect("fixed thread pool should be created");

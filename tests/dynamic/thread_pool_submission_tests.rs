@@ -183,6 +183,7 @@ fn test_thread_pool_bounded_submit_queues_when_worker_busy() {
     pool.wait_termination();
 }
 
+#[cfg(not(loom))]
 #[tokio::test]
 async fn test_thread_pool_handle_can_be_awaited() {
     let pool = ThreadPool::new(2).expect("thread pool should be created");

@@ -6,7 +6,7 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 mod mod_tests;
-#[cfg(feature = "async-wait")]
+#[cfg(all(feature = "async-wait", not(loom)))]
 mod thread_pool_async_wait_tests;
 mod thread_pool_builder_tests;
 mod thread_pool_config_tests;
