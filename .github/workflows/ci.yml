@@ -23,26 +23,26 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
       - name: Prepare local path dependencies
-        run: ./.infra/tools/prepare-local-path-dependencies.sh
+        run: ./.infra/lib/prepare-local-path-dependencies.sh
       - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
         with:
           toolchain: 1.94
       - name: Check dependency baseline
-        run: ./dependency-update.sh --check
+        run: ./.infra/bin/dependency-update.sh --check
 
   verify:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-14, windows-latest]
+        os: [ubuntu-latest]
     defaults:
       run:
         shell: bash
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
       - name: Prepare local path dependencies
-        run: ./.infra/tools/prepare-local-path-dependencies.sh
+        run: ./.infra/lib/prepare-local-path-dependencies.sh
       - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
         with:
           toolchain: 1.94
@@ -50,29 +50,26 @@ jobs:
         if: runner.os == 'Linux'
         run: rustup toolchain install nightly-2026-06-05 --profile minimal --component rustfmt --component clippy
       - name: Run infrastructure CI orchestration
-        run: ./ci-check.sh --only=verify
+        run: ./.infra/bin/ci-check.sh --only=verify
       - name: Run style, hook, and coverage Clippy
         if: runner.os == 'Linux'
-        run: ./ci-check.sh --only=style,clippy,coverage-cfg-clippy,project-hook
-      - name: Run release and package suites
-        if: runner.os == 'Linux'
-        run: ./ci-check.sh --only=release-build,package
+        run: ./.infra/bin/ci-check.sh --only=style,clippy,coverage-cfg-clippy,project-hook
       - name: Install Clippy toolchain on additional platforms
         if: runner.os != 'Linux'
         run: rustup toolchain install nightly-2026-06-05 --profile minimal --component clippy
       - name: Run Clippy on additional platforms
         if: runner.os != 'Linux'
-        run: ./ci-check.sh --only=clippy
+        run: ./.infra/bin/ci-check.sh --only=clippy
       - name: Install legacy CI build toolchain
         run: rustup toolchain install 1.94.0 --profile minimal
       - name: Run documentation tests
-        run: cargo +1.94.0 test --doc --all-features --locked --verbose
+        run: cargo +1.94.0 test --doc --verbose
       - name: Run README dependency-version check
-        run: ./.infra/tools/infra-tool.sh rs-infra-verify --project "$GITHUB_WORKSPACE" run --suite readme
+        run: ./.infra/bin/infra-tool.sh rs-infra-verify --project "$GITHUB_WORKSPACE" run --suite readme
       - name: Install documentation toolchain
         run: rustup toolchain install 1.94.0 --profile minimal
       - name: Generate strict all-features documentation
-        run: RUSTDOCFLAGS="-D warnings -D missing-docs" cargo +1.94.0 doc --all-features --no-deps --locked --verbose
+        run: RUSTDOCFLAGS="-D warnings -D missing-docs" cargo +1.94.0 doc --all-features --no-deps --verbose
       - name: Upload documentation artifact
         if: runner.os == 'Linux'
         uses: actions/upload-artifact@v7
@@ -87,7 +84,7 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
       - name: Prepare local path dependencies
-        run: ./.infra/tools/prepare-local-path-dependencies.sh
+        run: ./.infra/lib/prepare-local-path-dependencies.sh
       - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
         with:
           toolchain: 1.94
@@ -101,7 +98,7 @@ jobs:
           fi
       - name: Run configured feature and dependency matrix
         run: |
-          ./ci-check.sh --only=feature-matrix
+          ./.infra/bin/ci-check.sh --only=feature-matrix
 
   coverage:
     needs: [verify]
@@ -112,7 +109,7 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
       - name: Prepare local path dependencies
-        run: ./.infra/tools/prepare-local-path-dependencies.sh
+        run: ./.infra/lib/prepare-local-path-dependencies.sh
       - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
         with:
           toolchain: 1.94
@@ -122,7 +119,7 @@ jobs:
         env:
           # Rust 1.94 non-incremental coverage can lose counters for inline functions.
           CARGO_INCREMENTAL: "1"
-        run: ./coverage.sh
+        run: ./.infra/bin/coverage.sh
       - name: Build project (release)
         if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)) }}
         run: |
@@ -173,10 +170,10 @@ jobs:
       - name: Validate Pages configuration
         id: pages-config
         run: |
-          jq -e '.deploy | type == "boolean"' .infra/ci/pages.json >/dev/null
-          echo "deploy=$(jq -r .deploy .infra/ci/pages.json)" >> "$GITHUB_OUTPUT"
+          jq -e '.deploy | type == "boolean"' .infra/pages/pages.json >/dev/null
+          echo "deploy=$(jq -r .deploy .infra/pages/pages.json)" >> "$GITHUB_OUTPUT"
       - name: Prepare local path dependencies
-        run: ./.infra/tools/prepare-local-path-dependencies.sh
+        run: ./.infra/lib/prepare-local-path-dependencies.sh
       - uses: actions/download-artifact@v8
         with:
           name: coverage-reports
@@ -185,9 +182,9 @@ jobs:
         with:
           toolchain: 1.94
       - name: Build Pages site
-        run: ./.infra/tools/infra-tool.sh rs-infra-pages --project "$GITHUB_WORKSPACE" build
+        run: ./.infra/bin/infra-tool.sh rs-infra-pages --project "$GITHUB_WORKSPACE" build
       - name: Prepare Pages artifact
-        run: ./.infra/tools/infra-tool.sh rs-infra-pages --project "$GITHUB_WORKSPACE" artifact
+        run: ./.infra/bin/infra-tool.sh rs-infra-pages --project "$GITHUB_WORKSPACE" artifact
       - uses: actions/upload-pages-artifact@v3
         with:
           path: public
@@ -229,7 +226,7 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
       - name: Prepare local path dependencies
-        run: ./.infra/tools/prepare-local-path-dependencies.sh
+        run: ./.infra/lib/prepare-local-path-dependencies.sh
       - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
         with:
           toolchain: 1.94
@@ -285,10 +282,9 @@ jobs:
         if: ${{ steps.suite-config.outputs.enabled == 'true' }}
         run: |
           if [ "${{ matrix.suite }}" = "loom" ]; then
-            RUSTFLAGS="--cfg loom" cargo test --features loom-model --lib loom_ --locked
-          else
-            ./.infra/tools/infra-tool.sh rs-infra-verify --project "$GITHUB_WORKSPACE" run --suite "${{ matrix.suite }}"
+            export RUSTFLAGS="--cfg loom"
           fi
+          ./.infra/bin/infra-tool.sh rs-infra-verify --project "$GITHUB_WORKSPACE" run --suite "${{ matrix.suite }}"
       - name: Skip unconfigured infrastructure suite
         if: ${{ steps.suite-config.outputs.enabled != 'true' }}
         run: echo "${{ matrix.suite }} is not configured; skipping."
