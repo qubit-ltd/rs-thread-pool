@@ -63,3 +63,5 @@ unexpected_cfgs = { level = "warn", check-cfg = ["cfg(coverage)", "cfg(loom)"] }
 [[bench]]
 name = "thread_pool_bench"
 harness = false
+
+[workspace]
