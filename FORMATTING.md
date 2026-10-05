@@ -25,7 +25,7 @@ pub use module::{
 ### Recommended command
 
 ```bash
-./align-ci.sh
+./.infra/bin/align-ci.sh
 ```
 
 This script will:
@@ -39,14 +39,14 @@ repository formatting configuration.
 rustup toolchain install nightly-2026-06-05
 
 # Check formatting
-./style-check.sh
+./.infra/bin/style-check.sh
 ```
 
 ## CI/CD Integration
 
-The local checks use `./ci-check.sh`; style-only checks use `./style-check.sh`.
+The local checks use `./.infra/bin/ci-check.sh`; style-only checks use `./.infra/bin/style-check.sh`.
 
-- **Local checks**: Run `./ci-check.sh` before release validation.
+- **Local checks**: Run `./.infra/bin/ci-check.sh` before release validation.
 - **CI**: The repository workflow invokes the same project scripts.
 
 ## Configuration
@@ -71,7 +71,7 @@ The project scripts select the configured toolchain and apply these settings.
 
 1. **Formatting uses the pinned nightly Rust toolchain**.
 2. **Local development**: Can use either stable or nightly; formatting requires nightly
-3. **Automatic installation**: The `ci-check.sh` script automatically installs nightly toolchain if needed
+3. **Automatic installation**: The `.infra/bin/ci-check.sh` script automatically installs nightly toolchain if needed
 4. **No manual intervention**: `align-ci.sh` selects the configured toolchain.
 
 ## Troubleshooting
@@ -81,7 +81,7 @@ The project scripts select the configured toolchain and apply these settings.
 Make sure your code is formatted before committing:
 
 ```bash
-./align-ci.sh
+./.infra/bin/align-ci.sh
 ```
 
 ### Nightly toolchain issues
