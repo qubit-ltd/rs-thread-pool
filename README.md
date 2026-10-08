@@ -15,8 +15,8 @@ blocking work away from request threads without adding an async runtime.
 
 ```toml
 [dependencies]
-qubit-thread-pool = "0.11"
-qubit-executor = "0.8"
+qubit-thread-pool = "0.12"
+qubit-executor = "0.9"
 ```
 
 Rust 1.94 or later is required. Declare `qubit-executor` directly when

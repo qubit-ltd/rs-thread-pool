@@ -13,8 +13,8 @@ Qubit Thread Pool 用 OS 线程执行同步 Rust 任务，支持有界接纳、�
 
 ```toml
 [dependencies]
-qubit-thread-pool = "0.11"
-qubit-executor = "0.8"
+qubit-thread-pool = "0.12"
+qubit-executor = "0.9"
 ```
 
 需要 Rust 1.94 或更高版本。导入 `ExecutorService` trait 时，必须直接声明 `qubit-executor` 依赖；普通线程池用法不依赖 Tokio 或 Rayon。
