@@ -1,6 +1,6 @@
 # Qubit Thread Pool 设计
 
-[English](design.md) · 本文描述 0.12 版本的当前设计。
+[English](design.md) · 本文描述 0.12.1 版本的当前设计。
 
 ## 范围
 

@@ -1,6 +1,6 @@
 # Qubit Thread Pool 用户手册
 
-[English](user_guide.md) · 适用于 `qubit-thread-pool` 0.12 及 Rust 1.94 或更高版本。
+[English](user_guide.md) · 适用于 `qubit-thread-pool` 0.12.1 及 Rust 1.94 或更高版本。
 
 ## 手册目标与读者
 
@@ -27,7 +27,7 @@
 
 ```toml
 [dependencies]
-qubit-thread-pool = "0.12"
+qubit-thread-pool = "0.12.1"
 qubit-executor = "0.9"
 ```
 

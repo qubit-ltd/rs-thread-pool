@@ -1,6 +1,6 @@
 # Qubit Thread Pool Design
 
-[中文版](design.zh_CN.md) · Current design for version 0.12.
+[中文版](design.zh_CN.md) · Current design for version 0.12.1.
 
 ## Scope
 

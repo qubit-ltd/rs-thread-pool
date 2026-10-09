@@ -1,6 +1,6 @@
 [package]
 name = "qubit-thread-pool"
-version = "0.12.0"
+version = "0.12.1"
 edition = "2024"
 rust-version = "1.94"
 authors = ["Haixing Hu <starfish.hu@gmail.com>"]
@@ -43,7 +43,7 @@ loom = { version = "^0.7", optional = true }
 thiserror = "^2.0"
 tokio = { version = "^1.53", features = ["sync"], optional = true }
 
-qubit-argument = "0.4"
+qubit-argument = "0.4.6"
 qubit-executor = "0.9"
 qubit-function = "0.18"
 qubit-lock = { default-features = false, features = ["monitor", "parking-lot"], version = "0.14" }
