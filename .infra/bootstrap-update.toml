@@ -1,1 +1,1 @@
-profiles = ["dependency-policy-default", "local-path-dependencies-default", "style-exceptions-default"]
+profiles = ["local-path-dependencies-default", "style-exceptions-default"]
