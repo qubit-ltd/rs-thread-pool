@@ -14,20 +14,30 @@ use super::sync::Ordering;
 
 /// Admission, queue reservations, and task counters shared by both pool kinds.
 pub(crate) struct PoolAccounting {
+    /// Coordinates admission with concurrent submitters.
     admission: AdmissionGate,
+    /// Limits reserved queue slots, or leaves the queue unbounded.
     queue_capacity: Option<usize>,
+    /// Counts queue reservations, including worker handoffs and cancellations.
     queue_slot_count: AtomicUsize,
+    /// Counts published jobs that have not been claimed.
     queued_task_count: AtomicUsize,
+    /// Counts jobs currently owned by workers.
     running_task_count: AtomicUsize,
+    /// Counts claimed jobs whose cancellation callbacks are still running.
     cancelling_task_count: AtomicUsize,
+    /// Counts all accepted jobs.
     submitted_task_count: AtomicUsize,
+    /// Counts accepted jobs completed by workers.
     completed_task_count: AtomicUsize,
+    /// Counts accepted jobs whose cancellation callbacks completed.
     cancelled_task_count: AtomicUsize,
 }
 
 impl PoolAccounting {
     /// Creates empty accounting with `Some(limit)` bounded slots or `None`
     /// for an unbounded queue.
+    #[must_use]
     pub(crate) fn new(queue_capacity: Option<usize>) -> Self {
         Self {
             admission: AdmissionGate::new(),
@@ -43,47 +53,64 @@ impl PoolAccounting {
     }
 
     /// Enters submission accounting, returning `false` after admission closes.
+    #[must_use]
+    #[inline]
     pub(crate) fn try_enter(&self) -> bool {
         self.admission.try_enter()
     }
 
     /// Leaves submission accounting and returns whether this was the last
     /// submitter. Panics if no submitter has entered.
+    #[must_use]
+    #[inline]
     pub(crate) fn leave(&self) -> bool {
         self.admission.leave()
     }
 
     /// Rejects future entrants while allowing existing submitters to finish.
+    #[inline]
     pub(crate) fn close_admission(&self) {
         self.admission.close();
     }
 
     /// Returns whether new submissions may still enter.
+    #[must_use]
+    #[inline]
     pub(crate) fn is_admission_open(&self) -> bool {
         self.admission.is_open()
     }
 
     /// Returns the number of submitters that may publish or roll back work.
+    #[must_use]
+    #[inline]
     pub(crate) fn inflight_count(&self) -> usize {
         self.admission.inflight_count()
     }
 
     /// Returns the number of published jobs waiting to be claimed.
+    #[must_use]
+    #[inline]
     pub(crate) fn queued_count(&self) -> usize {
         self.queued_task_count.load(Ordering::Acquire)
     }
 
     /// Returns the number of jobs currently held by workers.
+    #[must_use]
+    #[inline]
     pub(crate) fn running_count(&self) -> usize {
         self.running_task_count.load(Ordering::Acquire)
     }
 
     /// Returns the configured queue limit, or `None` for an unbounded queue.
+    #[must_use]
+    #[inline]
     pub(crate) fn queue_capacity(&self) -> Option<usize> {
         self.queue_capacity
     }
 
     /// Reserves a queue slot, returning `false` if its optional limit is full.
+    #[must_use]
+    #[inline]
     pub(crate) fn try_reserve_bounded_slot(&self) -> bool {
         if let Some(capacity) = self.queue_capacity {
             return self
@@ -98,6 +125,7 @@ impl PoolAccounting {
     }
 
     /// Reserves a job for a newly spawned worker regardless of queue capacity.
+    #[inline]
     pub(crate) fn reserve_worker_handoff_slot(&self) {
         self.queue_slot_count.fetch_add(1, Ordering::Release);
     }
@@ -154,6 +182,7 @@ impl PoolAccounting {
 
     /// Loads task counters independently; cross-field equalities are not
     /// synchronization guarantees while transitions are in progress.
+    #[must_use]
     pub(crate) fn snapshot(&self) -> PoolCounterSnapshot {
         PoolCounterSnapshot {
             inflight_submissions: self.inflight_count(),
@@ -169,6 +198,7 @@ impl PoolAccounting {
     /// Returns whether no submitter, reserved slot, running job, or
     /// cancellation callback remains. New submissions may invalidate this
     /// observation.
+    #[must_use]
     pub(crate) fn is_idle(&self) -> bool {
         self.inflight_count() == 0
             && self.queue_slot_count.load(Ordering::Acquire) == 0
@@ -177,119 +207,8 @@ impl PoolAccounting {
     }
 }
 
-#[cfg(all(test, not(loom)))]
-mod tests {
-    use std::sync::atomic::Ordering;
-
-    use super::PoolAccounting;
-
-    #[test]
-    fn test_accepted_job_runs_to_completion() {
-        let accounting = PoolAccounting::new(None);
-        accounting.reserve_worker_handoff_slot();
-        assert!(!accounting.is_idle());
-        accounting.publish_accepted_job();
-        assert_eq!(accounting.snapshot().queued_tasks, 1);
-        accounting.claim_queued_job();
-        assert_eq!(accounting.queue_slot_count.load(Ordering::Acquire), 0);
-        assert_eq!(accounting.snapshot().running_tasks, 1);
-        assert!(!accounting.is_idle());
-        accounting.finish_running_job();
-        let snapshot = accounting.snapshot();
-        assert_eq!(snapshot.submitted_tasks, 1);
-        assert_eq!(snapshot.completed_tasks, 1);
-        assert_eq!(snapshot.cancelled_tasks, 0);
-        assert!(accounting.is_idle());
-    }
-
-    #[test]
-    fn test_cancelled_job_releases_reserved_slot() {
-        let accounting = PoolAccounting::new(Some(1));
-        assert!(accounting.try_reserve_bounded_slot());
-        assert!(!accounting.try_reserve_bounded_slot());
-        accounting.publish_accepted_job();
-        accounting.begin_cancel_queued_job();
-        assert_eq!(accounting.queue_slot_count.load(Ordering::Acquire), 1);
-        assert_eq!(accounting.snapshot().cancelling_tasks, 1);
-        assert!(!accounting.try_reserve_bounded_slot());
-        assert!(!accounting.is_idle());
-        accounting.finish_cancelled_job();
-        assert_eq!(accounting.snapshot().cancelled_tasks, 1);
-        assert_eq!(accounting.snapshot().cancelling_tasks, 0);
-        assert!(accounting.is_idle());
-        assert!(accounting.try_reserve_bounded_slot());
-    }
-
-    #[test]
-    fn test_rollback_and_handoff_preserve_capacity() {
-        let accounting = PoolAccounting::new(Some(0));
-        assert!(!accounting.try_reserve_bounded_slot());
-        accounting.reserve_worker_handoff_slot();
-        assert_eq!(accounting.queue_slot_count.load(Ordering::Acquire), 1);
-        accounting.rollback_reserved_slot();
-        assert_eq!(accounting.queue_slot_count.load(Ordering::Acquire), 0);
-        assert_eq!(accounting.snapshot().submitted_tasks, 0);
-        assert!(accounting.is_idle());
-
-        let unbounded = PoolAccounting::new(None);
-        assert!(unbounded.try_reserve_bounded_slot());
-        assert!(unbounded.try_reserve_bounded_slot());
-        assert_eq!(unbounded.queue_slot_count.load(Ordering::Acquire), 2);
-    }
-
-    #[test]
-    fn test_admission_remains_busy_until_last_submitter_leaves() {
-        let accounting = PoolAccounting::new(None);
-        assert!(accounting.try_enter());
-        assert!(accounting.try_enter());
-        assert_eq!(accounting.queue_slot_count.load(Ordering::Acquire), 0);
-        assert_eq!(accounting.snapshot().inflight_submissions, 2);
-        assert!(!accounting.is_idle());
-        accounting.close_admission();
-        assert!(!accounting.is_admission_open());
-        assert!(!accounting.try_enter());
-        assert!(!accounting.leave());
-        assert!(accounting.leave());
-        assert!(accounting.is_idle());
-    }
-
-    #[test]
-    #[should_panic(expected = "queue slot counter underflow")]
-    fn test_rollback_rejects_queue_slot_underflow() {
-        PoolAccounting::new(None).rollback_reserved_slot();
-    }
-
-    #[test]
-    #[should_panic(expected = "queued task counter underflow")]
-    fn test_claim_rejects_queued_task_underflow() {
-        PoolAccounting::new(None).claim_queued_job();
-    }
-
-    #[test]
-    #[should_panic(expected = "queued task counter underflow")]
-    fn test_cancel_rejects_queued_task_underflow() {
-        PoolAccounting::new(None).begin_cancel_queued_job();
-    }
-
-    #[test]
-    #[should_panic(expected = "running task counter underflow")]
-    fn test_finish_rejects_running_task_underflow() {
-        PoolAccounting::new(None).finish_running_job();
-    }
-
-    #[test]
-    #[should_panic(expected = "cancelling task counter underflow")]
-    fn test_finish_rejects_cancelling_task_underflow() {
-        PoolAccounting::new(None).finish_cancelled_job();
-    }
-}
-
 #[cfg(all(test, loom, feature = "loom-model"))]
 mod loom_tests {
-    use std::sync::Arc as StdArc;
-    use std::sync::atomic::AtomicUsize as StdAtomicUsize;
-    use std::sync::atomic::Ordering as StdOrdering;
-
     use loom::model;
     use loom::sync::Arc;
     use loom::sync::atomic::Ordering;
@@ -299,7 +218,7 @@ mod loom_tests {
 
     /// Two contenders cannot exceed capacity and return every reserved slot.
     #[test]
-    fn loom_bounded_slot_is_reclaimed() {
+    fn test_loom_bounded_slot_is_reclaimed() {
         model(|| {
             let accounting = Arc::new(PoolAccounting::new(Some(1)));
             let first_accounting = Arc::clone(&accounting);
@@ -323,64 +242,5 @@ mod loom_tests {
             assert!(accounting.try_reserve_bounded_slot());
             accounting.rollback_reserved_slot();
         });
-    }
-
-    /// Cancellation retains its slot through callback accounting while another
-    /// submitter competes for that capacity, then restores a balanced idle
-    /// state.
-    #[test]
-    fn loom_cancellation_retains_slot_until_finished() {
-        // These counters observe completed branches across model executions;
-        // they never synchronize modeled threads or influence their decisions.
-        let accepted = StdArc::new(StdAtomicUsize::new(0));
-        let rejected = StdArc::new(StdAtomicUsize::new(0));
-        let accepted_witness = StdArc::clone(&accepted);
-        let rejected_witness = StdArc::clone(&rejected);
-        model(move || {
-            let accounting = Arc::new(PoolAccounting::new(Some(1)));
-            assert!(accounting.try_reserve_bounded_slot());
-            accounting.publish_accepted_job();
-            accounting.begin_cancel_queued_job();
-            let cancelling_accounting = Arc::clone(&accounting);
-            let cancellation = thread::spawn(move || {
-                assert_eq!(cancelling_accounting.queue_slot_count.load(Ordering::Acquire), 1);
-                assert!(!cancelling_accounting.is_idle());
-                assert!(!cancelling_accounting.try_reserve_bounded_slot());
-                cancelling_accounting.finish_cancelled_job();
-            });
-            let competing_accounting = Arc::clone(&accounting);
-            let accepted_witness = StdArc::clone(&accepted_witness);
-            let rejected_witness = StdArc::clone(&rejected_witness);
-            let contender = thread::spawn(move || {
-                if competing_accounting.try_reserve_bounded_slot() {
-                    let snapshot = competing_accounting.snapshot();
-                    assert_eq!(snapshot.cancelled_tasks, 1);
-                    assert_eq!(snapshot.cancelling_tasks, 0);
-                    accepted_witness.fetch_add(1, StdOrdering::Relaxed);
-                    competing_accounting.rollback_reserved_slot();
-                } else {
-                    rejected_witness.fetch_add(1, StdOrdering::Relaxed);
-                }
-            });
-            cancellation.join().expect("cancellation should finish");
-            contender.join().expect("contender should finish");
-            let snapshot = accounting.snapshot();
-            assert_eq!(snapshot.submitted_tasks, 1);
-            assert_eq!(snapshot.cancelled_tasks, 1);
-            assert_eq!(snapshot.queued_tasks, 0);
-            assert_eq!(snapshot.cancelling_tasks, 0);
-            assert!(accounting.is_idle());
-        });
-        let accepted = accepted.load(StdOrdering::Relaxed);
-        let rejected = rejected.load(StdOrdering::Relaxed);
-        assert!(
-            accepted > 0,
-            "model must explore successful reservation after cancellation"
-        );
-        assert!(
-            rejected > 0,
-            "model must explore rejected reservation during cancellation"
-        );
-        eprintln!("reservation witnesses: accepted={accepted}, rejected={rejected}");
     }
 }

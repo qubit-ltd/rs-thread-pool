@@ -5,15 +5,19 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+use std::io::Error;
+use std::sync::mpsc;
 use std::time::Duration;
 
 use qubit_executor::service::ExecutorService;
 use qubit_executor::service::ExecutorServiceLifecycle;
 use qubit_thread_pool::ThreadPool;
 
+use super::mod_tests::wait_started;
+
 #[test]
 fn test_thread_pool_lifecycle_accessors_report_running_shutdown_and_terminated() {
-    let pool = ThreadPool::new(1).unwrap();
+    let pool = ThreadPool::new(1).expect("thread pool should be created");
     assert!(!pool.is_not_running());
     assert!(!pool.is_terminated());
 
@@ -27,19 +31,17 @@ fn test_thread_pool_lifecycle_accessors_report_running_shutdown_and_terminated()
 #[test]
 fn test_thread_pool_lifecycle_reports_shutting_down_with_running_work() {
     let pool = ThreadPool::new(1).expect("thread pool should be created");
-    let (started_tx, started_rx) = std::sync::mpsc::channel::<()>();
-    let (release_tx, release_rx) = std::sync::mpsc::channel::<()>();
+    let (started_tx, started_rx) = mpsc::channel::<()>();
+    let (release_tx, release_rx) = mpsc::channel::<()>();
     let handle = pool
         .submit_tracked(move || {
             started_tx.send(()).expect("test should receive task start signal");
-            release_rx
-                .recv()
-                .map_err(|err| std::io::Error::other(err.to_string()))?;
-            Ok::<(), std::io::Error>(())
+            release_rx.recv().map_err(|err| Error::other(err.to_string()))?;
+            Ok::<(), Error>(())
         })
         .expect("thread pool should accept task");
 
-    super::mod_tests::wait_started(started_rx);
+    wait_started(started_rx);
     assert_eq!(pool.lifecycle(), ExecutorServiceLifecycle::Running);
     pool.shutdown();
 

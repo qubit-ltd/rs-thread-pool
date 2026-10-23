@@ -318,7 +318,9 @@ fn test_ticket_cancellation_keeps_join_and_shutdown_busy_until_callback_returns(
     );
     pool.submit_job(job).expect("job accepted");
     let (cancelled_tx, cancelled_rx) = mpsc::channel();
-    std::thread::spawn(move || cancelled_tx.send(ticket.cancel_queued()).expect("cancellation result"));
+    std::thread::spawn(move || {
+        cancelled_tx.send(ticket.cancel_queued()).expect("cancellation result");
+    });
     cancelling_rx
         .recv_timeout(Duration::from_secs(2))
         .expect("cancellation starts");

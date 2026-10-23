@@ -36,6 +36,7 @@ const DEFAULT_FIXED_THREAD_NAME_PREFIX: &str = "qubit-fixed-thread-pool";
 /// pool.wait_termination();
 /// # Ok::<(), qubit_executor::service::ExecutorServiceBuilderError>(())
 /// ```
+#[must_use = "the builder must be built to create a thread pool"]
 #[derive(Debug, Clone)]
 pub struct FixedThreadPoolBuilder {
     /// Number of workers to prestart.

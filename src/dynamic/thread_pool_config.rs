@@ -7,7 +7,8 @@
 // =============================================================================
 use std::time::Duration;
 
-/// Immutable and initial mutable configuration used by a thread pool.
+/// Configuration values used to initialize a thread pool's shared state and
+/// workers.
 pub(super) struct ThreadPoolConfig {
     /// Initial core pool size.
     pub(super) core_pool_size: usize,

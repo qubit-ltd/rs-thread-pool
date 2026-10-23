@@ -17,6 +17,9 @@ mod internal;
 mod pool_job;
 mod pool_job_submission_error;
 mod pool_job_ticket;
+#[cfg(test)]
+#[path = "tests/mod.rs"]
+mod tests;
 mod thread_pool_hooks;
 mod thread_pool_stats;
 

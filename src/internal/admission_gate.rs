@@ -13,12 +13,20 @@ const CLOSED: usize = 1usize << (usize::BITS - 1);
 const COUNT_MASK: usize = CLOSED - 1;
 
 /// Linearizable admission state shared by an executor and its submitters.
+///
+/// The high bit closes admission, while the remaining bits count active
+/// submitters. Closing prevents new entrants but preserves the count until
+/// each admitted submitter leaves.
 pub(crate) struct AdmissionGate {
+    /// Packs the closed flag and in-flight submitter count into one atomic
+    /// word.
     state: AtomicUsize,
 }
 
 impl AdmissionGate {
     /// Creates an open admission gate with no submitters.
+    #[must_use]
+    #[inline]
     pub(crate) fn new() -> Self {
         Self {
             state: AtomicUsize::new(0),
@@ -26,6 +34,11 @@ impl AdmissionGate {
     }
 
     /// Enters admission unless the gate has been closed.
+    ///
+    /// Returns `true` after incrementing the active submitter count, or `false`
+    /// if closure was observed. Panics if the active count would overflow its
+    /// available bits.
+    #[must_use]
     pub(crate) fn try_enter(&self) -> bool {
         let mut current = self.state.load(Ordering::Acquire);
         loop {
@@ -44,11 +57,21 @@ impl AdmissionGate {
     }
 
     /// Closes the gate. Existing entrants are allowed to leave normally.
+    ///
+    /// This operation is idempotent and prevents subsequent successful calls
+    /// to `try_enter`.
+    #[inline]
     pub(crate) fn close(&self) {
         self.state.fetch_or(CLOSED, Ordering::AcqRel);
     }
 
     /// Leaves admission and reports whether this was the last entrant.
+    ///
+    /// The caller must have previously entered. Returns `true` when this call
+    /// reduces the active submitter count to zero. Panics if the count is
+    /// already zero.
+    #[must_use]
+    #[inline]
     pub(crate) fn leave(&self) -> bool {
         let previous = self.state.fetch_sub(1, Ordering::AcqRel);
         assert!(previous & COUNT_MASK > 0, "admission count underflow");
@@ -56,99 +79,22 @@ impl AdmissionGate {
     }
 
     /// Returns the number of submitters currently inside admission.
+    ///
+    /// The result excludes the closed bit and may change immediately after
+    /// this atomic snapshot.
+    #[must_use]
+    #[inline]
     pub(crate) fn inflight_count(&self) -> usize {
         self.state.load(Ordering::Acquire) & COUNT_MASK
     }
 
     /// Returns whether new submissions may enter.
+    ///
+    /// The result is an atomic snapshot; the gate may close immediately after
+    /// this method returns.
+    #[must_use]
+    #[inline]
     pub(crate) fn is_open(&self) -> bool {
         self.state.load(Ordering::Acquire) & CLOSED == 0
-    }
-}
-
-#[cfg(all(test, not(loom)))]
-mod tests {
-    use std::sync::Arc;
-    use std::sync::Barrier;
-    use std::thread;
-
-    use super::AdmissionGate;
-
-    #[test]
-    fn closes_after_existing_submitter_leaves() {
-        let gate = AdmissionGate::new();
-        assert!(gate.try_enter());
-        gate.close();
-        assert!(!gate.try_enter());
-        assert!(gate.leave());
-        assert_eq!(gate.inflight_count(), 0);
-    }
-
-    #[test]
-    fn concurrent_close_never_allows_entry_after_close() {
-        let gate = Arc::new(AdmissionGate::new());
-        let barrier = Arc::new(Barrier::new(2));
-        let entered = Arc::clone(&gate);
-        let worker_barrier = Arc::clone(&barrier);
-        let worker = thread::spawn(move || {
-            worker_barrier.wait();
-            let mut count = 0;
-            for _ in 0..10_000 {
-                if entered.try_enter() {
-                    count += 1;
-                    entered.leave();
-                }
-            }
-            count
-        });
-        gate.close();
-        barrier.wait();
-        assert_eq!(worker.join().expect("admission worker should finish"), 0);
-        assert_eq!(gate.inflight_count(), 0);
-    }
-}
-
-#[cfg(all(test, loom, feature = "loom-model"))]
-mod loom_tests {
-    use loom::model;
-    use loom::sync::Arc;
-    use loom::thread;
-
-    use super::AdmissionGate;
-
-    /// Closing preserves existing entrants and rejects all later entries.
-    #[test]
-    fn loom_close_rejects_later_entry() {
-        model(|| {
-            let gate = Arc::new(AdmissionGate::new());
-            assert!(gate.try_enter());
-            let closer_gate = Arc::clone(&gate);
-            thread::spawn(move || closer_gate.close())
-                .join()
-                .expect("closer should finish");
-            assert!(!gate.is_open());
-            assert!(!gate.try_enter());
-            assert!(gate.leave());
-            assert_eq!(gate.inflight_count(), 0);
-        });
-    }
-
-    /// A racing entry is either rejected or retained until its matching leave.
-    #[test]
-    fn loom_close_races_with_entry() {
-        model(|| {
-            let gate = Arc::new(AdmissionGate::new());
-            let entering_gate = Arc::clone(&gate);
-            let entrant = thread::spawn(move || entering_gate.try_enter());
-            gate.close();
-            let entered = entrant.join().expect("entrant should finish");
-            assert!(!gate.is_open());
-            assert!(!gate.try_enter());
-            assert_eq!(gate.inflight_count(), usize::from(entered));
-            if entered {
-                assert!(gate.leave());
-            }
-            assert_eq!(gate.inflight_count(), 0);
-        });
     }
 }

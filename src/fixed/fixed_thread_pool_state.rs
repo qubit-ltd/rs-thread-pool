@@ -23,6 +23,8 @@ impl FixedThreadPoolState {
     /// # Returns
     ///
     /// A running state before any worker has been reserved.
+    #[must_use]
+    #[inline]
     pub(crate) fn new() -> Self {
         Self {
             lifecycle: ExecutorServiceLifecycle::Running,

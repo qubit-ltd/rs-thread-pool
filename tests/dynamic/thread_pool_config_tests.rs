@@ -20,7 +20,7 @@ fn test_thread_pool_config_is_reflected_by_builder_and_stats() {
         .keep_alive(Duration::from_millis(25))
         .allow_core_thread_timeout(true)
         .build()
-        .unwrap();
+        .expect("thread pool should be created with the configured values");
     let stats = pool.stats();
 
     assert_eq!(1, stats.core_pool_size);

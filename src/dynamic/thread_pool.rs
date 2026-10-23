@@ -57,26 +57,6 @@ pub struct ThreadPool {
 }
 
 impl ThreadPool {
-    /// Waits asynchronously until shutdown or stop has finished all work.
-    ///
-    /// The wait does not occupy a worker or Tokio blocking thread. Dropping
-    /// the future cancels only this wait, without changing the pool lifecycle.
-    #[cfg(feature = "async-wait")]
-    pub async fn await_termination(&self) {
-        let mut receiver = self.inner.subscribe_termination();
-        receiver
-            .wait_for(|terminated| *terminated)
-            .await
-            .expect("pool state outlives a borrowed termination wait");
-    }
-
-    /// Wraps initialized shared state in the public pool handle.
-    ///
-    /// This constructor is restricted to the validated builder path.
-    pub(super) fn from_inner(inner: Arc<ThreadPoolInner>) -> Self {
-        Self { inner }
-    }
-
     /// Creates a thread pool with equal core and maximum pool sizes.
     ///
     /// # Parameters
@@ -107,6 +87,26 @@ impl ThreadPool {
     #[inline]
     pub fn builder() -> ThreadPoolBuilder {
         ThreadPoolBuilder::default()
+    }
+
+    /// Wraps initialized shared state in the public pool handle.
+    ///
+    /// This constructor is restricted to the validated builder path.
+    pub(super) fn from_inner(inner: Arc<ThreadPoolInner>) -> Self {
+        Self { inner }
+    }
+
+    /// Waits asynchronously until shutdown or stop has finished all work.
+    ///
+    /// The wait does not occupy a worker or Tokio blocking thread. Dropping
+    /// the future cancels only this wait, without changing the pool lifecycle.
+    #[cfg(feature = "async-wait")]
+    pub async fn await_termination(&self) {
+        let mut receiver = self.inner.subscribe_termination();
+        receiver
+            .wait_for(|terminated| *terminated)
+            .await
+            .expect("pool state outlives a borrowed termination wait");
     }
 
     /// Returns the number of queued tasks waiting for a worker.
@@ -183,7 +183,12 @@ impl ThreadPool {
     ///
     /// A notification is advisory. Callers must retry submission and handle
     /// saturation because another submitter may claim the available slot.
+    ///
+    /// # Returns
+    ///
+    /// A receiver that observes changes which may allow a submission retry.
     #[cfg(feature = "async-wait")]
+    #[inline]
     #[must_use]
     pub fn capacity_changes(&self) -> tokio::sync::watch::Receiver<u64> {
         self.inner.capacity_changes()
@@ -213,6 +218,8 @@ impl ThreadPool {
     ///
     /// The unsubmitted job and a cloneable ticket. Successful ticket
     /// cancellation releases captures and queue capacity before returning.
+    #[must_use = "the job must be submitted and the ticket retained for cancellation"]
+    #[inline]
     pub fn prepare_cancellable_job(
         &self,
         accept: Box<dyn FnOnce() + Send + 'static>,
@@ -326,6 +333,7 @@ impl ThreadPool {
     ///
     /// Returns [`ExecutorServiceBuilderError::CorePoolSizeExceedsMaximum`] when
     /// the new core size would exceed the current maximum size.
+    #[inline]
     pub fn set_core_pool_size(&self, core_pool_size: usize) -> Result<(), ExecutorServiceBuilderError> {
         self.inner.set_core_pool_size(core_pool_size)
     }
@@ -349,6 +357,7 @@ impl ThreadPool {
     /// maximum size is zero, or
     /// [`ExecutorServiceBuilderError::CorePoolSizeExceedsMaximum`]
     /// when it would be smaller than the current core size.
+    #[inline]
     pub fn set_maximum_pool_size(&self, maximum_pool_size: usize) -> Result<(), ExecutorServiceBuilderError> {
         self.inner.set_maximum_pool_size(maximum_pool_size)
     }
@@ -367,6 +376,7 @@ impl ThreadPool {
     ///
     /// Returns [`ExecutorServiceBuilderError::ZeroKeepAlive`] when `keep_alive`
     /// is zero.
+    #[inline]
     pub fn set_keep_alive(&self, keep_alive: Duration) -> Result<(), ExecutorServiceBuilderError> {
         self.inner.set_keep_alive(keep_alive)
     }
@@ -376,6 +386,7 @@ impl ThreadPool {
     /// # Parameters
     ///
     /// * `allow` - Whether core workers are subject to idle timeout.
+    #[inline]
     pub fn allow_core_thread_timeout(&self, allow: bool) {
         self.inner.allow_core_thread_timeout(allow);
     }
@@ -402,6 +413,22 @@ impl ExecutorService for ThreadPool {
         E: Send + 'static;
 
     /// Accepts a runnable and queues it for pool workers.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Runnable task type.
+    /// * `E` - Error type produced by the task.
+    ///
+    /// # Parameters
+    ///
+    /// * `task` - Runnable task to execute on a pool worker.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SubmissionError::Shutdown`] after shutdown, returns
+    /// [`SubmissionError::Saturated`] when the bounded pool cannot accept
+    /// more work, or returns [`SubmissionError::WorkerSpawnFailed`] when a
+    /// required worker cannot be created.
     fn submit<T, E>(&self, task: T) -> Result<(), SubmissionError>
     where
         T: Runnable<E> + Send + 'static,
@@ -413,6 +440,12 @@ impl ExecutorService for ThreadPool {
     }
 
     /// Accepts a callable and queues it for pool workers.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `C` - Callable task type.
+    /// * `R` - Successful result type produced by the task.
+    /// * `E` - Error type produced by the task.
     ///
     /// # Parameters
     ///
@@ -443,6 +476,27 @@ impl ExecutorService for ThreadPool {
     }
 
     /// Accepts a callable and queues it with a tracked handle.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `C` - Callable task type.
+    /// * `R` - Successful result type produced by the task.
+    /// * `E` - Error type produced by the task.
+    ///
+    /// # Parameters
+    ///
+    /// * `task` - Callable task to execute on a pool worker.
+    ///
+    /// # Returns
+    ///
+    /// A tracked handle that observes the task's result and completion state.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SubmissionError::Shutdown`] after shutdown, returns
+    /// [`SubmissionError::Saturated`] when the bounded pool cannot accept
+    /// more work, or returns [`SubmissionError::WorkerSpawnFailed`] when a
+    /// required worker cannot be created.
     fn submit_tracked_callable<C, R, E>(&self, task: C) -> Result<Self::TrackedHandle<R, E>, SubmissionError>
     where
         C: Callable<R, E> + Send + 'static,
@@ -479,18 +533,30 @@ impl ExecutorService for ThreadPool {
     }
 
     /// Returns the current lifecycle state.
+    ///
+    /// # Returns
+    ///
+    /// The pool's current lifecycle state.
     #[inline]
     fn lifecycle(&self) -> ExecutorServiceLifecycle {
         self.inner.lifecycle()
     }
 
     /// Returns whether shutdown has been requested.
+    ///
+    /// # Returns
+    ///
+    /// `true` after shutdown or stop has been requested.
     #[inline]
     fn is_not_running(&self) -> bool {
         self.inner.is_not_running()
     }
 
     /// Returns whether shutdown was requested and all workers have exited.
+    ///
+    /// # Returns
+    ///
+    /// `true` after all worker threads have terminated.
     #[inline]
     fn is_terminated(&self) -> bool {
         self.inner.is_terminated()
@@ -502,6 +568,15 @@ impl ExecutorService for ThreadPool {
     }
 
     /// Waits until this pool terminates or the timeout expires.
+    ///
+    /// # Parameters
+    ///
+    /// * `timeout` - Maximum duration to wait for termination.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the pool terminated before the timeout, or `false` if the
+    /// timeout elapsed first.
     fn wait_termination_timeout(&self, timeout: Duration) -> bool {
         self.inner.wait_for_termination_timeout(timeout)
     }

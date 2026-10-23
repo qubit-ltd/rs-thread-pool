@@ -10,7 +10,11 @@ use std::panic::AssertUnwindSafe;
 use std::panic::catch_unwind;
 use std::sync::Arc;
 
-/// Shared callback type used by worker and task hooks.
+/// A thread-safe callback that receives the index of the worker triggering a
+/// hook.
+///
+/// Hook invocation catches and ignores callback panics so instrumentation
+/// cannot terminate a worker thread.
 type HookCallback = Arc<dyn Fn(usize) + Send + Sync + 'static>;
 
 /// Worker and task lifecycle hooks shared by thread-pool implementations.
@@ -46,12 +50,17 @@ impl ThreadPoolHooks {
     /// # Returns
     ///
     /// A hook set with no callbacks installed.
+    #[must_use]
     #[inline]
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Installs a callback invoked when a worker thread starts.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `F` - Thread-safe callback type that receives the worker index.
     ///
     /// # Parameters
     ///
@@ -60,6 +69,7 @@ impl ThreadPoolHooks {
     /// # Returns
     ///
     /// This hook set for fluent configuration.
+    #[must_use]
     #[inline]
     pub fn before_worker_start<F>(mut self, hook: F) -> Self
     where
@@ -71,6 +81,10 @@ impl ThreadPoolHooks {
 
     /// Installs a callback invoked before a worker thread exits.
     ///
+    /// # Type Parameters
+    ///
+    /// * `F` - Thread-safe callback type that receives the worker index.
+    ///
     /// # Parameters
     ///
     /// * `hook` - Callback receiving the stable worker index.
@@ -78,6 +92,7 @@ impl ThreadPoolHooks {
     /// # Returns
     ///
     /// This hook set for fluent configuration.
+    #[must_use]
     #[inline]
     pub fn after_worker_stop<F>(mut self, hook: F) -> Self
     where
@@ -89,6 +104,10 @@ impl ThreadPoolHooks {
 
     /// Installs a callback invoked before each job is run.
     ///
+    /// # Type Parameters
+    ///
+    /// * `F` - Thread-safe callback type that receives the worker index.
+    ///
     /// # Parameters
     ///
     /// * `hook` - Callback receiving the stable worker index.
@@ -96,6 +115,7 @@ impl ThreadPoolHooks {
     /// # Returns
     ///
     /// This hook set for fluent configuration.
+    #[must_use]
     #[inline]
     pub fn before_task<F>(mut self, hook: F) -> Self
     where
@@ -107,6 +127,10 @@ impl ThreadPoolHooks {
 
     /// Installs a callback invoked after each job is run.
     ///
+    /// # Type Parameters
+    ///
+    /// * `F` - Thread-safe callback type that receives the worker index.
+    ///
     /// # Parameters
     ///
     /// * `hook` - Callback receiving the stable worker index.
@@ -114,6 +138,7 @@ impl ThreadPoolHooks {
     /// # Returns
     ///
     /// This hook set for fluent configuration.
+    #[must_use]
     #[inline]
     pub fn after_task<F>(mut self, hook: F) -> Self
     where

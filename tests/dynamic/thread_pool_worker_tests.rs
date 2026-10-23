@@ -17,13 +17,16 @@ fn test_worker_runs_job_on_named_worker_thread() {
         .maximum_pool_size(1)
         .thread_name_prefix("runtime-check")
         .build()
-        .unwrap();
+        .expect("thread pool should be created");
     let name = pool
         .submit_callable(|| Ok::<_, io::Error>(std::thread::current().name().unwrap_or_default().to_owned()))
-        .unwrap()
+        .expect("thread pool should accept callable")
         .get()
-        .unwrap();
+        .expect("callable should complete successfully");
 
-    assert!(name.starts_with("runtime-check-"));
+    assert!(
+        name.starts_with("runtime-check-"),
+        "worker thread name should use the configured prefix"
+    );
     pool.shutdown();
 }

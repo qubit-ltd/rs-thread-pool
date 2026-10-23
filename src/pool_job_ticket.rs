@@ -17,6 +17,21 @@ use crate::pool_job::QueuedJobState;
 /// Create tickets with [`crate::ThreadPool::prepare_cancellable_job`]. Keeping
 /// a ticket after completion retains no callbacks and does not keep the pool
 /// alive.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_thread_pool::ThreadPool;
+///
+/// let pool = ThreadPool::new(1).expect("pool builds");
+/// let (job, ticket) = pool.prepare_cancellable_job(
+///     Box::new(|| {}),
+///     Box::new(|| {}),
+///     Box::new(|| {}),
+/// );
+/// pool.submit_job(job).expect("job is accepted");
+/// let _cancelled = ticket.cancel_queued();
+/// ```
 #[derive(Clone)]
 pub struct PoolJobTicket {
     /// Shared ownership state, containing callbacks only while queued.
@@ -40,6 +55,14 @@ impl PoolJobTicket {
     /// instead of waiting for itself. Cancellation callbacks may run on either
     /// the submitting thread or this caller and must not wait for work on the
     /// same pool (including `stop`, `join`, and `wait_termination`).
+    ///
+    /// # Returns
+    ///
+    /// `true` only when this call wins cancellation and finishes its callback,
+    /// captured-value destruction, and pool accounting. Returns `false` if the
+    /// job is not accepted, has already been claimed, or another caller owns
+    /// cancellation.
+    #[must_use]
     pub fn cancel_queued(&self) -> bool {
         let Some(pool) = self.pool.upgrade() else {
             return false;

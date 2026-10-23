@@ -29,7 +29,7 @@ impl FixedWorker {
     ///
     /// * `inner` - Shared fixed-pool state.
     /// * `worker_runtime` - Queue runtime owned by this worker.
-    pub fn run(inner: Arc<FixedThreadPoolInner>, worker_runtime: FixedWorkerRuntime) {
+    pub(super) fn run(inner: Arc<FixedThreadPoolInner>, worker_runtime: FixedWorkerRuntime) {
         let worker_index = worker_runtime.worker_index();
         inner.hooks().run_before_worker_start(worker_index);
         let has_task_hooks = inner.hooks().has_task_hooks();
@@ -84,7 +84,7 @@ fn run_with_task_hooks(job: PoolJob, hooks: &ThreadPoolHooks, worker_index: usiz
 ///
 /// `true` when the worker should try to take work again, or `false` when it
 /// should exit.
-pub fn wait_for_fixed_pool_work(inner: &FixedThreadPoolInner) -> bool {
+fn wait_for_fixed_pool_work(inner: &FixedThreadPoolInner) -> bool {
     let mut state = inner.state.lock();
     loop {
         match state.lifecycle {
@@ -170,6 +170,11 @@ fn mark_fixed_worker_idle(inner: &FixedThreadPoolInner, state: &mut FixedThreadP
 ///
 /// * `inner` - Fixed pool whose idle counter is updated.
 /// * `state` - Locked mutable state containing authoritative idle workers.
+///
+/// # Panics
+///
+/// Panics if the idle worker counter is already zero, which violates the
+/// invariant that each idle worker is unmarked exactly once.
 fn unmark_fixed_worker_idle(inner: &FixedThreadPoolInner, state: &mut FixedThreadPoolState) {
     state.idle_workers = state
         .idle_workers
@@ -184,6 +189,11 @@ fn unmark_fixed_worker_idle(inner: &FixedThreadPoolInner, state: &mut FixedThrea
 ///
 /// * `inner` - Shared fixed-pool state.
 /// * `_worker_index` - Index of the exiting worker.
+///
+/// # Panics
+///
+/// Panics if the live worker counter is already zero, which violates the
+/// invariant that each worker exit is recorded exactly once.
 fn worker_exited(inner: &FixedThreadPoolInner, _worker_index: usize) {
     inner.state.with_write_notify_all(|state| {
         state.live_workers = state

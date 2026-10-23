@@ -11,11 +11,21 @@ use qubit_function::Callable;
 
 use super::pool_task::PoolTask;
 
-/// Callable task paired with its runner-side completion endpoint.
+/// Couples a callable task with the endpoint that publishes its completion.
+///
+/// The task runner uses the endpoint to publish the task's result, while queued
+/// cancellation uses it to complete the task without running the callable.
+///
+/// # Type Parameters
+///
+/// - `C`: Callable task submitted to the pool.
+/// - `R`: Result value produced by the callable.
+/// - `E`: Error value produced by the callable.
 pub(crate) struct CompletablePoolTask<C, R, E> {
-    /// Callable task to execute once a worker starts.
+    /// Callable task executed when a worker starts this job.
     pub(crate) task: C,
-    /// Completion endpoint used to publish the task result.
+    /// Endpoint used to publish the result or complete cancellation before
+    /// execution.
     pub(crate) completion: TaskSlot<R, E>,
 }
 

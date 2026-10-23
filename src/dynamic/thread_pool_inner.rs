@@ -109,6 +109,11 @@ impl ThreadPoolInner {
     }
 
     /// Subscribes to the terminal state without losing a concurrent transition.
+    ///
+    /// # Returns
+    ///
+    /// A receiver that observes `true` after the pool reaches its terminal
+    /// state.
     #[cfg(feature = "async-wait")]
     pub(crate) fn subscribe_termination(&self) -> watch::Receiver<bool> {
         let state = self.lock_state();
@@ -117,6 +122,11 @@ impl ThreadPoolInner {
     }
 
     /// Subscribes to events that may change queue admission.
+    ///
+    /// # Returns
+    ///
+    /// A receiver notified when queue capacity or lifecycle changes may allow
+    /// a bounded submission to be retried.
     #[cfg(feature = "async-wait")]
     pub(crate) fn capacity_changes(&self) -> watch::Receiver<u64> {
         self.capacity_tx.subscribe()
@@ -142,6 +152,7 @@ impl ThreadPoolInner {
     /// # Returns
     ///
     /// Worker and task lifecycle hooks.
+    #[must_use]
     #[inline]
     pub(crate) fn hooks(&self) -> &ThreadPoolHooks {
         &self.hooks
@@ -152,6 +163,7 @@ impl ThreadPoolInner {
     /// # Returns
     ///
     /// Number of accepted jobs waiting to start.
+    #[must_use]
     #[inline]
     pub(crate) fn queued_count(&self) -> usize {
         self.accounting.queued_count()
@@ -162,6 +174,7 @@ impl ThreadPoolInner {
     /// # Returns
     ///
     /// Number of jobs currently held by workers.
+    #[must_use]
     #[inline]
     pub(crate) fn running_count(&self) -> usize {
         self.accounting.running_count()
@@ -172,6 +185,7 @@ impl ThreadPoolInner {
     /// # Returns
     ///
     /// Number of submitters that may still publish, spawn, or roll back work.
+    #[must_use]
     #[inline]
     pub(crate) fn inflight_count(&self) -> usize {
         self.accounting.inflight_count()
@@ -353,6 +367,15 @@ impl ThreadPoolInner {
     /// Removes `entry` and cancels its callbacks once, returning whether it
     /// won. Queue removal and accounting occur before invoking user code
     /// outside locks.
+    ///
+    /// # Parameters
+    ///
+    /// * `entry` - Queued job entry to remove and cancel.
+    ///
+    /// # Returns
+    ///
+    /// `true` if this call removed the queued entry and performed its
+    /// cancellation callbacks; otherwise, `false`.
     pub(crate) fn cancel_queued_entry(&self, entry: &Arc<QueuedJob>) -> bool {
         let job = {
             let mut queue = self
@@ -644,6 +667,7 @@ impl ThreadPoolInner {
     /// # Returns
     ///
     /// `true` when a worker should retry taking work instead of parking.
+    #[must_use]
     pub(crate) fn has_pending_worker_wake(&self) -> bool {
         self.pending_worker_wakes.load(Ordering::Acquire) > 0
     }
@@ -774,6 +798,7 @@ impl ThreadPoolInner {
     /// # Returns
     ///
     /// `true` if the pool is no longer in the running lifecycle state.
+    #[must_use]
     pub(crate) fn is_not_running(&self) -> bool {
         self.read_state(|state| state.lifecycle != ExecutorServiceLifecycle::Running)
     }
@@ -800,6 +825,7 @@ impl ThreadPoolInner {
     ///
     /// `true` if shutdown has started and no queued, running, or live worker
     /// state remains.
+    #[must_use]
     pub(crate) fn is_terminated(&self) -> bool {
         self.read_state(|state| self.is_terminated_locked(state))
     }
@@ -814,6 +840,15 @@ impl ThreadPoolInner {
     }
 
     /// Waits for termination for at most `timeout`.
+    ///
+    /// # Parameters
+    ///
+    /// * `timeout` - Maximum duration to wait for the terminal state.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the pool is terminated when observed, or `false` if the
+    /// timeout expires while the pool remains active.
     pub(crate) fn wait_for_termination_timeout(&self, timeout: Duration) -> bool {
         let started = Instant::now();
         loop {
@@ -852,6 +887,7 @@ impl ThreadPoolInner {
     /// # Returns
     ///
     /// Independently loaded task counters with monitor-protected worker state.
+    #[must_use]
     pub(crate) fn stats(&self) -> ThreadPoolStats {
         let counters = self.accounting.snapshot();
         self.read_state(|state| {
@@ -1063,7 +1099,6 @@ impl ThreadPoolInner {
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
-    use std::sync::Barrier;
     use std::sync::atomic::Ordering;
     use std::sync::mpsc;
     use std::thread;
@@ -1159,7 +1194,7 @@ mod tests {
 
     #[test]
     fn test_submit_with_state_lock_rejects_stopping_state() {
-        let inner = std::sync::Arc::new(ThreadPoolInner::new(
+        let inner = Arc::new(ThreadPoolInner::new(
             ThreadPoolConfig {
                 core_pool_size: 1,
                 maximum_pool_size: 1,
@@ -1180,45 +1215,5 @@ mod tests {
             result,
             Err(PoolJobSubmissionError::Rejected(SubmissionError::Shutdown))
         ));
-    }
-
-    #[test]
-    fn test_concurrent_core_size_updates_keep_atomic_mirror_in_sync() {
-        let inner = Arc::new(ThreadPoolInner::new(
-            ThreadPoolConfig {
-                core_pool_size: 1,
-                maximum_pool_size: 2,
-                queue_capacity: Some(1),
-                thread_name_prefix: String::from("core-size-test"),
-                stack_size: None,
-                keep_alive: Duration::from_secs(1),
-                allow_core_thread_timeout: false,
-            },
-            ThreadPoolHooks::default(),
-        ));
-        let start = Barrier::new(3);
-        let done = Barrier::new(3);
-        thread::scope(|scope| {
-            for value in [1, 2] {
-                let inner = Arc::clone(&inner);
-                let start = &start;
-                let done = &done;
-                scope.spawn(move || {
-                    for _ in 0..5_000 {
-                        start.wait();
-                        inner.set_core_pool_size(value).expect("valid core size");
-                        done.wait();
-                    }
-                });
-            }
-            for _ in 0..5_000 {
-                start.wait();
-                done.wait();
-                inner.read_state(|state| {
-                    assert!(matches!(state.core_pool_size, 1 | 2));
-                    assert!(state.core_pool_size <= state.maximum_pool_size);
-                });
-            }
-        });
     }
 }

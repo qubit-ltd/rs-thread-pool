@@ -64,6 +64,7 @@ impl FixedThreadPoolInner {
     /// # Returns
     ///
     /// A shared state object ready for worker startup.
+    #[must_use]
     pub(crate) fn with_hooks(pool_size: usize, queue_capacity: Option<usize>, hooks: ThreadPoolHooks) -> Self {
         Self {
             pool_size,
@@ -84,6 +85,7 @@ impl FixedThreadPoolInner {
     /// # Returns
     ///
     /// Worker and task lifecycle hooks.
+    #[must_use]
     #[inline]
     pub(crate) fn hooks(&self) -> &ThreadPoolHooks {
         &self.hooks
@@ -94,6 +96,7 @@ impl FixedThreadPoolInner {
     /// # Returns
     ///
     /// Number of workers owned by this pool.
+    #[must_use]
     #[inline]
     pub(crate) fn pool_size(&self) -> usize {
         self.pool_size
@@ -104,6 +107,7 @@ impl FixedThreadPoolInner {
     /// # Returns
     ///
     /// Number of accepted tasks waiting to run.
+    #[must_use]
     #[inline]
     pub(crate) fn queued_count(&self) -> usize {
         self.accounting.queued_count()
@@ -114,6 +118,7 @@ impl FixedThreadPoolInner {
     /// # Returns
     ///
     /// Number of tasks currently held by workers.
+    #[must_use]
     #[inline]
     pub(crate) fn running_count(&self) -> usize {
         self.accounting.running_count()
@@ -124,6 +129,7 @@ impl FixedThreadPoolInner {
     /// # Returns
     ///
     /// Number of submit calls that may still publish or roll back a queued job.
+    #[must_use]
     #[inline]
     pub(crate) fn inflight_count(&self) -> usize {
         self.accounting.inflight_count()
@@ -151,6 +157,7 @@ impl FixedThreadPoolInner {
     /// # Returns
     ///
     /// `true` if one queued slot was reserved, otherwise `false`.
+    #[must_use]
     fn reserve_queue_slot(&self) -> bool {
         self.accounting.try_reserve_bounded_slot()
     }
@@ -226,6 +233,7 @@ impl FixedThreadPoolInner {
     ///
     /// `true` when at least one idle worker should leave the wait path and
     /// retry taking work.
+    #[must_use]
     pub(crate) fn has_pending_worker_wake(&self) -> bool {
         self.pending_worker_wakes.load(Ordering::Acquire) > 0
     }
@@ -243,6 +251,7 @@ impl FixedThreadPoolInner {
     ///
     /// `true` when an idle waiter may need notification after an in-flight
     /// submitter leaves admission.
+    #[must_use]
     fn has_idle_waiters(&self) -> bool {
         self.idle_waiter_count.load(Ordering::Acquire) > 0
     }
@@ -255,6 +264,11 @@ impl FixedThreadPoolInner {
     }
 
     /// Returns whether workers may still expect new submissions.
+    ///
+    /// # Returns
+    ///
+    /// `true` while new submissions may enter.
+    #[must_use]
     pub(crate) fn is_admission_open(&self) -> bool {
         self.accounting.is_admission_open()
     }
@@ -318,6 +332,7 @@ impl FixedThreadPoolInner {
     /// # Parameters
     ///
     /// * `job` - Job claimed from a queue.
+    ///
     /// # Returns
     ///
     /// `Some(job)` when the job may run, otherwise `None`.
@@ -397,6 +412,11 @@ impl FixedThreadPoolInner {
     }
 
     /// Waits for termination for at most `timeout`.
+    ///
+    /// # Returns
+    ///
+    /// `true` if termination was reached before the timeout elapsed.
+    #[must_use]
     pub(crate) fn wait_for_termination_timeout(&self, timeout: Duration) -> bool {
         let started = Instant::now();
         loop {
@@ -537,6 +557,7 @@ impl FixedThreadPoolInner {
     /// # Returns
     ///
     /// `true` when lifecycle is not running.
+    #[must_use]
     pub(crate) fn is_not_running(&self) -> bool {
         self.state
             .with_read(|state| state.lifecycle != ExecutorServiceLifecycle::Running)
@@ -548,6 +569,7 @@ impl FixedThreadPoolInner {
     ///
     /// [`ExecutorServiceLifecycle::Terminated`] after all accepted work and
     /// workers are gone, otherwise the stored lifecycle state.
+    #[must_use]
     pub(crate) fn lifecycle(&self) -> ExecutorServiceLifecycle {
         self.state.with_read(|state| {
             if self.is_terminated_locked(state) {
@@ -563,6 +585,7 @@ impl FixedThreadPoolInner {
     /// # Returns
     ///
     /// `true` after shutdown and after all workers and jobs are gone.
+    #[must_use]
     pub(crate) fn is_terminated(&self) -> bool {
         self.state.with_read(|state| self.is_terminated_locked(state))
     }
@@ -576,6 +599,7 @@ impl FixedThreadPoolInner {
     /// # Returns
     ///
     /// `true` when the pool is terminal.
+    #[must_use]
     fn is_terminated_locked(&self, state: &FixedThreadPoolState) -> bool {
         state.lifecycle != ExecutorServiceLifecycle::Running && state.live_workers == 0 && self.accounting.is_idle()
     }
@@ -586,6 +610,7 @@ impl FixedThreadPoolInner {
     ///
     /// `true` when no submitter is still admitting work, no queued slot
     /// remains, and no worker-held task is running.
+    #[must_use]
     fn is_idle_locked(&self) -> bool {
         self.accounting.is_idle()
     }
@@ -595,6 +620,7 @@ impl FixedThreadPoolInner {
     /// # Returns
     ///
     /// Snapshot using fixed pool size for both core and maximum sizes.
+    #[must_use]
     pub(crate) fn stats(&self) -> ThreadPoolStats {
         let counters = self.accounting.snapshot();
         self.state.with_read(|state| ThreadPoolStats {

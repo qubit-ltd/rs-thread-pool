@@ -27,6 +27,9 @@ impl ThreadPoolWorker {
     ///
     /// * `inner` - Shared pool state used for queue access and counters.
     /// * `worker_index` - Stable worker index assigned by the pool.
+    ///
+    /// Worker lifecycle hooks surround the loop, and each claimed job is
+    /// accounted for after execution even when the job panics.
     pub(crate) fn run(inner: Arc<ThreadPoolInner>, worker_index: usize) {
         inner.hooks().run_before_worker_start(worker_index);
         let has_task_hooks = inner.hooks().has_task_hooks();
@@ -55,6 +58,8 @@ impl ThreadPoolWorker {
 /// # Parameters
 ///
 /// * `job` - Claimed job to execute.
+///
+/// A panic from the job is caught and discarded so the worker can continue.
 fn run_without_hooks(job: PoolJob) {
     let _ignored = catch_unwind(AssertUnwindSafe(|| job.run()));
 }
@@ -66,6 +71,9 @@ fn run_without_hooks(job: PoolJob) {
 /// * `job` - Claimed job to execute.
 /// * `hooks` - Hook set configured for the pool.
 /// * `worker_index` - Stable index of the worker running the job.
+///
+/// The before and after hooks surround the job, whose panic is caught and
+/// discarded so the worker can continue.
 fn run_with_task_hooks(job: PoolJob, hooks: &ThreadPoolHooks, worker_index: usize) {
     hooks.run_before_task(worker_index);
     let _ignored = catch_unwind(AssertUnwindSafe(|| job.run()));
@@ -82,6 +90,11 @@ fn run_with_task_hooks(job: PoolJob, hooks: &ThreadPoolHooks, worker_index: usiz
 /// # Returns
 ///
 /// `Some(job)` when work is available, or `None` when the worker should exit.
+///
+/// # Panics
+///
+/// Panics if the timed monitor wait cannot register its timer, which indicates
+/// a violation of the standard monitor timer invariant.
 fn wait_for_job(inner: &ThreadPoolInner, worker_index: usize) -> Option<PoolJob> {
     loop {
         if let Some(job) = inner.try_take_queued_job() {
@@ -161,6 +174,10 @@ fn mark_thread_pool_worker_idle(inner: &ThreadPoolInner, state: &mut ThreadPoolS
 ///
 /// * `inner` - Pool whose idle counter is updated.
 /// * `state` - Locked mutable state containing authoritative idle workers.
+///
+/// # Panics
+///
+/// Panics if the authoritative idle worker count is already zero.
 fn unmark_thread_pool_worker_idle(inner: &ThreadPoolInner, state: &mut ThreadPoolState) {
     state.idle_workers = state
         .idle_workers

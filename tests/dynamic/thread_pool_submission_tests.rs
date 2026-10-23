@@ -9,6 +9,7 @@
 
 use std::io;
 use std::sync::Arc;
+use std::sync::Barrier;
 use std::sync::Mutex;
 use std::sync::mpsc;
 use std::time::Duration;
@@ -264,6 +265,41 @@ fn test_thread_pool_core_size_update_grows_next_submission() {
     release_tx.send(()).expect("first job should be released");
     first.get().expect("first job should complete");
     second.get().expect("second job should complete");
+    pool.shutdown();
+    pool.wait_termination();
+}
+
+#[test]
+fn test_concurrent_core_size_updates_keep_values_within_bounds() {
+    let pool = Arc::new(
+        ThreadPool::builder()
+            .core_pool_size(1)
+            .maximum_pool_size(2)
+            .build()
+            .expect("thread pool should be created"),
+    );
+    let start = Barrier::new(3);
+    let done = Barrier::new(3);
+    std::thread::scope(|scope| {
+        for core_pool_size in [1, 2] {
+            let pool = Arc::clone(&pool);
+            let start = &start;
+            let done = &done;
+            scope.spawn(move || {
+                for _ in 0..5_000 {
+                    start.wait();
+                    pool.set_core_pool_size(core_pool_size).expect("valid core size");
+                    done.wait();
+                }
+            });
+        }
+        for _ in 0..5_000 {
+            start.wait();
+            done.wait();
+            assert!(matches!(pool.core_pool_size(), 1 | 2));
+            assert!(pool.core_pool_size() <= pool.maximum_pool_size());
+        }
+    });
     pool.shutdown();
     pool.wait_termination();
 }
@@ -561,7 +597,9 @@ fn test_ticket_cancel_during_accept_waits_and_releases_captures() {
     );
     let submit_pool = Arc::clone(&pool);
     let (submitted_tx, submitted_rx) = mpsc::channel();
-    std::thread::spawn(move || submitted_tx.send(submit_pool.submit_job(job)).expect("submit result"));
+    std::thread::spawn(move || {
+        submitted_tx.send(submit_pool.submit_job(job)).expect("submit result");
+    });
     accepted_rx
         .recv_timeout(Duration::from_secs(2))
         .expect("acceptance starts");

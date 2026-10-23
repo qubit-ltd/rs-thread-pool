@@ -51,6 +51,34 @@ pub struct FixedThreadPool {
 }
 
 impl FixedThreadPool {
+    /// Creates a fixed thread pool with `pool_size` prestarted workers.
+    ///
+    /// # Parameters
+    ///
+    /// * `pool_size` - Number of worker threads.
+    ///
+    /// # Returns
+    ///
+    /// A fixed thread pool.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ExecutorServiceBuilderError`] if the worker count is zero or a
+    /// worker cannot be spawned.
+    pub fn new(pool_size: usize) -> Result<Self, ExecutorServiceBuilderError> {
+        Self::builder().pool_size(pool_size).build()
+    }
+
+    /// Creates a fixed pool builder.
+    ///
+    /// # Returns
+    ///
+    /// Builder with CPU parallelism defaults.
+    #[inline]
+    pub fn builder() -> FixedThreadPoolBuilder {
+        FixedThreadPoolBuilder::new()
+    }
+
     /// Builds a fixed pool from a validated [`FixedThreadPoolBuilder`].
     ///
     /// # Parameters
@@ -102,33 +130,6 @@ impl FixedThreadPool {
             }
         }
         Ok(Self { inner })
-    }
-
-    /// Creates a fixed thread pool with `pool_size` prestarted workers.
-    ///
-    /// # Parameters
-    ///
-    /// * `pool_size` - Number of worker threads.
-    ///
-    /// # Returns
-    ///
-    /// A fixed thread pool.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`ExecutorServiceBuilderError`] if the worker count is zero or a
-    /// worker cannot be spawned.
-    pub fn new(pool_size: usize) -> Result<Self, ExecutorServiceBuilderError> {
-        Self::builder().pool_size(pool_size).build()
-    }
-
-    /// Creates a fixed pool builder.
-    ///
-    /// # Returns
-    ///
-    /// Builder with CPU parallelism defaults.
-    pub fn builder() -> FixedThreadPoolBuilder {
-        FixedThreadPoolBuilder::new()
     }
 
     /// Returns the fixed worker count.
@@ -237,6 +238,15 @@ impl ExecutorService for FixedThreadPool {
         E: Send + 'static;
 
     /// Accepts a runnable and queues it for fixed pool workers.
+    ///
+    /// # Parameters
+    ///
+    /// * `task` - Runnable to execute on a fixed pool worker.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SubmissionError::Shutdown`] after shutdown or
+    /// [`SubmissionError::Saturated`] when a bounded queue is full.
     fn submit<T, E>(&self, task: T) -> Result<(), SubmissionError>
     where
         T: Runnable<E> + Send + 'static,
@@ -319,6 +329,10 @@ impl ExecutorService for FixedThreadPool {
     }
 
     /// Returns the current lifecycle state.
+    ///
+    /// # Returns
+    ///
+    /// The current lifecycle state of this pool.
     fn lifecycle(&self) -> ExecutorServiceLifecycle {
         self.inner.lifecycle()
     }
@@ -347,6 +361,14 @@ impl ExecutorService for FixedThreadPool {
     }
 
     /// Waits until this fixed pool terminates or the timeout expires.
+    ///
+    /// # Parameters
+    ///
+    /// * `timeout` - Maximum time to wait for termination.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the pool terminated before the timeout elapsed.
     fn wait_termination_timeout(&self, timeout: Duration) -> bool {
         self.inner.wait_for_termination_timeout(timeout)
     }

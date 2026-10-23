@@ -6,6 +6,7 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 /// Worker reservation created under the pool state lock before thread spawn.
+#[must_use]
 pub(crate) struct ReservedWorker {
     /// Stable worker index assigned in pool state.
     pub(crate) index: usize,

@@ -5,6 +5,8 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+//! State-transition tests for the dynamic thread pool.
+
 use std::io;
 use std::sync::mpsc;
 

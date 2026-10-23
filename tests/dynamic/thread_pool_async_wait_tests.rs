@@ -5,11 +5,14 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+//! Tests for asynchronous waiting and capacity notifications in [`ThreadPool`].
+
 use std::io;
 use std::sync::mpsc;
 use std::time::Duration;
 
 use qubit_executor::service::ExecutorService;
+use qubit_executor::service::SubmissionError;
 use qubit_thread_pool::ThreadPool;
 use tokio::time::timeout;
 
@@ -33,7 +36,7 @@ async fn test_thread_pool_capacity_changes_when_worker_takes_queued_job() {
         .expect("queue should accept one task");
     assert!(matches!(
         pool.submit(|| Ok::<(), io::Error>(())),
-        Err(qubit_executor::service::SubmissionError::Saturated)
+        Err(SubmissionError::Saturated)
     ));
     let mut changes = pool.capacity_changes();
     release_tx.send(()).expect("running task should release");

@@ -9,6 +9,16 @@ use qubit_executor::service::SubmissionError;
 use thiserror::Error;
 
 /// Error returned by the low-level custom-job submission API.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_thread_pool::PoolJobSubmissionError;
+///
+/// let error = PoolJobSubmissionError::AcceptancePanicked;
+/// assert!(matches!(error, PoolJobSubmissionError::AcceptancePanicked));
+/// ```
+#[must_use]
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum PoolJobSubmissionError {
     /// The pool rejected the job before acceptance.
@@ -21,6 +31,11 @@ pub enum PoolJobSubmissionError {
 
 impl PoolJobSubmissionError {
     /// Converts this error to the common executor error for standard jobs.
+    ///
+    /// # Panics
+    ///
+    /// Panics if called for `AcceptancePanicked`, which cannot occur for
+    /// standard pool jobs.
     pub(crate) fn into_submission_error(self) -> SubmissionError {
         match self {
             Self::Rejected(error) => error,

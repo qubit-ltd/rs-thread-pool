@@ -77,6 +77,8 @@ impl ThreadPoolState {
     ///
     /// `true` when core timeout is enabled or the live worker count exceeds
     /// the core pool size.
+    #[must_use]
+    #[inline]
     pub(super) fn worker_wait_is_timed(&self) -> bool {
         self.allow_core_thread_timeout || self.live_workers > self.core_pool_size
     }
@@ -87,6 +89,8 @@ impl ThreadPoolState {
     ///
     /// `true` when the worker count exceeds the maximum size, or when timeout
     /// policy allows an idle worker to exit.
+    #[must_use]
+    #[inline]
     pub(super) fn idle_worker_can_retire(&self) -> bool {
         self.live_workers > self.maximum_pool_size
             || (self.worker_wait_is_timed()

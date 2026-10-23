@@ -42,6 +42,7 @@ const DEFAULT_KEEP_ALIVE: Duration = Duration::from_secs(60);
 /// pool.wait_termination();
 /// # Ok::<(), qubit_executor::service::ExecutorServiceBuilderError>(())
 /// ```
+#[must_use = "the configured builder must be used to build a thread pool"]
 #[derive(Debug, Clone)]
 pub struct ThreadPoolBuilder {
     /// Configured core pool size.

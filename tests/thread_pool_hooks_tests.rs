@@ -19,8 +19,20 @@ fn test_thread_pool_hooks_builder_and_debug() {
 
     let debug = format!("{hooks:?}");
 
-    assert!(debug.contains("before_worker_start: true"));
-    assert!(debug.contains("after_worker_stop: true"));
-    assert!(debug.contains("before_task: true"));
-    assert!(debug.contains("after_task: true"));
+    assert!(
+        debug.contains("before_worker_start: true"),
+        "Debug output should report the before-worker-start hook"
+    );
+    assert!(
+        debug.contains("after_worker_stop: true"),
+        "Debug output should report the after-worker-stop hook"
+    );
+    assert!(
+        debug.contains("before_task: true"),
+        "Debug output should report the before-task hook"
+    );
+    assert!(
+        debug.contains("after_task: true"),
+        "Debug output should report the after-task hook"
+    );
 }

@@ -23,6 +23,8 @@ impl FixedWorkerRuntime {
     /// # Returns
     ///
     /// Runtime metadata for the worker loop.
+    #[must_use]
+    #[inline]
     pub(crate) fn new(worker_index: usize) -> Self {
         Self { worker_index }
     }
