@@ -1117,6 +1117,72 @@ mod tests {
     use crate::PoolJob;
     use crate::PoolJobSubmissionError;
 
+    struct DynamicWakeCleanup {
+        inner: Arc<ThreadPoolInner>,
+        release_senders: Vec<mpsc::Sender<()>>,
+        threads: Vec<thread::JoinHandle<()>>,
+        finished: bool,
+    }
+
+    impl DynamicWakeCleanup {
+        fn new(inner: Arc<ThreadPoolInner>) -> Self {
+            Self {
+                inner,
+                release_senders: Vec::new(),
+                threads: Vec::new(),
+                finished: false,
+            }
+        }
+
+        fn release_on_cleanup(&mut self, sender: mpsc::Sender<()>) {
+            self.release_senders.push(sender);
+        }
+
+        fn track(&mut self, handle: thread::JoinHandle<()>) {
+            self.threads.push(handle);
+        }
+
+        fn finish(&mut self) -> bool {
+            if self.finished {
+                return true;
+            }
+            self.finished = true;
+            let inner = Arc::clone(&self.inner);
+            let release_senders = std::mem::take(&mut self.release_senders);
+            let handles = std::mem::take(&mut self.threads);
+            let (finished_tx, finished_rx) = mpsc::channel();
+            thread::spawn(move || {
+                for sender in release_senders {
+                    let _ = sender.send(());
+                }
+                inner.shutdown();
+                let terminated = inner.wait_for_termination_timeout(Duration::from_secs(2));
+                let deadline = Instant::now() + Duration::from_secs(3);
+                let mut all_joined = true;
+                for handle in handles {
+                    let (joined_tx, joined_rx) = mpsc::channel();
+                    thread::spawn(move || {
+                        let _ = joined_tx.send(handle.join().is_ok());
+                    });
+                    if !matches!(
+                        joined_rx.recv_timeout(deadline.saturating_duration_since(Instant::now())),
+                        Ok(true)
+                    ) {
+                        all_joined = false;
+                    }
+                }
+                let _ = finished_tx.send(terminated && all_joined);
+            });
+            matches!(finished_rx.recv_timeout(Duration::from_secs(6)), Ok(true))
+        }
+    }
+
+    impl Drop for DynamicWakeCleanup {
+        fn drop(&mut self) {
+            let _ = self.finish();
+        }
+    }
+
     #[test]
     fn test_stop_report_excludes_ticket_cancellation_after_stop_snapshot() {
         let inner = Arc::new(ThreadPoolInner::new(
@@ -1234,10 +1300,11 @@ mod tests {
             },
             ThreadPoolHooks::default(),
         ));
+        let mut cleanup = DynamicWakeCleanup::new(Arc::clone(&inner));
         let (registered_tx, registered_rx) = mpsc::channel();
         let (terminated_tx, terminated_rx) = mpsc::channel();
         let waiter_inner = Arc::clone(&inner);
-        let waiter = thread::spawn(move || {
+        cleanup.track(thread::spawn(move || {
             let mut state = waiter_inner.lock_state();
             registered_tx
                 .send(())
@@ -1248,16 +1315,16 @@ mod tests {
             terminated_tx
                 .send(())
                 .expect("termination waiter should report completion");
-        });
+        }));
         registered_rx
             .recv_timeout(Duration::from_secs(2))
             .expect("termination waiter should enter under the monitor lock");
         let (lock_done_tx, lock_done_rx) = mpsc::channel();
         let lock_inner = Arc::clone(&inner);
-        thread::spawn(move || {
+        cleanup.track(thread::spawn(move || {
             drop(lock_inner.lock_state());
             lock_done_tx.send(()).expect("lock handshake should complete");
-        });
+        }));
         lock_done_rx
             .recv_timeout(Duration::from_secs(2))
             .expect("termination waiter should register before the monitor is reacquired");
@@ -1283,20 +1350,22 @@ mod tests {
         );
         let (worker_lock_tx, worker_lock_rx) = mpsc::channel();
         let worker_lock_inner = Arc::clone(&inner);
-        thread::spawn(move || {
+        cleanup.track(thread::spawn(move || {
             drop(worker_lock_inner.lock_state());
             worker_lock_tx.send(()).expect("worker lock handshake should complete");
-        });
+        }));
         worker_lock_rx
             .recv_timeout(Duration::from_secs(2))
             .expect("both workers should register their waits before the monitor is reacquired");
 
         let (task_tx, task_rx) = mpsc::channel();
         let (task_release_tx, task_release_rx) = mpsc::channel();
+        cleanup.release_on_cleanup(task_release_tx.clone());
         let task_count = Arc::new(AtomicUsize::new(0));
         let task_count_for_job = Arc::clone(&task_count);
         let (accepted_tx, accepted_rx) = mpsc::channel();
         let (accept_release_tx, accept_release_rx) = mpsc::channel();
+        cleanup.release_on_cleanup(accept_release_tx.clone());
         let job = PoolJob::with_accept(
             Box::new(move || {
                 accepted_tx.send(()).expect("acceptance should be observed");
@@ -1315,11 +1384,11 @@ mod tests {
         );
         let submit_inner = Arc::clone(&inner);
         let (submitted_tx, submitted_rx) = mpsc::channel();
-        let submitter = thread::spawn(move || {
+        cleanup.track(thread::spawn(move || {
             submitted_tx
                 .send(submit_inner.submit(job))
                 .expect("submit result should be reported");
-        });
+        }));
         accepted_rx
             .recv_timeout(Duration::from_secs(2))
             .expect("submitter should reserve admission before acceptance");
@@ -1341,7 +1410,6 @@ mod tests {
             .recv_timeout(Duration::from_secs(2))
             .expect("submit should finish after the monitor gate opens")
             .expect("task should be accepted while admission is open");
-        submitter.join().expect("submitter should exit");
         task_rx
             .recv_timeout(Duration::from_secs(5))
             .expect("broadcast should wake a worker to run the task");
@@ -1354,12 +1422,12 @@ mod tests {
         assert_eq!(inner.read_state(|state| state.idle_workers), 1);
         let (spare_reparked_tx, spare_reparked_rx) = mpsc::channel();
         let spare_reparked_inner = Arc::clone(&inner);
-        thread::spawn(move || {
+        cleanup.track(thread::spawn(move || {
             drop(spare_reparked_inner.lock_state());
             spare_reparked_tx
                 .send(())
                 .expect("spare worker repark handshake should complete");
-        });
+        }));
         spare_reparked_rx
             .recv_timeout(Duration::from_secs(2))
             .expect("spare worker should recheck the queue and return to waiting");
@@ -1378,10 +1446,10 @@ mod tests {
         assert_eq!(inner.read_state(|state| state.idle_workers), 2);
         let (reparked_tx, reparked_rx) = mpsc::channel();
         let reparked_inner = Arc::clone(&inner);
-        thread::spawn(move || {
+        cleanup.track(thread::spawn(move || {
             drop(reparked_inner.lock_state());
             reparked_tx.send(()).expect("repark handshake should complete");
-        });
+        }));
         reparked_rx
             .recv_timeout(Duration::from_secs(2))
             .expect("both workers should recheck the queue and return to waiting");
@@ -1399,9 +1467,10 @@ mod tests {
             "termination waiter should remain blocked while the pool is running"
         );
 
-        inner.shutdown();
-        waiter.join().expect("termination waiter should exit after shutdown");
-        assert!(inner.wait_for_termination_timeout(Duration::from_secs(2)));
+        assert!(
+            cleanup.finish(),
+            "shutdown cleanup should terminate and join test threads"
+        );
         terminated_rx
             .recv_timeout(Duration::from_secs(1))
             .expect("termination waiter should report completion");
