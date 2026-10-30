@@ -1292,6 +1292,7 @@ mod tests {
             .expect("both workers should register their waits before the monitor is reacquired");
 
         let (task_tx, task_rx) = mpsc::channel();
+        let (task_release_tx, task_release_rx) = mpsc::channel();
         let task_count = Arc::new(AtomicUsize::new(0));
         let task_count_for_job = Arc::clone(&task_count);
         let (accepted_tx, accepted_rx) = mpsc::channel();
@@ -1306,6 +1307,9 @@ mod tests {
             Box::new(move || {
                 task_count_for_job.fetch_add(1, Ordering::AcqRel);
                 task_tx.send(()).expect("task should report execution");
+                task_release_rx
+                    .recv()
+                    .expect("running task should be released after the spare worker reparks");
             }),
             Box::new(|| {}),
         );
@@ -1341,6 +1345,27 @@ mod tests {
         task_rx
             .recv_timeout(Duration::from_secs(5))
             .expect("broadcast should wake a worker to run the task");
+        let spare_idle_deadline = Instant::now() + Duration::from_secs(2);
+        while inner.idle_worker_count.load(Ordering::Acquire) != 1 && Instant::now() < spare_idle_deadline {
+            thread::yield_now();
+        }
+        assert_eq!(inner.pending_worker_wakes.load(Ordering::Acquire), 0);
+        assert_eq!(inner.idle_worker_count.load(Ordering::Acquire), 1);
+        assert_eq!(inner.read_state(|state| state.idle_workers), 1);
+        let (spare_reparked_tx, spare_reparked_rx) = mpsc::channel();
+        let spare_reparked_inner = Arc::clone(&inner);
+        thread::spawn(move || {
+            drop(spare_reparked_inner.lock_state());
+            spare_reparked_tx
+                .send(())
+                .expect("spare worker repark handshake should complete");
+        });
+        spare_reparked_rx
+            .recv_timeout(Duration::from_secs(2))
+            .expect("spare worker should recheck the queue and return to waiting");
+        task_release_tx
+            .send(())
+            .expect("running task should be released after the spare worker reparks");
         let idle_deadline = Instant::now() + Duration::from_secs(2);
         while (inner.idle_worker_count.load(Ordering::Acquire) != 2
             || inner.pending_worker_wakes.load(Ordering::Acquire) != 0)
