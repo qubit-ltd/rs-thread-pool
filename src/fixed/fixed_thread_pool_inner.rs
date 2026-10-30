@@ -223,7 +223,9 @@ impl FixedThreadPoolInner {
                 (pending_wakes < idle_workers).then_some(pending_wakes + 1)
             });
         if requested.is_ok() {
-            self.state.lock().notify_one();
+            // Workers and lifecycle waiters share this monitor; a single wake
+            // could select an older waiter whose predicate remains false.
+            self.state.lock().notify_all();
         }
     }
 
@@ -654,6 +656,8 @@ mod tests {
     use std::time::Duration;
     use std::time::Instant;
 
+    use super::super::fixed_worker::FixedWorker;
+    use super::super::fixed_worker_runtime::FixedWorkerRuntime;
     use super::FixedThreadPoolInner;
     use crate::PoolJob;
     use crate::ThreadPoolHooks;
@@ -820,5 +824,84 @@ mod tests {
         assert_eq!(inner.accounting.snapshot().completed_tasks, 0);
         assert_eq!(ran.load(Ordering::Relaxed), 0);
         assert_eq!(cancelled.load(Ordering::Relaxed), 0);
+    }
+
+    #[test]
+    fn test_fixed_worker_wake_with_older_termination_waiter() {
+        let inner = Arc::new(FixedThreadPoolInner::with_hooks(1, None, ThreadPoolHooks::new()));
+        let (registered_tx, registered_rx) = mpsc::channel();
+        let (terminated_tx, terminated_rx) = mpsc::channel();
+        let waiter_inner = Arc::clone(&inner);
+        let waiter = thread::spawn(move || {
+            let mut state = waiter_inner.state.lock();
+            registered_tx
+                .send(())
+                .expect("termination waiter should announce its predicate check");
+            while !waiter_inner.is_terminated_locked(&state) {
+                state.wait();
+            }
+            terminated_tx
+                .send(())
+                .expect("termination waiter should report completion");
+        });
+        registered_rx
+            .recv_timeout(Duration::from_secs(2))
+            .expect("termination waiter should enter under the monitor lock");
+        let (lock_done_tx, lock_done_rx) = mpsc::channel();
+        let lock_inner = Arc::clone(&inner);
+        thread::spawn(move || {
+            drop(lock_inner.state.lock());
+            lock_done_tx.send(()).expect("lock handshake should complete");
+        });
+        lock_done_rx
+            .recv_timeout(Duration::from_secs(2))
+            .expect("termination waiter should register before the monitor is reacquired");
+
+        inner.reserve_worker_slot();
+        let worker_inner = Arc::clone(&inner);
+        let worker = thread::spawn(move || FixedWorker::run(worker_inner, FixedWorkerRuntime::new(0)));
+        let idle_deadline = Instant::now() + Duration::from_secs(2);
+        while inner.idle_worker_count.load(Ordering::Acquire) == 0 && Instant::now() < idle_deadline {
+            thread::yield_now();
+        }
+        assert_eq!(
+            inner.idle_worker_count.load(Ordering::Acquire),
+            1,
+            "worker should reach idle wait"
+        );
+        let (worker_lock_tx, worker_lock_rx) = mpsc::channel();
+        let worker_lock_inner = Arc::clone(&inner);
+        thread::spawn(move || {
+            drop(worker_lock_inner.state.lock());
+            worker_lock_tx.send(()).expect("worker lock handshake should complete");
+        });
+        worker_lock_rx
+            .recv_timeout(Duration::from_secs(2))
+            .expect("worker should register its wait before the monitor is reacquired");
+
+        let (task_tx, task_rx) = mpsc::channel();
+        inner
+            .submit(PoolJob::new(
+                Box::new(move || task_tx.send(()).expect("task should report execution")),
+                Box::new(|| {}),
+            ))
+            .expect("task should be accepted while admission is open");
+        let task_result = task_rx.recv_timeout(Duration::from_secs(5));
+
+        inner.shutdown();
+        if task_result.is_err() {
+            task_rx
+                .recv_timeout(Duration::from_secs(2))
+                .expect("shutdown broadcast should release the worker to drain the task");
+        }
+        waiter.join().expect("termination waiter should exit after shutdown");
+        worker.join().expect("worker should exit after shutdown");
+        assert!(
+            task_result.is_ok(),
+            "submit wake should execute task before shutdown broadcast"
+        );
+        terminated_rx
+            .recv_timeout(Duration::from_secs(1))
+            .expect("termination waiter should report completion");
     }
 }
