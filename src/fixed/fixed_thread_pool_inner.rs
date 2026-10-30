@@ -828,7 +828,7 @@ mod tests {
 
     #[test]
     fn test_fixed_worker_wake_with_older_termination_waiter() {
-        let inner = Arc::new(FixedThreadPoolInner::with_hooks(1, None, ThreadPoolHooks::new()));
+        let inner = Arc::new(FixedThreadPoolInner::with_hooks(2, None, ThreadPoolHooks::new()));
         let (registered_tx, registered_rx) = mpsc::channel();
         let (terminated_tx, terminated_rx) = mpsc::channel();
         let waiter_inner = Arc::clone(&inner);
@@ -858,16 +858,19 @@ mod tests {
             .expect("termination waiter should register before the monitor is reacquired");
 
         inner.reserve_worker_slot();
-        let worker_inner = Arc::clone(&inner);
-        let worker = thread::spawn(move || FixedWorker::run(worker_inner, FixedWorkerRuntime::new(0)));
+        let first_worker_inner = Arc::clone(&inner);
+        let first_worker = thread::spawn(move || FixedWorker::run(first_worker_inner, FixedWorkerRuntime::new(0)));
+        inner.reserve_worker_slot();
+        let second_worker_inner = Arc::clone(&inner);
+        let second_worker = thread::spawn(move || FixedWorker::run(second_worker_inner, FixedWorkerRuntime::new(1)));
         let idle_deadline = Instant::now() + Duration::from_secs(2);
-        while inner.idle_worker_count.load(Ordering::Acquire) == 0 && Instant::now() < idle_deadline {
+        while inner.idle_worker_count.load(Ordering::Acquire) != 2 && Instant::now() < idle_deadline {
             thread::yield_now();
         }
         assert_eq!(
             inner.idle_worker_count.load(Ordering::Acquire),
-            1,
-            "worker should reach idle wait"
+            2,
+            "both workers should reach idle wait"
         );
         let (worker_lock_tx, worker_lock_rx) = mpsc::channel();
         let worker_lock_inner = Arc::clone(&inner);
@@ -877,29 +880,95 @@ mod tests {
         });
         worker_lock_rx
             .recv_timeout(Duration::from_secs(2))
-            .expect("worker should register its wait before the monitor is reacquired");
+            .expect("both workers should register their waits before the monitor is reacquired");
 
         let (task_tx, task_rx) = mpsc::channel();
-        inner
-            .submit(PoolJob::new(
-                Box::new(move || task_tx.send(()).expect("task should report execution")),
-                Box::new(|| {}),
-            ))
+        let task_count = Arc::new(AtomicUsize::new(0));
+        let task_count_for_job = Arc::clone(&task_count);
+        let (accepted_tx, accepted_rx) = mpsc::channel();
+        let (accept_release_tx, accept_release_rx) = mpsc::channel();
+        let job = PoolJob::with_accept(
+            Box::new(move || {
+                accepted_tx.send(()).expect("acceptance should be observed");
+                accept_release_rx
+                    .recv()
+                    .expect("acceptance callback should be released");
+            }),
+            Box::new(move || {
+                task_count_for_job.fetch_add(1, Ordering::AcqRel);
+                task_tx.send(()).expect("task should report execution");
+            }),
+            Box::new(|| {}),
+        );
+        let submit_inner = Arc::clone(&inner);
+        let (submitted_tx, submitted_rx) = mpsc::channel();
+        let submitter = thread::spawn(move || {
+            submitted_tx
+                .send(submit_inner.submit(job))
+                .expect("submit result should be reported");
+        });
+        accepted_rx
+            .recv_timeout(Duration::from_secs(2))
+            .expect("submitter should reserve admission before acceptance");
+        let monitor_gate = inner.state.lock();
+        accept_release_tx
+            .send(())
+            .expect("acceptance callback should be released after locking the monitor");
+        let token_deadline = Instant::now() + Duration::from_secs(2);
+        while inner.pending_worker_wakes.load(Ordering::Acquire) != 1 && Instant::now() < token_deadline {
+            thread::yield_now();
+        }
+        assert_eq!(
+            inner.pending_worker_wakes.load(Ordering::Acquire),
+            1,
+            "one queued task should publish exactly one worker wake token"
+        );
+        drop(monitor_gate);
+        submitted_rx
+            .recv_timeout(Duration::from_secs(2))
+            .expect("submit should finish after the monitor gate opens")
             .expect("task should be accepted while admission is open");
-        let task_result = task_rx.recv_timeout(Duration::from_secs(5));
+        submitter.join().expect("submitter should exit");
+        task_rx
+            .recv_timeout(Duration::from_secs(5))
+            .expect("broadcast should wake a worker to run the task");
+        let idle_deadline = Instant::now() + Duration::from_secs(2);
+        while (inner.idle_worker_count.load(Ordering::Acquire) != 2
+            || inner.pending_worker_wakes.load(Ordering::Acquire) != 0)
+            && Instant::now() < idle_deadline
+        {
+            thread::yield_now();
+        }
+        assert_eq!(inner.pending_worker_wakes.load(Ordering::Acquire), 0);
+        assert_eq!(inner.idle_worker_count.load(Ordering::Acquire), 2);
+        assert_eq!(inner.state.with_read(|state| state.idle_workers), 2);
+        let (reparked_tx, reparked_rx) = mpsc::channel();
+        let reparked_inner = Arc::clone(&inner);
+        thread::spawn(move || {
+            drop(reparked_inner.state.lock());
+            reparked_tx.send(()).expect("repark handshake should complete");
+        });
+        reparked_rx
+            .recv_timeout(Duration::from_secs(2))
+            .expect("both workers should recheck the queue and return to waiting");
+        assert_eq!(
+            task_count.load(Ordering::Acquire),
+            1,
+            "the task should execute exactly once"
+        );
+        assert!(
+            task_rx.try_recv().is_err(),
+            "no duplicate task execution should be reported"
+        );
+        assert!(
+            terminated_rx.try_recv().is_err(),
+            "termination waiter should remain blocked while the pool is running"
+        );
 
         inner.shutdown();
-        if task_result.is_err() {
-            task_rx
-                .recv_timeout(Duration::from_secs(2))
-                .expect("shutdown broadcast should release the worker to drain the task");
-        }
         waiter.join().expect("termination waiter should exit after shutdown");
-        worker.join().expect("worker should exit after shutdown");
-        assert!(
-            task_result.is_ok(),
-            "submit wake should execute task before shutdown broadcast"
-        );
+        first_worker.join().expect("first worker should exit after shutdown");
+        second_worker.join().expect("second worker should exit after shutdown");
         terminated_rx
             .recv_timeout(Duration::from_secs(1))
             .expect("termination waiter should report completion");
