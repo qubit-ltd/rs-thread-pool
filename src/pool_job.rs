@@ -178,6 +178,13 @@ impl PoolJob {
     ///
     /// The prepared job and its cancellation ticket. The job must be submitted
     /// to the originating pool for the ticket to cancel it.
+    ///
+    /// # Parameters
+    ///
+    /// * `pool` - Originating pool for the job.
+    /// * `accept` - Callback invoked when the pool accepts the job.
+    /// * `run` - Callback invoked when a worker starts the job.
+    /// * `cancel` - Callback invoked when the queued job is cancelled.
     #[must_use = "the prepared job and its cancellation ticket must be handled"]
     pub(crate) fn prepare_cancellable(
         pool: &Arc<ThreadPoolInner>,
@@ -208,6 +215,10 @@ impl PoolJob {
     }
 
     /// Asserts that a ticketed job is submitted only to its originating pool.
+    ///
+    /// # Parameters
+    ///
+    /// * `pool` - Pool receiving the job.
     pub(crate) fn assert_pool(&self, pool: &Arc<ThreadPoolInner>) {
         if let Some(entry) = &self.queued {
             assert!(

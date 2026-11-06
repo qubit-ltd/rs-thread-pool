@@ -64,6 +64,7 @@ pub struct ThreadPoolStats {
 }
 
 impl Default for ThreadPoolStats {
+    /// Creates a snapshot with a running lifecycle and zeroed counters.
     fn default() -> Self {
         Self {
             lifecycle: ExecutorServiceLifecycle::Running,

@@ -23,7 +23,11 @@ use thiserror::Error;
 pub enum PoolJobSubmissionError {
     /// The pool rejected the job before acceptance.
     #[error(transparent)]
-    Rejected(#[from] SubmissionError),
+    Rejected(
+        /// Reason the pool rejected the job before acceptance.
+        #[from]
+        SubmissionError,
+    ),
     /// The custom acceptance callback panicked before the job was published.
     #[error("pool job acceptance callback panicked")]
     AcceptancePanicked,

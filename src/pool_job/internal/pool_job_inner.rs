@@ -15,5 +15,8 @@ pub(crate) enum PoolJobInner {
         run: Box<dyn FnOnce() + Send + 'static>,
     },
     /// Job whose queued cancellation must complete a result endpoint.
-    Completable(Box<dyn PoolTask>),
+    Completable(
+        /// Task callbacks and completion state for a result-bearing job.
+        Box<dyn PoolTask>,
+    ),
 }

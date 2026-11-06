@@ -225,12 +225,14 @@ impl Drop for FixedThreadPool {
 }
 
 impl ExecutorService for FixedThreadPool {
+    /// Handle returned when a callable task is submitted.
     type ResultHandle<R, E>
         = TaskHandle<R, E>
     where
         R: Send + 'static,
         E: Send + 'static;
 
+    /// Handle returned when a tracked callable task is submitted.
     type TrackedHandle<R, E>
         = TrackedTask<R, E>
     where
@@ -238,6 +240,11 @@ impl ExecutorService for FixedThreadPool {
         E: Send + 'static;
 
     /// Accepts a runnable and queues it for fixed pool workers.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `T` - Runnable task type.
+    /// * `E` - Error type produced by the task.
     ///
     /// # Parameters
     ///
@@ -258,6 +265,12 @@ impl ExecutorService for FixedThreadPool {
     }
 
     /// Accepts a callable and queues it for fixed pool workers.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `C` - Callable task type.
+    /// * `R` - Result type produced by the callable.
+    /// * `E` - Error type produced by the callable.
     ///
     /// # Parameters
     ///
@@ -286,6 +299,12 @@ impl ExecutorService for FixedThreadPool {
     }
 
     /// Accepts a callable and queues it with a tracked handle.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `C` - Callable task type.
+    /// * `R` - Result type produced by the callable.
+    /// * `E` - Error type produced by the callable.
     ///
     /// # Parameters
     ///

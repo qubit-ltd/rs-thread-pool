@@ -214,6 +214,10 @@ impl ThreadPoolHooks {
 
 impl fmt::Debug for ThreadPoolHooks {
     /// Formats hook presence without exposing callback internals.
+    ///
+    /// # Parameters
+    ///
+    /// * `formatter` - Formatter receiving the debug representation.
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter
             .debug_struct("ThreadPoolHooks")

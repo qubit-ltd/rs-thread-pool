@@ -37,6 +37,10 @@ pub(crate) struct PoolAccounting {
 impl PoolAccounting {
     /// Creates empty accounting with `Some(limit)` bounded slots or `None`
     /// for an unbounded queue.
+    ///
+    /// # Parameters
+    ///
+    /// * `queue_capacity` - Optional maximum number of queued jobs.
     #[must_use]
     pub(crate) fn new(queue_capacity: Option<usize>) -> Self {
         Self {

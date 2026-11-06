@@ -30,6 +30,10 @@ pub(crate) struct QueuedJob {
 
 impl QueuedJob {
     /// Creates a prepared entry associated with its originating pool.
+    ///
+    /// # Parameters
+    ///
+    /// * `pool` - Pool that owns the prepared job.
     pub(crate) fn prepared(pool: &Arc<ThreadPoolInner>) -> Self {
         Self {
             state: Mutex::new(QueuedJobState::Prepared),
@@ -39,6 +43,10 @@ impl QueuedJob {
     }
 
     /// Wraps an ordinary accepted job in an entry for the dynamic FIFO.
+    ///
+    /// # Parameters
+    ///
+    /// * `job` - Accepted job to enqueue.
     pub(crate) fn new(job: PoolJob) -> Self {
         Self {
             state: Mutex::new(QueuedJobState::Queued(job)),
@@ -48,6 +56,10 @@ impl QueuedJob {
     }
 
     /// Returns whether this entry belongs to the supplied pool.
+    ///
+    /// # Parameters
+    ///
+    /// * `pool` - Pool to compare with this entry.
     pub(crate) fn belongs_to_pool(&self, pool: &Arc<ThreadPoolInner>) -> bool {
         self.pool.ptr_eq(&Arc::downgrade(pool))
     }

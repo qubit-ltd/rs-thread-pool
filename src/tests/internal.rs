@@ -7,3 +7,4 @@
 // =============================================================================
 
 mod admission_gate_tests;
+mod pool_accounting_tests;

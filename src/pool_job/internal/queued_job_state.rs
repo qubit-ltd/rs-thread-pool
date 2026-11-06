@@ -14,9 +14,17 @@ pub(crate) enum QueuedJobState {
     /// Prepared but not yet admitted; ticket cancellation is not valid.
     Prepared,
     /// Acceptance runs outside all locks; one ticket may reserve cancellation.
-    Accepting { owner: ThreadId, cancel_requested: bool },
+    Accepting {
+        /// Thread currently running the acceptance callback.
+        owner: ThreadId,
+        /// Whether a ticket requested cancellation during acceptance.
+        cancel_requested: bool,
+    },
     /// Accepted and visible in the FIFO; contains the sole callback owner.
-    Queued(PoolJob),
+    Queued(
+        /// Sole owner of callbacks for the accepted job.
+        PoolJob,
+    ),
     /// Worker, stop, or a ticket has taken the queued callbacks.
     Taken,
     /// The submitter is cancelling an accepted job before queue publication.

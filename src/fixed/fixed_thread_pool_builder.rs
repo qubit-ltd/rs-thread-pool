@@ -142,6 +142,14 @@ impl FixedThreadPoolBuilder {
     /// # Returns
     ///
     /// This builder for fluent configuration.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `F` - Worker-start callback type.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `F` - Worker-start callback type.
     #[inline]
     pub fn before_worker_start<F>(mut self, hook: F) -> Self
     where
@@ -160,6 +168,14 @@ impl FixedThreadPoolBuilder {
     /// # Returns
     ///
     /// This builder for fluent configuration.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `F` - Worker-stop callback type.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `F` - Worker-stop callback type.
     #[inline]
     pub fn after_worker_stop<F>(mut self, hook: F) -> Self
     where
@@ -178,6 +194,14 @@ impl FixedThreadPoolBuilder {
     /// # Returns
     ///
     /// This builder for fluent configuration.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `F` - Before-task callback type.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `F` - Before-task callback type.
     #[inline]
     pub fn before_task<F>(mut self, hook: F) -> Self
     where
@@ -196,6 +220,14 @@ impl FixedThreadPoolBuilder {
     /// # Returns
     ///
     /// This builder for fluent configuration.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `F` - After-task callback type.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `F` - After-task callback type.
     #[inline]
     pub fn after_task<F>(mut self, hook: F) -> Self
     where
@@ -259,6 +291,14 @@ impl FixedThreadPoolBuilder {
 /// # Returns
 ///
 /// The validated value, or `error` when argument validation fails.
+///
+/// # Type Parameters
+///
+/// * `T` - Validated value type.
+///
+/// # Type Parameters
+///
+/// * `T` - Validated value type.
 fn map_argument_error<T>(
     result: ArgumentResult<T>,
     error: ExecutorServiceBuilderError,

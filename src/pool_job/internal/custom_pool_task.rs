@@ -22,6 +22,7 @@ pub(crate) struct CustomPoolTask {
 }
 
 impl PoolTask for CustomPoolTask {
+    /// Runs the acceptance callback while containing callback panics.
     fn accept(&self) -> Result<(), ()> {
         if let Some(accept) = self
             .accept
@@ -34,11 +35,13 @@ impl PoolTask for CustomPoolTask {
         Ok(())
     }
 
+    /// Runs the user callback while containing callback panics.
     fn run(self: Box<Self>) {
         let Self { run, .. } = *self;
         let _ignored = catch_unwind(AssertUnwindSafe(run));
     }
 
+    /// Runs the cancellation callback while containing callback panics.
     fn cancel(self: Box<Self>) {
         let Self { cancel, .. } = *self;
         let _ignored = catch_unwind(AssertUnwindSafe(cancel));

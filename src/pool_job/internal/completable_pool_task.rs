@@ -35,16 +35,19 @@ where
     R: Send + 'static,
     E: Send + 'static,
 {
+    /// Publishes acceptance to the task completion endpoint.
     fn accept(&self) -> Result<(), ()> {
         self.completion.accept();
         Ok(())
     }
 
+    /// Runs the callable and publishes its result.
     fn run(self: Box<Self>) {
         let Self { task, completion } = *self;
         TaskRunner::new(task).run(completion);
     }
 
+    /// Completes the endpoint without running the callable.
     fn cancel(self: Box<Self>) {
         let Self { completion, .. } = *self;
         let _cancelled = completion.cancel_unstarted();
