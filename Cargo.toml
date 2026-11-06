@@ -41,7 +41,7 @@ loom-model = ["dep:loom"]
 crossbeam-deque = "^0.8"
 loom = { version = "^0.7", optional = true }
 thiserror = "^2.0"
-tokio = { version = "^1.53", features = ["sync"], optional = true }
+tokio = { version = "^1.54", features = ["sync"], optional = true }
 
 qubit-argument = "0.4.6"
 qubit-executor = "0.9"
@@ -55,7 +55,7 @@ threadpool = "^1.8"
 
 # Tokio is used only by ordinary integration tests; its runtime is not modeled.
 [target.'cfg(not(loom))'.dev-dependencies]
-tokio = { version = "^1.53", features = ["macros", "rt-multi-thread", "time"] }
+tokio = { version = "^1.54", features = ["macros", "rt-multi-thread", "time"] }
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ["cfg(coverage)", "cfg(loom)"] }
