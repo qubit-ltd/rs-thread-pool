@@ -17,6 +17,9 @@ pub(crate) struct ThreadPoolState {
     pub(super) lifecycle: ExecutorServiceLifecycle,
     /// Number of worker loops that have not exited.
     pub(super) live_workers: usize,
+    /// Number of workers that left their loop but have not completed exit
+    /// hooks.
+    pub(super) exiting_workers: usize,
     /// Number of live workers currently waiting for work.
     pub(super) idle_workers: usize,
     /// Current configured core pool size.
@@ -62,6 +65,7 @@ impl ThreadPoolState {
         Self {
             lifecycle: ExecutorServiceLifecycle::Running,
             live_workers: 0,
+            exiting_workers: 0,
             idle_workers: 0,
             core_pool_size: config.core_pool_size,
             maximum_pool_size: config.maximum_pool_size,

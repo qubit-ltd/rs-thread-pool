@@ -6,6 +6,8 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 use std::hint::spin_loop;
+use std::panic::AssertUnwindSafe;
+use std::panic::catch_unwind;
 use std::sync::Arc;
 
 use qubit_executor::service::ExecutorServiceLifecycle;
@@ -58,7 +60,7 @@ impl FixedWorker {
 ///
 /// * `job` - Claimed job to execute.
 fn run_without_hooks(job: PoolJob) {
-    job.run();
+    let _ignored = catch_unwind(AssertUnwindSafe(|| job.run()));
 }
 
 /// Runs one claimed job with configured task hooks.
@@ -70,7 +72,7 @@ fn run_without_hooks(job: PoolJob) {
 /// * `worker_index` - Stable index of the worker running the job.
 fn run_with_task_hooks(job: PoolJob, hooks: &ThreadPoolHooks, worker_index: usize) {
     hooks.run_before_task(worker_index);
-    job.run();
+    run_without_hooks(job);
     hooks.run_after_task(worker_index);
 }
 
@@ -201,4 +203,115 @@ fn worker_exited(inner: &FixedThreadPoolInner, _worker_index: usize) {
             .checked_sub(1)
             .expect("fixed pool live worker counter underflow");
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+    use std::sync::atomic::AtomicUsize;
+    use std::sync::atomic::Ordering;
+    use std::sync::mpsc;
+    use std::thread;
+    use std::time::Duration;
+    use std::time::Instant;
+
+    use super::super::fixed_thread_pool_inner::FixedThreadPoolInner;
+    use super::FixedWorker;
+    use super::FixedWorkerRuntime;
+    use crate::PoolJob;
+    use crate::ThreadPoolHooks;
+
+    struct PanickingCancelCapture;
+
+    impl Drop for PanickingCancelCapture {
+        fn drop(&mut self) {
+            panic!("unused cancel capture destructor panic");
+        }
+    }
+
+    fn assert_worker_survives_cancel_capture_drop_panic(task_hooks: bool) {
+        let worker_stops = Arc::new(AtomicUsize::new(0));
+        let task_hook_calls = Arc::new(AtomicUsize::new(0));
+        let mut hooks = ThreadPoolHooks::new().after_worker_stop({
+            let worker_stops = Arc::clone(&worker_stops);
+            move |_| {
+                worker_stops.fetch_add(1, Ordering::Relaxed);
+            }
+        });
+        if task_hooks {
+            hooks = hooks
+                .before_task({
+                    let task_hook_calls = Arc::clone(&task_hook_calls);
+                    move |_| {
+                        task_hook_calls.fetch_add(1, Ordering::Relaxed);
+                    }
+                })
+                .after_task({
+                    let task_hook_calls = Arc::clone(&task_hook_calls);
+                    move |_| {
+                        task_hook_calls.fetch_add(1, Ordering::Relaxed);
+                    }
+                });
+        }
+
+        let inner = Arc::new(FixedThreadPoolInner::with_hooks(1, None, hooks));
+        inner.reserve_worker_slot();
+        let worker_inner = Arc::clone(&inner);
+        let worker = thread::spawn(move || FixedWorker::run(worker_inner, FixedWorkerRuntime::new(0)));
+
+        let first_job = PoolJob::new(
+            Box::new(|| {}),
+            Box::new({
+                let capture = PanickingCancelCapture;
+                move || drop(capture)
+            }),
+        );
+        inner.submit(first_job).expect("first job should be accepted");
+
+        let (second_done_tx, second_done_rx) = mpsc::channel();
+        inner
+            .submit(PoolJob::new(
+                Box::new(move || second_done_tx.send(()).expect("test should receive second job")),
+                Box::new(|| {}),
+            ))
+            .expect("second job should be accepted");
+
+        assert!(
+            second_done_rx.recv_timeout(Duration::from_secs(2)).is_ok(),
+            "worker should execute the job after the destructor panic"
+        );
+        let started = Instant::now();
+        while inner.stats().completed_tasks != 2 && started.elapsed() < Duration::from_secs(2) {
+            thread::yield_now();
+        }
+        let stats = inner.stats();
+        assert_eq!(stats.completed_tasks, 2);
+        assert_eq!(stats.running_tasks, 0);
+
+        let (join_done_tx, join_done_rx) = mpsc::channel();
+        let join_inner = Arc::clone(&inner);
+        thread::spawn(move || {
+            join_inner.wait_until_idle();
+            let _sent = join_done_tx.send(());
+        });
+        assert!(
+            join_done_rx.recv_timeout(Duration::from_secs(2)).is_ok(),
+            "join should finish after both tasks complete"
+        );
+        inner.shutdown();
+        assert!(inner.wait_for_termination_timeout(Duration::from_secs(2)));
+        worker.join().expect("fixed worker should exit normally");
+        assert_eq!(worker_stops.load(Ordering::Relaxed), 1);
+        assert_eq!(task_hook_calls.load(Ordering::Relaxed), usize::from(task_hooks) * 4);
+    }
+
+    #[test]
+    fn test_worker_contains_cancel_capture_drop_panic_without_task_hooks() {
+        assert_worker_survives_cancel_capture_drop_panic(false);
+    }
+
+    #[test]
+    fn test_worker_contains_cancel_capture_drop_panic_with_task_hooks() {
+        assert_worker_survives_cancel_capture_drop_panic(true);
+    }
 }

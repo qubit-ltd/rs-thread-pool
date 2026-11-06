@@ -11,6 +11,7 @@ use std::io;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::mpsc;
+use std::time::Duration;
 
 use qubit_executor::service::ExecutorService;
 use qubit_thread_pool::ThreadPool;
@@ -19,6 +20,14 @@ use super::mod_tests::wait_started;
 
 fn ok_unit_task() -> Result<(), io::Error> {
     Ok(())
+}
+
+struct ReleaseExitHookOnDrop(mpsc::Sender<()>);
+
+impl Drop for ReleaseExitHookOnDrop {
+    fn drop(&mut self) {
+        let _ = self.0.send(());
+    }
 }
 
 #[test]
@@ -96,4 +105,123 @@ fn test_thread_pool_runs_task_hooks_for_queued_jobs() {
     let events = events.lock().expect("events should lock");
     assert_eq!(events.iter().filter(|event| **event == "before").count(), 2);
     assert_eq!(events.iter().filter(|event| **event == "after").count(), 2);
+}
+
+#[test]
+fn test_termination_waits_for_shutdown_exit_hook() {
+    let (entered_tx, entered_rx) = mpsc::channel();
+    let (release_tx, release_rx) = mpsc::channel();
+    let release_rx = Arc::new(Mutex::new(release_rx));
+    let _release_guard = ReleaseExitHookOnDrop(release_tx.clone());
+    let pool = ThreadPool::builder()
+        .pool_size(1)
+        .prestart_core_threads()
+        .after_worker_stop(move |_| {
+            entered_tx.send(()).expect("test should receive hook entry");
+            release_rx
+                .lock()
+                .expect("release receiver should lock")
+                .recv_timeout(Duration::from_secs(3))
+                .expect("test should release worker exit hook");
+        })
+        .build()
+        .expect("thread pool should be created");
+
+    pool.shutdown();
+    entered_rx
+        .recv_timeout(Duration::from_secs(2))
+        .expect("worker exit hook should start");
+
+    assert!(!pool.is_terminated());
+    assert!(!pool.wait_termination_timeout(Duration::from_millis(20)));
+
+    release_tx.send(()).expect("worker exit hook should be released");
+    assert!(pool.wait_termination_timeout(Duration::from_secs(2)));
+}
+
+#[test]
+fn test_termination_waits_for_all_concurrent_exit_hooks() {
+    let (entered_tx, entered_rx) = mpsc::channel();
+    let (release_tx, release_rx) = mpsc::channel();
+    let release_rx = Arc::new(Mutex::new(release_rx));
+    let _release_guards = [
+        ReleaseExitHookOnDrop(release_tx.clone()),
+        ReleaseExitHookOnDrop(release_tx.clone()),
+    ];
+    let pool = ThreadPool::builder()
+        .pool_size(2)
+        .prestart_core_threads()
+        .after_worker_stop(move |_| {
+            entered_tx.send(()).expect("test should receive hook entry");
+            release_rx
+                .lock()
+                .expect("release receiver should lock")
+                .recv_timeout(Duration::from_secs(3))
+                .expect("test should release worker exit hook");
+        })
+        .build()
+        .expect("thread pool should be created");
+
+    pool.shutdown();
+    for _ in 0..2 {
+        entered_rx
+            .recv_timeout(Duration::from_secs(2))
+            .expect("both worker exit hooks should start");
+    }
+
+    assert!(!pool.is_terminated());
+    assert!(!pool.wait_termination_timeout(Duration::from_millis(20)));
+
+    release_tx.send(()).expect("first exit hook should be released");
+    assert!(!pool.wait_termination_timeout(Duration::from_millis(20)));
+    release_tx.send(()).expect("second exit hook should be released");
+    assert!(pool.wait_termination_timeout(Duration::from_secs(2)));
+}
+
+#[test]
+fn test_termination_waits_for_core_size_shrink_exit_hooks_and_preserves_capacity() {
+    let (entered_tx, entered_rx) = mpsc::channel();
+    let (release_tx, release_rx) = mpsc::channel();
+    let release_rx = Arc::new(Mutex::new(release_rx));
+    let _release_guards = [
+        ReleaseExitHookOnDrop(release_tx.clone()),
+        ReleaseExitHookOnDrop(release_tx.clone()),
+    ];
+    let pool = ThreadPool::builder()
+        .core_pool_size(2)
+        .maximum_pool_size(2)
+        .keep_alive(Duration::from_millis(20))
+        .prestart_core_threads()
+        .after_worker_stop(move |_| {
+            entered_tx.send(()).expect("test should receive hook entry");
+            release_rx
+                .lock()
+                .expect("release receiver should lock")
+                .recv_timeout(Duration::from_secs(3))
+                .expect("test should release worker exit hook");
+        })
+        .build()
+        .expect("thread pool should be created");
+
+    assert_eq!(pool.live_worker_count(), 2);
+    pool.set_core_pool_size(1).expect("core pool size should shrink");
+    entered_rx
+        .recv_timeout(Duration::from_secs(2))
+        .expect("excess core worker should enter its exit hook");
+    assert_eq!(pool.core_pool_size(), 1);
+    assert_eq!(pool.stats().live_workers, 1);
+    assert_eq!(pool.live_worker_count(), 1);
+
+    pool.shutdown();
+    entered_rx
+        .recv_timeout(Duration::from_secs(2))
+        .expect("remaining worker should enter its exit hook");
+    assert_eq!(pool.live_worker_count(), 0);
+    assert!(!pool.is_terminated());
+    assert!(!pool.wait_termination_timeout(Duration::from_millis(20)));
+
+    release_tx.send(()).expect("first exit hook should be released");
+    assert!(!pool.wait_termination_timeout(Duration::from_millis(20)));
+    release_tx.send(()).expect("second exit hook should be released");
+    assert!(pool.wait_termination_timeout(Duration::from_secs(2)));
 }

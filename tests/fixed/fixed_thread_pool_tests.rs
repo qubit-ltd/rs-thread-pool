@@ -37,6 +37,14 @@ fn create_single_worker_pool() -> FixedThreadPool {
     FixedThreadPool::new(1).expect("fixed thread pool should be created")
 }
 
+struct PanicOnDrop;
+
+impl Drop for PanicOnDrop {
+    fn drop(&mut self) {
+        panic!("rejected task capture destructor panic");
+    }
+}
+
 #[test]
 fn test_fixed_thread_pool_runs_configured_hooks() {
     let events = Arc::new(Mutex::new(Vec::new()));
@@ -199,6 +207,26 @@ fn test_fixed_thread_pool_shutdown_rejects_new_tasks() {
     pool.wait_termination();
     assert!(pool.is_not_running());
     assert!(pool.is_terminated());
+}
+
+#[test]
+fn test_fixed_thread_pool_shutdown_rejection_contains_task_capture_drop_panic() {
+    let pool = create_single_worker_pool();
+    pool.shutdown();
+
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        pool.submit(move || {
+            let _capture = PanicOnDrop;
+            Ok::<(), io::Error>(())
+        })
+    }));
+
+    assert!(result.is_ok(), "rejected task capture panic must not escape submit");
+    assert!(matches!(
+        result.expect("submit result should exist"),
+        Err(SubmissionError::Shutdown)
+    ));
+    assert!(pool.wait_termination_timeout(Duration::from_secs(1)));
 }
 
 #[test]

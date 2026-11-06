@@ -46,6 +46,7 @@ impl ThreadPoolWorker {
                 }
                 None => {
                     inner.hooks().run_after_worker_stop(worker_index);
+                    inner.finish_worker_exit();
                     return;
                 }
             }
@@ -195,5 +196,9 @@ fn unmark_thread_pool_worker_idle(inner: &ThreadPoolInner, state: &mut ThreadPoo
 /// * `state` - Locked mutable state whose live worker count is decremented.
 /// * `worker_index` - Stable index of the exiting worker.
 fn unregister_exiting_worker(inner: &ThreadPoolInner, state: &mut ThreadPoolState, _worker_index: usize) {
+    state.exiting_workers = state
+        .exiting_workers
+        .checked_add(1)
+        .expect("thread pool exiting worker counter overflow");
     inner.unregister_worker_locked(state);
 }

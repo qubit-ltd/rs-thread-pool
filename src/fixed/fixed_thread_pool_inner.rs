@@ -182,14 +182,26 @@ impl FixedThreadPoolInner {
     /// Returns [`PoolJobSubmissionError::Rejected`] for closed admission or
     /// a full bounded queue, or [`PoolJobSubmissionError::AcceptancePanicked`]
     /// when the acceptance callback panics before publication.
+    /// A successful queue publication can add at most one pending wake token;
+    /// it broadcasts on the shared monitor so an older lifecycle waiter cannot
+    /// consume the only notification while its own predicate remains false.
+    /// The token does not guarantee that only one worker wakes.
     pub(crate) fn submit(&self, job: PoolJob) -> Result<(), PoolJobSubmissionError> {
-        let _guard = self.begin_submit()?;
+        let _guard = match self.begin_submit() {
+            Ok(guard) => guard,
+            Err(error) => {
+                job.discard();
+                return Err(error.into());
+            }
+        };
         if !self.reserve_queue_slot() {
+            job.discard();
             return Err(PoolJobSubmissionError::Rejected(SubmissionError::Saturated));
         }
         if job.accept().is_err() {
             self.release_queue_slot();
             self.notify_waiters_after_atomic_change();
+            job.discard();
             return Err(PoolJobSubmissionError::AcceptancePanicked);
         }
         self.enqueue_job(job);
@@ -207,11 +219,14 @@ impl FixedThreadPoolInner {
         self.wake_one_idle_worker();
     }
 
-    /// Wakes one idle worker if no already-requested wakeup covers it.
+    /// Adds one idle-worker wake token if no existing token covers an idle
+    /// worker, then broadcasts to monitor waiters.
     ///
     /// Pending wake tokens close the lost-notification window: a worker that
     /// has marked itself idle but has not yet parked will observe the token and
-    /// retry work without relying on the condition-variable notification.
+    /// retry work without relying on the condition-variable notification. The
+    /// broadcast is needed because lifecycle waiters share the monitor; a
+    /// single notification could select a waiter whose predicate remains false.
     fn wake_one_idle_worker(&self) {
         let idle_workers = self.idle_worker_count.load(Ordering::Acquire);
         if idle_workers == 0 {
@@ -414,6 +429,10 @@ impl FixedThreadPoolInner {
     }
 
     /// Waits for termination for at most `timeout`.
+    ///
+    /// # Parameters
+    ///
+    /// * `timeout` - Maximum time to wait.
     ///
     /// # Returns
     ///
@@ -661,6 +680,151 @@ mod tests {
     use super::FixedThreadPoolInner;
     use crate::PoolJob;
     use crate::ThreadPoolHooks;
+
+    struct DropProbe(bool);
+
+    impl Drop for DropProbe {
+        fn drop(&mut self) {
+            if self.0 {
+                panic!("capture destructor panic");
+            }
+        }
+    }
+
+    fn rejection_job(accept_panics: bool, panic_in_run: bool, callbacks: Arc<AtomicUsize>) -> PoolJob {
+        PoolJob::with_accept(
+            Box::new(move || {
+                if accept_panics {
+                    panic!("accept callback panic");
+                }
+            }),
+            Box::new({
+                let probe = DropProbe(panic_in_run);
+                let callbacks = Arc::clone(&callbacks);
+                move || {
+                    let _probe = probe;
+                    callbacks.fetch_add(1, Ordering::Relaxed);
+                }
+            }),
+            Box::new({
+                let probe = DropProbe(!panic_in_run);
+                move || {
+                    let _probe = probe;
+                    callbacks.fetch_add(1, Ordering::Relaxed);
+                }
+            }),
+        )
+    }
+
+    fn assert_rejected_job_is_discarded(
+        inner: &FixedThreadPoolInner,
+        job: PoolJob,
+        expected: crate::PoolJobSubmissionError,
+    ) {
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| inner.submit(job)));
+        assert!(result.is_ok(), "job destructor panic must not escape submit");
+        assert!(matches!(result.expect("submit result should exist"), Err(error) if error == expected));
+    }
+
+    #[test]
+    fn test_shutdown_rejection_contains_run_capture_drop_panic() {
+        let inner = FixedThreadPoolInner::with_hooks(1, None, ThreadPoolHooks::new());
+        inner.shutdown();
+        let callbacks = Arc::new(AtomicUsize::new(0));
+        assert_rejected_job_is_discarded(
+            &inner,
+            rejection_job(false, true, Arc::clone(&callbacks)),
+            crate::PoolJobSubmissionError::Rejected(qubit_executor::service::SubmissionError::Shutdown),
+        );
+        assert_eq!(callbacks.load(Ordering::Relaxed), 0);
+        assert!(inner.is_terminated());
+    }
+
+    #[test]
+    fn test_shutdown_rejection_contains_cancel_capture_drop_panic() {
+        let inner = FixedThreadPoolInner::with_hooks(1, None, ThreadPoolHooks::new());
+        inner.shutdown();
+        let callbacks = Arc::new(AtomicUsize::new(0));
+        assert_rejected_job_is_discarded(
+            &inner,
+            rejection_job(false, false, Arc::clone(&callbacks)),
+            crate::PoolJobSubmissionError::Rejected(qubit_executor::service::SubmissionError::Shutdown),
+        );
+        assert_eq!(callbacks.load(Ordering::Relaxed), 0);
+        assert!(inner.is_terminated());
+    }
+
+    #[test]
+    fn test_saturated_rejection_contains_run_capture_drop_panic() {
+        let inner = FixedThreadPoolInner::with_hooks(1, Some(1), ThreadPoolHooks::new());
+        inner
+            .submit(PoolJob::new(Box::new(|| {}), Box::new(|| {})))
+            .expect("first job fills the queue");
+        let callbacks = Arc::new(AtomicUsize::new(0));
+        assert_rejected_job_is_discarded(
+            &inner,
+            rejection_job(false, true, Arc::clone(&callbacks)),
+            crate::PoolJobSubmissionError::Rejected(qubit_executor::service::SubmissionError::Saturated),
+        );
+        assert_eq!(callbacks.load(Ordering::Relaxed), 0);
+        inner.stop();
+        assert_eq!(inner.queued_count(), 0);
+        assert!(inner.is_terminated());
+    }
+
+    #[test]
+    fn test_saturated_rejection_contains_cancel_capture_drop_panic() {
+        let inner = FixedThreadPoolInner::with_hooks(1, Some(1), ThreadPoolHooks::new());
+        inner
+            .submit(PoolJob::new(Box::new(|| {}), Box::new(|| {})))
+            .expect("first job fills the queue");
+        let callbacks = Arc::new(AtomicUsize::new(0));
+        assert_rejected_job_is_discarded(
+            &inner,
+            rejection_job(false, false, Arc::clone(&callbacks)),
+            crate::PoolJobSubmissionError::Rejected(qubit_executor::service::SubmissionError::Saturated),
+        );
+        assert_eq!(callbacks.load(Ordering::Relaxed), 0);
+        inner.stop();
+        assert_eq!(inner.queued_count(), 0);
+        assert!(inner.is_terminated());
+    }
+
+    #[test]
+    fn test_acceptance_panic_discards_job_and_contains_run_capture_drop_panic() {
+        let inner = FixedThreadPoolInner::with_hooks(1, Some(1), ThreadPoolHooks::new());
+        let callbacks = Arc::new(AtomicUsize::new(0));
+        assert_rejected_job_is_discarded(
+            &inner,
+            rejection_job(true, true, Arc::clone(&callbacks)),
+            crate::PoolJobSubmissionError::AcceptancePanicked,
+        );
+        assert_eq!(callbacks.load(Ordering::Relaxed), 0);
+        inner
+            .submit(PoolJob::new(Box::new(|| {}), Box::new(|| {})))
+            .expect("released queue slot should be reusable");
+        assert_eq!(inner.queued_count(), 1);
+        inner.stop();
+        assert!(inner.is_terminated());
+    }
+
+    #[test]
+    fn test_acceptance_panic_discards_job_and_contains_cancel_capture_drop_panic() {
+        let inner = FixedThreadPoolInner::with_hooks(1, Some(1), ThreadPoolHooks::new());
+        let callbacks = Arc::new(AtomicUsize::new(0));
+        assert_rejected_job_is_discarded(
+            &inner,
+            rejection_job(true, false, Arc::clone(&callbacks)),
+            crate::PoolJobSubmissionError::AcceptancePanicked,
+        );
+        assert_eq!(callbacks.load(Ordering::Relaxed), 0);
+        inner
+            .submit(PoolJob::new(Box::new(|| {}), Box::new(|| {})))
+            .expect("released queue slot should be reusable");
+        assert_eq!(inner.queued_count(), 1);
+        inner.stop();
+        assert!(inner.is_terminated());
+    }
 
     struct FixedWakeCleanup {
         inner: Arc<FixedThreadPoolInner>,

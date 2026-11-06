@@ -140,6 +140,10 @@ impl ThreadPoolInner {
     }
 
     /// Publishes terminal state while the caller holds the pool state lock.
+    ///
+    /// # Parameters
+    ///
+    /// * `state` - Locked pool lifecycle and worker state.
     #[cfg(feature = "async-wait")]
     fn publish_termination_locked(&self, state: &ThreadPoolState) {
         if self.is_terminated_locked(state) {
@@ -203,7 +207,12 @@ impl ThreadPoolInner {
 
     /// Acquires the pool state and reads it while holding the monitor lock.
     ///
-    /// # Arguments
+    /// # Type Parameters
+    ///
+    /// * `R` - Value returned by the read closure.
+    /// * `F` - Closure type.
+    ///
+    /// # Parameters
     ///
     /// * `f` - Closure that reads the state.
     ///
@@ -220,7 +229,12 @@ impl ThreadPoolInner {
 
     /// Acquires the pool state and mutates it while holding the monitor lock.
     ///
-    /// # Arguments
+    /// # Type Parameters
+    ///
+    /// * `R` - Value returned by the write closure.
+    /// * `F` - Closure type.
+    ///
+    /// # Parameters
     ///
     /// * `f` - Closure that mutates the state.
     ///
@@ -416,9 +430,11 @@ impl ThreadPoolInner {
     /// monitor, then the job is published to the global queue. Worker-spawn
     /// failure rejects the job before its acceptance callback runs.
     ///
-    /// Queued submissions use a targeted wake-up strategy with pending wake
-    /// tokens, so submitters wake at most one idle worker while avoiding the
-    /// lost-notification window around worker parking.
+    /// Queued submissions can add at most one pending wake token per call.
+    /// The monitor notification is broadcast because workers and lifecycle
+    /// waiters share it: a single notification could wake an older waiter
+    /// whose predicate is still false and leave the worker asleep. The token
+    /// does not guarantee that only one worker wakes.
     ///
     /// # Parameters
     ///
@@ -643,10 +659,13 @@ impl ThreadPoolInner {
         self.consume_pending_worker_wake();
     }
 
-    /// Wakes one idle worker if no already-requested wakeup covers it.
+    /// Adds one idle-worker wake token if no existing token covers an idle
+    /// worker, then broadcasts to monitor waiters.
     ///
     /// Pending wake tokens close the lost-notification window between a worker
-    /// marking itself idle and actually parking on the condition variable.
+    /// marking itself idle and actually parking on the condition variable. The
+    /// broadcast is needed because lifecycle waiters share the monitor; a
+    /// single notification could select a waiter whose predicate remains false.
     fn wake_one_idle_worker(&self) {
         let idle_workers = self.idle_worker_count.load(Ordering::Acquire);
         if idle_workers == 0 {
@@ -1043,9 +1062,28 @@ impl ThreadPoolInner {
     ///
     /// # Returns
     ///
-    /// `true` when shutdown has started and no workers or jobs remain active.
+    /// `true` when shutdown has started and no live workers, exiting workers,
+    /// or jobs remain active.
     fn is_terminated_locked(&self, state: &ThreadPoolState) -> bool {
-        state.lifecycle != ExecutorServiceLifecycle::Running && state.live_workers == 0 && self.is_idle_snapshot()
+        state.lifecycle != ExecutorServiceLifecycle::Running
+            && state.live_workers == 0
+            && state.exiting_workers == 0
+            && self.is_idle_snapshot()
+    }
+
+    /// Completes worker exit bookkeeping after its stop hook has returned.
+    ///
+    /// # Panics
+    ///
+    /// Panics if no worker is currently recorded as exiting.
+    pub(crate) fn finish_worker_exit(&self) {
+        let mut state = self.lock_state();
+        state.exiting_workers = state
+            .exiting_workers
+            .checked_sub(1)
+            .expect("thread pool exiting worker counter underflow");
+        self.notify_if_terminated(&state);
+        state.notify_all();
     }
 
     /// Notifies waiters after an atomic-only condition change.
