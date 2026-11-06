@@ -52,7 +52,9 @@ ShuttingDown --stop-> Stopping
 
 shutdown 关闭接纳入口，持 monitor 切换生命周期并唤醒 worker，不等待提交或已接纳任务结束。stop 关闭入口、设置停止标志、等待正在接纳的提交、取出排队任务，再在 monitor 外执行取消回调。它不会强制中断运行中的任务，也不是终止屏障。重复调用生命周期操作不会重新开放接纳。
 
-当生命周期不再是 `Running`、登记的 worker 数量为零且计数状态空闲时，线程池对外呈现终止。`wait_termination` 等待这个条件；`join` 只等待计数状态空闲，不关闭入口，也不要求空闲 worker 退出。并发提交可能延长等待，或使刚观察到的空闲状态失效。池内任务不能等待同一个池的 join 或终止：它自身的运行计数就会阻止池变为空闲。
+终止使用统一谓词判断：生命周期不再是 `Running`、`live_workers == 0`、`exiting_workers == 0`，且计数状态空闲。`exiting_workers` 统计已经离开调度循环、但尚未执行完 `after_worker_stop` hook 的 worker。worker 会先从 `live_workers` 注销，再运行退出 hook；因此 `live_worker_count()` 只表示仍登记参与调度的 worker，不包括正在运行退出 hook 的线程。`wait_termination`、`wait_termination_timeout` 和 `await_termination` 共用这个谓词；只有谓词成立后，`async-wait` watch 才发布终止状态。终止等待会等退出 hook 返回，但不保证操作系统已物理回收线程。
+
+`join` 只等待计数状态空闲，不关闭接纳入口，也不要求空闲 worker 退出。并发提交可能延长等待，或使刚观察到的空闲状态失效。若任务或回调的自身进展是同池终止的前提，就不能在该任务或回调中等待终止；否则它会阻止等待条件成立。
 
 ## 计数不变量
 
@@ -60,7 +62,7 @@ shutdown 关闭接纳入口，持 monitor 切换生命周期并唤醒 worker，�
 - 每个已接纳任务只有一个最终计数归属：执行路径结束后记为 completed，或取消回调结束后记为 cancelled。
 - 槽位恰好释放一次：接纳失败回滚时、领取并转入运行时，或取消结束时。排队转运行时，先登记运行所有权，再释放槽位，避免出现错误的空闲窗口。
 - 静止状态下满足 `submitted = completed + cancelled`；稳定的中间状态下，尚未结束的任务归属于排队、运行或取消中。各计数分别原子更新，因此任意并发快照不保证跨字段等式成立。
-- 空闲要求正在接纳的提交、预留槽位、运行任务和取消回调全部为零。终止还要求生命周期已关闭，且没有登记中的 worker。
+- 空闲要求正在接纳的提交、预留槽位、运行任务和取消回调全部为零。终止还要求生命周期已关闭、没有登记中的 worker，也没有尚未结束退出 hook 的 worker。
 
 已捕获的任务错误或 panic 仍会结束 worker 计数，因此 `completed_tasks` 不等于业务成功数。通过句柄取消的 tracked 任务仍可能走 worker 计数路径；`cancelled_tasks` 统计已接纳后仍在排队时被取消的任务，包括 ticket 取消和立即 stop。
 

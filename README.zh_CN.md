@@ -17,6 +17,16 @@ qubit-thread-pool = "0.12"
 qubit-executor = "0.9"
 ```
 
+若要在 Tokio 代码中异步等待线程池生命周期或容量变化，请启用
+`async-wait` feature：
+
+```toml
+qubit-thread-pool = { version = "0.12.1", features = ["async-wait"] }
+```
+
+[异步等待指南](doc/user_guide.zh_CN.md#async-shutdown-and-capacity-retries)
+提供完整的关闭与背压示例。
+
 需要 Rust 1.94 或更高版本。导入 `ExecutorService` trait 时，必须直接声明 `qubit-executor` 依赖；普通线程池用法不依赖 Tokio 或 Rayon。
 
 ## 快速开始

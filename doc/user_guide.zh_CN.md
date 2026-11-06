@@ -27,11 +27,15 @@
 
 ```toml
 [dependencies]
-qubit-thread-pool = "0.12.1"
+qubit-thread-pool = { version = "0.12.1", features = ["async-wait"] }
 qubit-executor = "0.9"
+tokio = { version = "1.53", features = ["macros", "rt-multi-thread"] }
 ```
 
-示例中需要导入 `ExecutorService`，因为提交和生命周期方法由该 trait 提供。
+同步示例需要导入 `ExecutorService`，因为提交和生命周期方法由该 trait
+提供。Tokio 依赖提供运行时和宏；线程池 crate 的 `async-wait` feature
+启用异步等待 API。只有应用还要使用 Tokio 定时器或超时时，才需启用
+Tokio 的 `time` feature。
 
 ## 核心工作流
 
@@ -120,6 +124,68 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 克隆得到的 `PoolJobTicket` 共享同一次取消机会。只有赢得取消竞争的调用才返回 `true`；任务尚未接纳、接纳失败、已取消或已被 worker 领取时，返回 `false`。成功取消会等到 cancel 回调执行完、回调捕获的值释放，再释放排队槽位并更新线程池计数后返回。回调在池锁和队列锁之外执行。若取消请求遇到接纳进行中，接纳成功后由提交线程完成取消；若在接纳回调中调用 ticket，则立即返回 `false`，不会等待自身。该 ticket API 只适用于动态 `ThreadPool`，不改变 `FixedThreadPool`；它也无法中断已由 worker 领取的任务。
 
 worker hook（`before_worker_start`、`after_worker_stop`、`before_task`、`after_task`）用于观测，不宜承担阻塞协调。线程名称与栈配置作用于新创建的线程；处理任务结果时应与监控计数分开。
+
+<a id="async-shutdown-and-capacity-retries"></a>
+
+## 异步关闭与容量重试
+
+Tokio 服务需要异步等待线程池时启用 `async-wait`，这样等待不会阻塞
+OS 线程。先订阅容量变化，再尝试首次提交；这样提交失败到开始等待之间
+若容量或生命周期发生变化，watch 接收端仍能观察到通知。通知只是重试
+提示，不会为当前任务预留槽位，其他提交者可能先占用空位。遇到
+`Shutdown` 应立即结束重试。若 watch channel 关闭，`changed().await` 会
+返回错误，示例会向上传递；只要借用中的线程池仍存活，发送端就仍在，
+因此通常只有线程池状态已释放时才会发生关闭。
+
+```rust
+use std::error::Error;
+use std::io;
+
+use qubit_executor::service::{ExecutorService, SubmissionError};
+use qubit_thread_pool::ThreadPool;
+
+async fn submit_light_task(pool: &ThreadPool) -> Result<(), Box<dyn Error>> {
+    let mut changes = pool.capacity_changes();
+    loop {
+        match pool.submit(|| Ok::<(), io::Error>(())) {
+            Ok(()) => return Ok(()),
+            Err(SubmissionError::Saturated) => {
+                changes.changed().await?;
+            }
+            Err(SubmissionError::Shutdown) => {
+                return Err(SubmissionError::Shutdown.into());
+            }
+            Err(error) => return Err(error.into()),
+        }
+    }
+}
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn Error>> {
+    let pool = ThreadPool::builder()
+        .core_pool_size(1)
+        .maximum_pool_size(1)
+        .queue_capacity(1)
+        .build()?;
+
+    submit_light_task(&pool).await?;
+    pool.shutdown();
+    pool.await_termination().await;
+    Ok(())
+}
+```
+
+每次提交都会新建一个轻量 `FnOnce` 闭包。提交失败后，闭包已被消费，
+不能再次使用。业务代码应由应用继续持有任务数据，并在每次尝试时从
+自有状态重建任务；需要考虑复制成本，也不要在构造重试任务时执行业务
+副作用。通知可能与其他提交者竞争，因此再次提交仍可能得到
+`Saturated`。若等待 future 被取消，只会取消这次等待，不会撤销线程池
+已经接纳的任务。若需在执行前取消任务，可使用 tracked task handle，或
+动态池的 ticket API。
+
+`await_termination()` 会等到已接纳任务和取消回调结束，并且每个 worker
+的 `after_worker_stop` hook 都已返回。它不保证 OS 已物理回收线程。应在
+线程池外等待终止；池内任务或回调不能等待依赖自身才能推进的终止条件。
 
 ## 错误与诊断
 

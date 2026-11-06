@@ -92,14 +92,21 @@ impl ThreadPool {
     /// Wraps initialized shared state in the public pool handle.
     ///
     /// This constructor is restricted to the validated builder path.
+    ///
+    /// # Parameters
+    ///
+    /// * `inner` - Initialized shared pool state.
     pub(super) fn from_inner(inner: Arc<ThreadPoolInner>) -> Self {
         Self { inner }
     }
 
-    /// Waits asynchronously until shutdown or stop has finished all work.
+    /// Waits asynchronously until shutdown or stop has finished all work and
+    /// every worker's `after_worker_stop` hook has returned.
     ///
     /// The wait does not occupy a worker or Tokio blocking thread. Dropping
     /// the future cancels only this wait, without changing the pool lifecycle.
+    /// Completion does not guarantee that the operating system has physically
+    /// reclaimed every worker thread.
     #[cfg(feature = "async-wait")]
     pub async fn await_termination(&self) {
         let mut receiver = self.inner.subscribe_termination();
@@ -132,13 +139,14 @@ impl ThreadPool {
         self.inner.running_count()
     }
 
-    /// Returns how many worker threads are still running in this pool.
+    /// Returns how many workers remain registered for pool scheduling.
     ///
     /// # Returns
     ///
-    /// The number of live worker loops still owned by this pool. This is a
-    /// runtime count and is not required to match configured
-    /// [`Self::core_pool_size`] or [`Self::maximum_pool_size`].
+    /// The number of workers registered for scheduling. A worker is removed
+    /// from this count before its `after_worker_stop` hook runs, so this count
+    /// excludes workers in that hook. It is a runtime count and need not match
+    /// configured [`Self::core_pool_size`] or [`Self::maximum_pool_size`].
     #[must_use]
     #[inline]
     pub fn live_worker_count(&self) -> usize {
@@ -400,12 +408,14 @@ impl Drop for ThreadPool {
 }
 
 impl ExecutorService for ThreadPool {
+    /// Handle returned when a callable task is submitted.
     type ResultHandle<R, E>
         = TaskHandle<R, E>
     where
         R: Send + 'static,
         E: Send + 'static;
 
+    /// Handle returned when a tracked callable task is submitted.
     type TrackedHandle<R, E>
         = TrackedTask<R, E>
     where

@@ -39,12 +39,16 @@ Add the crate with the version selected for your project:
 
 ```toml
 [dependencies]
-qubit-thread-pool = "0.12.1"
+qubit-thread-pool = { version = "0.12.1", features = ["async-wait"] }
 qubit-executor = "0.9"
+tokio = { version = "1.53", features = ["macros", "rt-multi-thread"] }
 ```
 
-The examples import `ExecutorService` because its submission and lifecycle
-methods are trait methods.
+The synchronous examples import `ExecutorService` because submission and
+lifecycle methods are trait methods. The Tokio dependency supplies the runtime
+and macro; the crate's `async-wait` feature enables its async wait APIs. Add
+Tokio's `time` feature only if the application also uses Tokio timers or
+timeouts.
 
 ## Core Workflow
 
@@ -182,6 +186,71 @@ Worker hooks (`before_worker_start`, `after_worker_stop`,
 `before_task`, `after_task`) are for observation, not blocking coordination.
 Name and stack configuration applies to newly created threads. Keep task
 result handling separate from monitoring counters.
+
+## Async Shutdown and Capacity Retries
+
+Enable `async-wait` when a Tokio service needs to wait without blocking an OS
+thread. Subscribe to capacity changes before the first submission attempt, so
+a capacity or lifecycle change between the attempt and the wait is still
+observed. The notification is only a hint to retry: it does not reserve a queue
+slot, and another submitter can take the slot first. Handle `Shutdown` as a
+terminal result. If the watch channel closes, `changed().await` returns an
+error; the example propagates it. While the borrowed pool is alive its sender
+remains available, so this normally indicates the pool state has been dropped.
+
+```rust
+use std::error::Error;
+use std::io;
+
+use qubit_executor::service::{ExecutorService, SubmissionError};
+use qubit_thread_pool::ThreadPool;
+
+async fn submit_light_task(pool: &ThreadPool) -> Result<(), Box<dyn Error>> {
+    let mut changes = pool.capacity_changes();
+    loop {
+        match pool.submit(|| Ok::<(), io::Error>(())) {
+            Ok(()) => return Ok(()),
+            Err(SubmissionError::Saturated) => {
+                changes.changed().await?;
+            }
+            Err(SubmissionError::Shutdown) => {
+                return Err(SubmissionError::Shutdown.into());
+            }
+            Err(error) => return Err(error.into()),
+        }
+    }
+}
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn Error>> {
+    let pool = ThreadPool::builder()
+        .core_pool_size(1)
+        .maximum_pool_size(1)
+        .queue_capacity(1)
+        .build()?;
+
+    submit_light_task(&pool).await?;
+    pool.shutdown();
+    pool.await_termination().await;
+    Ok(())
+}
+```
+
+Each call constructs a new, cheap `FnOnce` closure. A closure consumed by a
+failed submission cannot be reused. For business work, keep ownership of the
+payload in the application and build a fresh task from that owned state on
+each attempt; account for any cloning cost and do not perform business side
+effects while constructing a retry. A wake notification can race with another
+submitter, so the retry may receive `Saturated` again. Cancelling the future
+while it is waiting cancels only that wait. It does not cancel work already
+accepted by the pool; use a tracked task handle or the dynamic-pool ticket API
+when cancellation before execution is needed.
+
+`await_termination()` completes after accepted work and cancellation callbacks
+finish and every worker's `after_worker_stop` hook returns. It does not promise
+that the OS has physically reclaimed each thread. Call it from outside the
+pool: a task or callback must not wait for termination that depends on its own
+progress.
 
 ## Errors and Diagnostics
 

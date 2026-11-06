@@ -19,6 +19,16 @@ qubit-thread-pool = "0.12"
 qubit-executor = "0.9"
 ```
 
+For Tokio code that awaits pool lifecycle or capacity changes, enable the
+`async-wait` feature:
+
+```toml
+qubit-thread-pool = { version = "0.12.1", features = ["async-wait"] }
+```
+
+See the [async-wait guide](doc/user_guide.md#async-shutdown-and-capacity-retries)
+for complete shutdown and backpressure examples.
+
 Rust 1.94 or later is required. Declare `qubit-executor` directly when
 importing its `ExecutorService` trait; normal pool use requires neither
 Tokio nor Rayon.

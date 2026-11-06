@@ -104,12 +104,21 @@ queued jobs and executes their cancellation callbacks outside the monitor.
 It does not forcibly interrupt running jobs and is not a termination barrier.
 Repeated lifecycle requests cannot reopen admission.
 
-Termination is observed when lifecycle is no longer `Running`, no workers
-remain registered and accounting is idle. `wait_termination` waits for this
-condition. `join` waits only for accounting to become idle and does not
-close admission or require idle workers to exit. Concurrent submissions can
-extend or invalidate an idle observation. These waits must not be made by a
-task on the same pool: its own running count prevents it from becoming idle.
+Termination is observed by one shared predicate: lifecycle is no longer
+`Running`, `live_workers == 0`, `exiting_workers == 0`, and accounting is idle.
+`exiting_workers` counts workers that left the scheduling loop but have not
+finished their `after_worker_stop` hook. A worker leaves `live_workers` before
+that hook starts, so `live_worker_count()` reports workers registered for
+scheduling and excludes workers in their exit hook. `wait_termination`,
+`wait_termination_timeout`, and `await_termination` use this same predicate;
+the `async-wait` watch publishes terminal state only after it becomes true.
+Termination waits therefore include exit-hook completion, but do not promise
+that the operating system has physically reclaimed the thread. `join` waits
+only for accounting to become idle and does not close admission or require idle
+workers to exit. Concurrent submissions can extend or invalidate an idle
+observation. These waits must not be made by a task or callback on the same
+pool when progress depends on that task or callback: its own work or exit hook
+prevents the predicate from becoming true.
 
 ## Accounting invariants
 
@@ -124,8 +133,8 @@ task on the same pool: its own running count prevents it from becoming idle.
   ownership. Counter updates are separate atomic operations, so arbitrary
   concurrent snapshots need not satisfy cross-field sums.
 - Idle requires zero in-flight submissions, reserved slots, running jobs and
-  cancellation callbacks. Termination additionally requires closed lifecycle
-  and no registered workers.
+  cancellation callbacks. Termination additionally requires closed lifecycle,
+  no registered workers and no worker still running its exit hook.
 
 A contained task error or panic still finishes worker accounting;
 `completed_tasks` is not a count of successful business results. A tracked
