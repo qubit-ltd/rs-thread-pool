@@ -29,6 +29,117 @@ reduction. These are application-path comparisons, not isolated queue costs.
 Default Criterion sample size is 20. Granularity uses 32/256/2,048 base
 iterations. No wall-clock threshold is a correctness test.
 
+## TP-006 contention measurements
+
+Two additional groups validate the multi-worker sparse-arrival and ticket
+cancellation paths:
+
+| Group | Timed operation | Outside per-operation timing |
+| --- | --- | --- |
+| `thread_pool_sparse_multiworker` | Submit one no-op task and wait for its completion signal, with 1/4/8/16 workers. | Before each sample, wait until all configured workers are idle; pool creation, idle re-establishment, and shutdown are excluded. |
+| `thread_pool_ticket_cancellation` | One successful `PoolJobTicket::cancel_queued` call per latency sample, with queue lengths 1/128/4,096 and requested cancellation ratios 10%/50%/100%. | A worker is held on a controlled blocker while queued tickets are prepared. The minimum number of independent queues needed makes each ratio exact (for example, queue length 1 at 10% uses 10 queues). Queue setup, replacement ticket submission, worker release, draining, and shutdown are excluded. |
+| `thread_pool_ticket_cancellation_contended` | Four producers submit 256 ticketed no-op tasks while four workers consume them; each per-task sample starts immediately before job preparation/submission and ends when the worker starts the task. | A persistent pool is created before the Criterion case. The reported batch throughput includes producer-thread creation and coordination. |
+
+Ticket positions use a deterministic Fisher–Yates shuffle seeded with
+`0x5eedcafe`. Between Criterion iterations, cancelled tickets are replaced
+outside the accumulated cancellation duration, keeping each queue at its
+configured length. The benchmark asserts queue, cancelled, and completed
+counts before teardown. Per-operation latency samples are collected separately
+from Criterion's aggregate measurements. The emitted p50/p95/p99 use nearest
+rank over the collected samples, and each line reports the sample count plus a
+10,000-interval `Instant` timer-overhead calibration. Sample collection covers
+Criterion warm-up and measurement invocations; it is explicitly labelled as
+such and is not Criterion's aggregate estimate presented as per-operation
+quantiles.
+
+Three formal rounds completed with Criterion sample size 20, 0.5 s warm-up,
+and a 1 s measurement target. Each run used the default feature set
+(`default = []`). Criterion's reported time and throughput below use the middle
+estimate from each round; ticket cancellation time is for the whole cancellation
+batch, while throughput counts cancelled tickets. Latency percentiles are
+operation samples collected separately. For each percentile, the table gives
+the median across rounds and the observed min–max range; sample counts are the
+sum of operation samples from that case's Criterion warm-up and measurement
+invocations.
+
+### Sparse arrivals
+
+| Workers | Criterion time R1 / R2 / R3 (µs) | Throughput R1 / R2 / R3 (K ops/s) | p50 ns median [range] | p95 ns median [range] | p99 ns median [range] | Samples R1–R3 min–max |
+| ---: | --- | --- | --- | --- | --- | ---: |
+| 1 | 21.116 / 14.836 / 13.080 | 47.356 / 67.404 / 76.450 | 15,055 [14,712–15,305] | 20,147 [19,692–24,380] | 28,125 [26,143–29,466] | 80,647–128,115 |
+| 4 | 21.732 / 6.646 / 5.852 | 46.016 / 150.480 / 170.880 | 5,530 [5,018–7,832] | 12,388 [11,915–34,346] | 17,765 [15,550–76,045] | 49,143–193,215 |
+| 8 | 9.622 / 7.404 / 8.216 | 103.930 / 135.060 / 121.710 | 7,160 [6,883–8,952] | 13,485 [12,065–14,681] | 17,021 [15,712–18,875] | 159,405–175,155 |
+| 16 | 19.417 / 20.521 / 18.165 | 51.500 / 48.730 / 55.050 | 19,576 [19,025–19,747] | 26,483 [24,814–27,993] | 32,056 [29,467–35,170] | 70,357–80,017 |
+
+### Ticket cancellation and concurrent submit/consume
+
+Each row reports queue length and exact cancellation ratio. The batch field
+shows `tickets cancelled / tickets queued across replicas`; for example,
+4,096/10% uses 5 queues, 2,048 cancellations among 20,480 tickets. Criterion
+time is per batch; operation percentiles are per successful cancellation.
+
+| Queue / ratio | Criterion batch time R1 / R2 / R3 | Throughput R1 / R2 / R3 | p50 ns median [range] | p95 ns median [range] | p99 ns median [range] | Samples R1–R3 min–max |
+| --- | --- | --- | --- | --- | --- | ---: |
+| 1 / 10% (1/10) | 162.50 / 159.94 / 160.91 ns | 6.154 / 6.252 / 6.215 M/s | 160 [158–160] | 163 [163–218] | 212 [193–236] | 2,863,605–3,110,565 |
+| 1 / 50% (1/2) | 160.52 / 180.46 / 163.03 ns | 6.230 / 5.541 / 6.134 M/s | 161 [160–161] | 164 [162–215] | 197 [194–235] | 3,101,535–4,199,881 |
+| 1 / 100% (1/1) | 160.84 / 680.66 / 164.78 ns | 6.217 / 1.469 / 6.069 M/s | 163 [160–192] | 168 [163–230] | 206 [185–260] | 730,653–4,202,191 |
+| 128 / 10% (64/640) | 15.184 / 22.007 / 15.276 µs | 4.215 / 2.908 / 4.190 M/s | 233 [232–329] | 284 [254–399] | 367 [362–560] | 2,231,232–2,836,032 |
+| 128 / 50% (64/128) | 13.916 / 21.636 / 13.621 µs | 4.599 / 2.958 / 4.699 M/s | 214 [212–286] | 234 [228–386] | 317 [236–519] | 2,486,592–2,930,112 |
+| 128 / 100% (128/128) | 22.286 / 29.087 / 21.978 µs | 5.744 / 4.401 / 5.824 M/s | 171 [170–222] | 183 [179–306] | 245 [196–439] | 2,526,848–3,064,448 |
+| 4,096 / 10% (2,048/20,480) | 8.297 / 3.543 / 3.468 ms | 246.850 / 578.060 / 590.590 K/s | 1,691 [1,670–2,807] | 3,093 [1,783–3,538] | 3,600 [2,920–4,210] | 690,176–1,120,256 |
+| 4,096 / 50% (2,048/4,096) | 5.248 / 2.293 / 2.278 ms | 390.270 / 893.100 / 899.080 K/s | 1,101 [1,095–2,029] | 1,285 [1,278–2,520] | 1,843 [1,418–3,023] | 559,104–1,382,400 |
+| 4,096 / 100% (4,096/4,096) | 1,614.90 / 833.41 / 827.17 µs | 2.536 / 4.915 / 4.952 M/s | 201 [200–325] | 249 [246–633] | 311 [305–879] | 1,380,352–3,624,960 |
+| Contended: 4 producers / 4 workers / 256 jobs | 399.84 / 545.52 / 407.98 µs | 640.250 / 469.280 / 627.480 K jobs/s | 27,198 [23,433–30,755] | 83,897 [60,396–84,210] | 112,771 [77,337–141,119] | 399,616–1,115,392 |
+
+The 10,000-interval timer calibration reported p50 overheads of 22–50 ns and
+p95 overheads of 24–241 ns across cases and rounds. These values are reported,
+not subtracted; timer overhead is a meaningful fraction of the roughly 160 ns
+single-ticket case. R1 Criterion warned that its 1 s target could not fit 20
+samples for the 4,096-ticket 10%, 50%, and 100% cases, estimating 1.9 s, 1.7 s,
+and 1.3 s respectively. It still collected all 20 samples and exited
+successfully. The warning is a sampling-duration advisory, not evidence of a
+pool defect. R2 also warned that the queue-length-128, 100% case could not fit
+20 samples within the 1 s target, estimating 1.2 s; it still completed all 20
+samples. Other Criterion runs also varied across rounds: queue length 128
+and the contended case slowed in R2 and returned near R1 in R3, while the
+4-worker sparse group changed substantially between R1 and R2/R3. The 4,096
+ticket operation samples were lower in R2/R3 than R1, rather than showing a
+stable worsening with round or cancellation ratio.
+
+**Conclusion:** these measurements show queue-length-dependent cancellation
+cost and machine-load variation, but do not confirm a stable severe contention
+bottleneck. No structural optimization is justified by this evidence; the
+existing queue and worker structure is retained.
+
+#### Reproduction and environment
+
+The two commands below were run once for each round, changing only the
+Criterion baseline option:
+
+```bash
+cargo bench --bench thread_pool_bench --locked -- thread_pool_sparse_multiworker --sample-size 20 --warm-up-time 0.5 --measurement-time 1 --save-baseline tp006-round1
+cargo bench --bench thread_pool_bench --locked -- thread_pool_ticket_cancellation --sample-size 20 --warm-up-time 0.5 --measurement-time 1 --save-baseline tp006-round1
+cargo bench --bench thread_pool_bench --locked -- thread_pool_sparse_multiworker --sample-size 20 --warm-up-time 0.5 --measurement-time 1 --baseline tp006-round1
+cargo bench --bench thread_pool_bench --locked -- thread_pool_ticket_cancellation --sample-size 20 --warm-up-time 0.5 --measurement-time 1 --baseline tp006-round1
+```
+
+The last two commands were repeated for R3. The initial R2 sparse command
+accidentally combined mutually exclusive baseline options and exited 2:
+
+```bash
+cargo bench --bench thread_pool_bench --locked -- thread_pool_sparse_multiworker --sample-size 20 --warm-up-time 0.5 --measurement-time 1 --baseline tp006-round1 --save-baseline tp006-round2
+```
+
+The corrected R2 commands above and all R3 commands exited 0. Gnuplot was unavailable, so
+Criterion used its plotters backend. The host was an Intel Xeon E5-2680 v4 (28
+physical cores / 56 logical CPUs, two NUMA nodes), Ubuntu
+6.8.0-147-generic x86_64, Rust 1.94.0. The source base was commit
+`f02d5fd9f685193c9f605e52964931de67561d26`. The shared working tree was dirty
+with TP-001 through TP-005 source, test, Rustdoc, README, guide and design
+changes, as well as the TP-006 benchmark and these bilingual performance
+reports. The measurements used synthetic benchmark tasks only. Raw round logs
+were `/tmp/rs-thread-pool-tp006-{sparse,cancel}-round{1,2,3}.log`.
+
 ## Interpretation and reproduction
 
 Compare the same group, workload, worker count, compiler and machine. Record
