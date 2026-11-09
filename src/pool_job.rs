@@ -5,8 +5,6 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use std::panic::AssertUnwindSafe;
-use std::panic::catch_unwind;
 use std::sync::Arc;
 use std::sync::Mutex;
 
@@ -15,6 +13,7 @@ use qubit_function::Callable;
 use qubit_function::Runnable;
 
 use crate::dynamic::thread_pool_inner::ThreadPoolInner;
+use crate::internal::contain_panic;
 pub use crate::pool_job_ticket::PoolJobTicket;
 
 mod internal;
@@ -51,7 +50,10 @@ impl PoolJob {
     /// [`Self::with_accept`] instead, so they can publish acceptance only after
     /// the backing pool has accepted the job.
     /// Custom callbacks run synchronously and should not block. Panics raised
-    /// by `run` or `cancel` are caught and ignored by the pool job wrapper.
+    /// by `run` or `cancel` are caught and ignored by the pool job wrapper. If
+    /// a panic payload's destructor also panics, that nested payload is leaked
+    /// to prevent a second unwind; aborting panic strategies and callbacks or
+    /// destructors that block forever cannot be contained.
     ///
     /// # Parameters
     ///
@@ -81,7 +83,10 @@ impl PoolJob {
     /// as `stats` is safe. An acceptance panic is contained and reported as
     /// [`AcceptancePanicked`](crate::PoolJobSubmissionError::AcceptancePanicked);
     /// the job is neither run nor cancelled. Run and cancellation callback
-    /// panics are caught and ignored.
+    /// panics are caught and ignored. If a panic payload's destructor also
+    /// panics, that nested payload is leaked to prevent a second unwind;
+    /// aborting panic strategies and callbacks or destructors that block
+    /// forever cannot be contained.
     ///
     /// # Parameters
     ///
@@ -165,7 +170,7 @@ impl PoolJob {
             inner: PoolJobInner::Detached {
                 run: Box::new(move || {
                     let mut task = task;
-                    let _ignored = catch_unwind(AssertUnwindSafe(|| task.run()));
+                    let _ignored = contain_panic(|| task.run());
                 }),
             },
         }
@@ -257,7 +262,7 @@ impl PoolJob {
     /// Drops a rejected job without running callbacks, containing capture
     /// destructor panics so rejection keeps its original error result.
     pub(crate) fn discard(self) {
-        let _ignored = catch_unwind(AssertUnwindSafe(|| drop(self)));
+        let _ignored = contain_panic(|| drop(self));
     }
 
     /// Cancels this queued job if it has not been run first.
@@ -267,10 +272,10 @@ impl PoolJob {
     /// captures so callers can always finish accounting and wake ticket
     /// waiters.
     pub(crate) fn cancel(self) {
-        let _ignored = catch_unwind(AssertUnwindSafe(|| {
+        let _ignored = contain_panic(|| {
             if let PoolJobInner::Completable(task) = self.inner {
                 task.cancel();
             }
-        }));
+        });
     }
 }

@@ -8,6 +8,7 @@
 //! Tests for [`qubit_thread_pool::ThreadPoolBuilder`].
 
 use std::io;
+use std::panic::AssertUnwindSafe;
 use std::sync::mpsc;
 use std::time::Duration;
 use std::time::Instant;
@@ -370,4 +371,57 @@ fn test_thread_pool_builder_rejects_invalid_configuration() {
         ThreadPool::builder().keep_alive(Duration::ZERO).build(),
         Err(ExecutorServiceBuilderError::ZeroKeepAlive),
     ));
+}
+
+#[test]
+fn test_thread_pool_builder_rejects_nul_thread_name_prefix_without_panicking() {
+    for builder in [
+        ThreadPool::builder().pool_size(1).thread_name_prefix("bad\0prefix"),
+        ThreadPool::builder()
+            .pool_size(1)
+            .thread_name_prefix("bad\0prefix")
+            .prestart_core_threads(),
+    ] {
+        let result = std::panic::catch_unwind(AssertUnwindSafe(|| builder.build()));
+        let result = result.expect("invalid thread name prefix should not panic");
+        let error = match result {
+            Err(error) => error,
+            Ok(_) => panic!("invalid thread name prefix should fail validation"),
+        };
+        match error {
+            ExecutorServiceBuilderError::SpawnWorker { source, .. } => {
+                assert_eq!(source.kind(), io::ErrorKind::InvalidInput);
+            }
+            other => panic!("expected SpawnWorker, got {other:?}"),
+        }
+    }
+}
+
+#[test]
+fn test_thread_pool_builder_accepts_unicode_and_empty_thread_name_prefix() {
+    for prefix in ["线程池-🔧", ""] {
+        let pool = ThreadPool::builder()
+            .pool_size(1)
+            .thread_name_prefix(prefix)
+            .prestart_core_threads()
+            .build()
+            .expect("valid thread name prefix should build");
+        let name = pool
+            .submit_callable(|| {
+                Ok::<_, io::Error>(
+                    std::thread::current()
+                        .name()
+                        .expect("worker should have a name")
+                        .to_owned(),
+                )
+            })
+            .expect("pool should accept work")
+            .get()
+            .expect("worker task should complete");
+        if !prefix.is_empty() {
+            assert!(name.starts_with(prefix));
+        }
+        pool.shutdown();
+        assert!(pool.wait_termination_timeout(Duration::from_secs(2)));
+    }
 }

@@ -25,6 +25,7 @@ use qubit_lock::ParkingLotMonitorGuard;
 #[cfg(feature = "async-wait")]
 use tokio::sync::watch;
 
+pub(super) use self::internal::AcceptedJobGuard;
 pub(super) use self::internal::ReservedWorker;
 pub(super) use self::internal::ThreadPoolSubmitGuard;
 use super::thread_pool_config::ThreadPoolConfig;
@@ -49,6 +50,9 @@ pub(crate) struct ThreadPoolInner {
     stop_now: AtomicBool,
     /// Successfully spawned workers that have not exited yet.
     live_worker_count: AtomicUsize,
+    /// Test-only switch used to exercise reservation unwind cleanup.
+    #[cfg(test)]
+    panic_after_worker_reservation: AtomicBool,
     /// Number of workers currently blocked or about to block waiting for work.
     idle_worker_count: AtomicUsize,
     /// Number of idle-worker wakeups already requested but not yet consumed.
@@ -93,6 +97,8 @@ impl ThreadPoolInner {
             accounting: PoolAccounting::new(queue_capacity),
             stop_now: AtomicBool::new(false),
             live_worker_count: AtomicUsize::new(0),
+            #[cfg(test)]
+            panic_after_worker_reservation: AtomicBool::new(false),
             idle_worker_count: AtomicUsize::new(0),
             pending_worker_wakes: AtomicUsize::new(0),
             submit_waiter_count: AtomicUsize::new(0),
@@ -333,13 +339,9 @@ impl ThreadPoolInner {
                 cancel_requested: false,
             };
         }
+        let mut transaction = AcceptedJobGuard::new(self, entry.clone());
         if job.accept().is_err() {
-            self.release_queue_slot();
-            if let Some(entry) = &entry {
-                *entry.lock() = QueuedJobState::Rejected;
-                entry.changed.notify_all();
-            }
-            self.notify_waiters_after_atomic_change();
+            drop(transaction);
             job.discard();
             return Err(PoolJobSubmissionError::AcceptancePanicked);
         }
@@ -359,6 +361,7 @@ impl ThreadPoolInner {
             ) {
                 *state = QueuedJobState::Cancelling;
                 self.begin_cancel_queued_job();
+                transaction.commit();
                 drop(state);
                 drop(queue);
                 job.cancel();
@@ -374,6 +377,7 @@ impl ThreadPoolInner {
             queue.push_back(Arc::new(QueuedJob::new(job)));
         }
         drop(queue);
+        transaction.commit();
         self.wake_one_idle_worker();
         Ok(())
     }
@@ -498,13 +502,13 @@ impl ThreadPoolInner {
         }
         if state.live_workers < state.core_pool_size {
             let worker = self.reserve_worker_locked(&mut state);
-            self.spawn_reserved_worker_locked(&mut state, worker)?;
+            self.spawn_reserved_worker_locked(worker)?;
             self.reserve_worker_handoff_slot();
             return Ok(());
         }
         if state.live_workers == 0 {
             let worker = self.reserve_worker_locked(&mut state);
-            self.spawn_reserved_worker_locked(&mut state, worker)?;
+            self.spawn_reserved_worker_locked(worker)?;
             self.reserve_worker_handoff_slot();
             return Ok(());
         }
@@ -513,7 +517,7 @@ impl ThreadPoolInner {
         }
         if state.live_workers < state.maximum_pool_size {
             let worker = self.reserve_worker_locked(&mut state);
-            self.spawn_reserved_worker_locked(&mut state, worker)?;
+            self.spawn_reserved_worker_locked(worker)?;
             self.reserve_worker_handoff_slot();
             Ok(())
         } else {
@@ -542,7 +546,7 @@ impl ThreadPoolInner {
             return Ok(false);
         }
         let worker = self.reserve_worker_locked(&mut state);
-        self.spawn_reserved_worker_locked(&mut state, worker)?;
+        self.spawn_reserved_worker_locked(worker)?;
         Ok(true)
     }
 
@@ -573,18 +577,22 @@ impl ThreadPoolInner {
     /// # Returns
     ///
     /// A worker reservation ready to spawn while the lock is still held.
-    fn reserve_worker_locked(self: &Arc<Self>, state: &mut ThreadPoolState) -> ReservedWorker {
+    fn reserve_worker_locked<'a>(&'a self, state: &'a mut ThreadPoolState) -> ReservedWorker<'a> {
         let index = state.next_worker_index;
         state.next_worker_index += 1;
         state.live_workers += 1;
-        ReservedWorker { index }
+        let reservation = ReservedWorker::new(self, state, index);
+        #[cfg(test)]
+        if self.panic_after_worker_reservation.swap(false, Ordering::AcqRel) {
+            panic!("injected panic after worker reservation");
+        }
+        reservation
     }
 
     /// Spawns a previously reserved worker while holding the state lock.
     ///
     /// # Parameters
     ///
-    /// * `state` - Locked pool state used for rollback on spawn failure.
     /// * `worker` - Worker reservation created while holding the state lock.
     ///
     /// # Returns
@@ -595,12 +603,8 @@ impl ThreadPoolInner {
     ///
     /// Returns [`SubmissionError::WorkerSpawnFailed`] if
     /// [`thread::Builder::spawn`] fails.
-    fn spawn_reserved_worker_locked(
-        self: &Arc<Self>,
-        state: &mut ThreadPoolState,
-        worker: ReservedWorker,
-    ) -> Result<(), SubmissionError> {
-        let ReservedWorker { index } = worker;
+    fn spawn_reserved_worker_locked(self: &Arc<Self>, mut worker: ReservedWorker<'_>) -> Result<(), SubmissionError> {
+        let index = worker.index;
         let worker_inner = Arc::clone(self);
         let mut builder = thread::Builder::new().name(format!("{}-{index}", self.thread_name_prefix));
         if let Some(stack_size) = self.stack_size {
@@ -610,19 +614,12 @@ impl ThreadPoolInner {
             ThreadPoolWorker::run(worker_inner, index);
         }) {
             Ok(_) => {
-                self.live_worker_count.fetch_add(1, Ordering::Release);
+                worker.commit_spawn();
                 Ok(())
             }
-            Err(source) => {
-                state.live_workers = state
-                    .live_workers
-                    .checked_sub(1)
-                    .expect("thread pool live worker counter underflow");
-                self.notify_if_idle_or_terminated(state);
-                Err(SubmissionError::WorkerSpawnFailed {
-                    source: Arc::new(source),
-                })
-            }
+            Err(source) => Err(SubmissionError::WorkerSpawnFailed {
+                source: Arc::new(source),
+            }),
         }
     }
 
@@ -1156,9 +1153,47 @@ mod tests {
     use super::ThreadPoolConfig;
     use super::ThreadPoolHooks;
     use super::ThreadPoolInner;
+    use super::internal::AcceptedJobGuard;
     use crate::PoolJob;
     use crate::PoolJobSubmissionError;
     use crate::pool_job::QueuedJobState;
+
+    #[test]
+    fn test_acceptance_guard_unwind_releases_slot_and_rejects_entry() {
+        let inner = Arc::new(ThreadPoolInner::new(
+            ThreadPoolConfig {
+                core_pool_size: 1,
+                maximum_pool_size: 1,
+                queue_capacity: Some(1),
+                thread_name_prefix: "accept-guard-test".to_owned(),
+                stack_size: None,
+                keep_alive: Duration::from_secs(1),
+                allow_core_thread_timeout: false,
+            },
+            ThreadPoolHooks::default(),
+        ));
+        assert!(inner.reserve_queue_slot());
+        let entry = Arc::new(crate::pool_job::QueuedJob::prepared(&inner));
+        *entry.lock() = QueuedJobState::Accepting {
+            owner: thread::current().id(),
+            cancel_requested: false,
+        };
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe({
+            let inner = Arc::clone(&inner);
+            let entry = Arc::clone(&entry);
+            move || {
+                let _guard = AcceptedJobGuard::new(&inner, Some(entry));
+                panic!("injected unwind during acceptance transaction");
+            }
+        }));
+        assert!(result.is_err());
+        assert_eq!(inner.queued_count(), 0);
+        assert!(matches!(*entry.lock(), QueuedJobState::Rejected));
+        assert!(inner.reserve_queue_slot(), "unwound transaction must release its slot");
+        inner.release_queue_slot();
+        inner.shutdown();
+        assert!(inner.wait_for_termination_timeout(Duration::from_secs(2)));
+    }
 
     struct DynamicWakeCleanup {
         inner: Arc<ThreadPoolInner>,
@@ -1514,11 +1549,11 @@ mod tests {
         let mut state = inner.lock_state();
         let first_reservation = inner.reserve_worker_locked(&mut state);
         inner
-            .spawn_reserved_worker_locked(&mut state, first_reservation)
+            .spawn_reserved_worker_locked(first_reservation)
             .expect("first dynamic worker should spawn");
         let second_reservation = inner.reserve_worker_locked(&mut state);
         inner
-            .spawn_reserved_worker_locked(&mut state, second_reservation)
+            .spawn_reserved_worker_locked(second_reservation)
             .expect("second dynamic worker should spawn");
         drop(state);
         let idle_deadline = Instant::now() + Duration::from_secs(2);
@@ -1667,5 +1702,34 @@ mod tests {
         terminated_rx
             .recv_timeout(Duration::from_secs(1))
             .expect("termination waiter should report completion");
+    }
+
+    #[test]
+    fn test_worker_reservation_rolls_back_during_unwind() {
+        let inner = Arc::new(ThreadPoolInner::new(
+            ThreadPoolConfig {
+                core_pool_size: 1,
+                maximum_pool_size: 1,
+                queue_capacity: Some(1),
+                thread_name_prefix: "reservation-unwind".to_owned(),
+                stack_size: None,
+                keep_alive: Duration::from_secs(60),
+                allow_core_thread_timeout: false,
+            },
+            ThreadPoolHooks::default(),
+        ));
+        inner.panic_after_worker_reservation.store(true, Ordering::Release);
+
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let mut state = inner.lock_state();
+            let _reservation = inner.reserve_worker_locked(&mut state);
+        }));
+
+        assert!(result.is_err(), "test injection should unwind after reserving");
+        assert_eq!(inner.live_worker_count.load(Ordering::Acquire), 0);
+        assert_eq!(inner.read_state(|state| state.live_workers), 0);
+        assert_eq!(inner.queued_count(), 0, "reservation must not leak a queue slot");
+        inner.shutdown();
+        assert!(inner.wait_for_termination_timeout(Duration::from_secs(2)));
     }
 }

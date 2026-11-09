@@ -8,8 +8,10 @@
 //! Internal worker reservation and admission types for
 //! [`super::ThreadPoolInner`].
 
+mod accepted_job_guard;
 mod reserved_worker;
 mod thread_pool_submit_guard;
 
+pub(crate) use accepted_job_guard::AcceptedJobGuard;
 pub(crate) use reserved_worker::ReservedWorker;
 pub(crate) use thread_pool_submit_guard::ThreadPoolSubmitGuard;

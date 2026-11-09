@@ -19,13 +19,27 @@ use crate::ThreadPool;
 use crate::pool_job::PoolJob;
 use crate::pool_job::QueuedJobState;
 
+struct AcceptancePanickingPayload;
+
+impl Drop for AcceptancePanickingPayload {
+    fn drop(&mut self) {
+        panic!("acceptance payload destructor panicked");
+    }
+}
+
 /// Observes the private reservation boundary to make this acceptance race
 /// deterministic, including an idle worker that could otherwise claim
 /// first.
 #[test]
 fn test_ticket_reserved_during_accept_never_publishes_to_worker() {
     for acceptance_panics in [false, true] {
-        let pool = Arc::new(ThreadPool::new(1).expect("pool builds"));
+        let pool = Arc::new(
+            ThreadPool::builder()
+                .pool_size(1)
+                .queue_capacity(1)
+                .build()
+                .expect("bounded pool builds"),
+        );
         let (started_tx, started_rx) = mpsc::channel();
         let (release_tx, release_rx) = mpsc::channel();
         let (cancelled_tx, cancelled_rx) = mpsc::channel();
@@ -34,7 +48,9 @@ fn test_ticket_reserved_during_accept_never_publishes_to_worker() {
             Box::new(move || {
                 started_tx.send(thread::current().id()).expect("accept starts");
                 release_rx.recv().expect("accept released");
-                assert!(!acceptance_panics, "acceptance fails");
+                if acceptance_panics {
+                    std::panic::panic_any(AcceptancePanickingPayload);
+                }
             }),
             Box::new(move || ran_tx.send(()).expect("run observed")),
             Box::new(move || cancelled_tx.send(thread::current().id()).expect("cancel observed")),
@@ -42,7 +58,10 @@ fn test_ticket_reserved_during_accept_never_publishes_to_worker() {
         let entry = Arc::clone(&ticket.entry);
         let (submitted_tx, submitted_rx) = mpsc::channel();
         let submit_pool = Arc::clone(&pool);
-        thread::spawn(move || submitted_tx.send(submit_pool.submit_job(job)).expect("submit result"));
+        thread::spawn(move || {
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| submit_pool.submit_job(job)));
+            submitted_tx.send(result).expect("submit result");
+        });
         let submitter = started_rx.recv_timeout(Duration::from_secs(2)).expect("accept starts");
         let (result_tx, result_rx) = mpsc::channel();
         thread::spawn(move || result_tx.send(ticket.cancel_queued()).expect("cancel result"));
@@ -69,6 +88,11 @@ fn test_ticket_reserved_during_accept_never_publishes_to_worker() {
         let submission = submitted_rx
             .recv_timeout(Duration::from_secs(2))
             .expect("submit finishes");
+        assert!(
+            submission.is_ok(),
+            "acceptance payload destructor must not unwind submit"
+        );
+        let submission = submission.expect("submit boundary remains contained");
         if acceptance_panics {
             assert_eq!(submission, Err(PoolJobSubmissionError::AcceptancePanicked));
             assert!(cancelled_rx.try_recv().is_err());
@@ -80,11 +104,22 @@ fn test_ticket_reserved_during_accept_never_publishes_to_worker() {
             ran_rx.try_recv().is_err(),
             "reserved job must never be published to idle worker"
         );
+        if acceptance_panics {
+            let (done_tx, done_rx) = mpsc::channel();
+            pool.submit_job(PoolJob::new(
+                Box::new(move || done_tx.send(()).expect("slot reuse task runs")),
+                Box::new(|| {}),
+            ))
+            .expect("failed acceptance must release its queue slot");
+            done_rx
+                .recv_timeout(Duration::from_secs(2))
+                .expect("reused slot task completes");
+        }
         pool.shutdown();
         assert!(pool.wait_termination_timeout(Duration::from_secs(2)));
         let stats = pool.stats();
-        assert_eq!(stats.submitted_tasks, usize::from(!acceptance_panics));
-        assert_eq!(stats.cancelled_tasks, stats.submitted_tasks);
+        assert_eq!(stats.submitted_tasks, 1);
+        assert_eq!(stats.cancelled_tasks, usize::from(!acceptance_panics));
         assert_eq!(stats.queued_tasks, 0);
         assert_eq!(stats.running_tasks, 0);
     }
@@ -237,4 +272,31 @@ fn test_ticket_rejection_contains_capture_drop_panic() {
             assert_eq!(stats.running_tasks, 0);
         }
     }
+}
+
+#[test]
+fn test_pool_job_run_cancel_and_discard_contain_panicking_payloads() {
+    let run_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        PoolJob::new(
+            Box::new(|| std::panic::panic_any(AcceptancePanickingPayload)),
+            Box::new(|| {}),
+        )
+        .run();
+    }));
+    assert!(run_result.is_ok(), "run payload destructor must not escape");
+
+    let cancel_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        PoolJob::new(
+            Box::new(|| {}),
+            Box::new(|| std::panic::panic_any(AcceptancePanickingPayload)),
+        )
+        .cancel();
+    }));
+    assert!(cancel_result.is_ok(), "cancel payload destructor must not escape");
+
+    let run_capture = AcceptancePanickingPayload;
+    let discard_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        PoolJob::new(Box::new(move || drop(run_capture)), Box::new(|| {})).discard();
+    }));
+    assert!(discard_result.is_ok(), "discard capture destructor must not escape");
 }

@@ -245,8 +245,9 @@ impl FixedThreadPoolBuilder {
     ///
     /// # Errors
     ///
-    /// Returns [`ExecutorServiceBuilderError`] when configuration is invalid or
-    /// a worker thread cannot be spawned.
+    /// Returns [`ExecutorServiceBuilderError`] when configuration is invalid,
+    /// the thread name prefix contains NUL, or a worker thread cannot be
+    /// spawned.
     pub fn build(self) -> Result<FixedThreadPool, ExecutorServiceBuilderError> {
         self.validate()?;
         FixedThreadPool::new_with_builder(self)
@@ -261,8 +262,17 @@ impl FixedThreadPoolBuilder {
     /// # Errors
     ///
     /// Returns [`ExecutorServiceBuilderError`] for zero pool size, zero queue
-    /// capacity, or zero stack size.
+    /// capacity, zero stack size, or a thread name prefix containing NUL.
     fn validate(&self) -> Result<(), ExecutorServiceBuilderError> {
+        if self.thread_name_prefix.contains('\0') {
+            return Err(ExecutorServiceBuilderError::SpawnWorker {
+                index: None,
+                source: std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "thread name prefix must not contain NUL bytes",
+                ),
+            });
+        }
         map_argument_error(
             self.pool_size.require_positive("pool_size"),
             ExecutorServiceBuilderError::ZeroPoolSize,

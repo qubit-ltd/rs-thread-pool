@@ -7,6 +7,8 @@
 // =============================================================================
 //! Internal admission types for [`super::FixedThreadPoolInner`].
 
+mod accepted_slot_guard;
 mod fixed_submit_guard;
 
+pub(super) use accepted_slot_guard::AcceptedSlotGuard;
 pub(super) use fixed_submit_guard::FixedSubmitGuard;

@@ -6,9 +6,9 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 use std::fmt;
-use std::panic::AssertUnwindSafe;
-use std::panic::catch_unwind;
 use std::sync::Arc;
+
+use crate::internal::contain_panic;
 
 /// A thread-safe callback that receives the index of the worker triggering a
 /// hook.
@@ -212,11 +212,8 @@ impl ThreadPoolHooks {
     /// * `worker_index` - Stable worker index passed to the callback.
     #[inline]
     fn run_hook(hook: &Option<HookCallback>, worker_index: usize) {
-        if let Some(hook) = hook
-            && let Err(payload) = catch_unwind(AssertUnwindSafe(|| hook(worker_index)))
-            && let Err(nested) = catch_unwind(AssertUnwindSafe(|| drop(payload)))
-        {
-            std::mem::forget(nested);
+        if let Some(hook) = hook {
+            let _ignored = contain_panic(|| hook(worker_index));
         }
     }
 }

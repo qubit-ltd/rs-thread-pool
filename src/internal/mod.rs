@@ -7,9 +7,11 @@
 // =============================================================================
 
 mod admission_gate;
+mod panic_boundary;
 mod pool_accounting;
 mod pool_counter_snapshot;
 mod sync;
 
 pub(crate) use admission_gate::AdmissionGate;
+pub(crate) use panic_boundary::contain_panic;
 pub(crate) use pool_accounting::PoolAccounting;

@@ -204,12 +204,24 @@ fn test_thread_pool_initial_accept_panic_does_not_kill_worker_or_leak_running_co
     let _panic_hook_guard = PanicHookGuard::suppress();
     let pool = ThreadPool::new(1).expect("thread pool should be created");
 
-    let result = pool.submit_job(PoolJob::with_accept(
-        Box::new(|| panic!("custom accept panic should be isolated")),
-        Box::new(|| panic!("job should not run when accept panics")),
-        Box::new(|| panic!("running custom job should not be cancelled")),
+    struct PanickingPayloadDrop;
+    impl Drop for PanickingPayloadDrop {
+        fn drop(&mut self) {
+            panic!("acceptance payload destructor panic");
+        }
+    }
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        pool.submit_job(PoolJob::with_accept(
+            Box::new(|| std::panic::panic_any(PanickingPayloadDrop)),
+            Box::new(|| panic!("job should not run when accept panics")),
+            Box::new(|| panic!("running custom job should not be cancelled")),
+        ))
+    }));
+    assert!(result.is_ok(), "acceptance payload destructor panic must be contained");
+    assert!(matches!(
+        result.expect("submit should not unwind"),
+        Err(PoolJobSubmissionError::AcceptancePanicked)
     ));
-    assert!(matches!(result, Err(PoolJobSubmissionError::AcceptancePanicked)));
 
     super::mod_tests::wait_until(|| pool.stats().completed_tasks == 0);
     assert_eq!(pool.running_count(), 0);
@@ -318,6 +330,57 @@ fn test_thread_pool_stop_contains_custom_cancel_panic() {
     assert_eq!(report.queued, 1);
     assert_eq!(report.cancelled, 1);
     assert!(pool.is_terminated());
+}
+
+#[test]
+fn test_custom_task_contains_unused_callback_capture_drop_panics() {
+    let _panic_hook_lock = PANIC_HOOK_LOCK.lock().expect("panic hook lock should not be poisoned");
+    let _panic_hook_guard = PanicHookGuard::suppress();
+
+    struct PanickingDrop;
+    impl Drop for PanickingDrop {
+        fn drop(&mut self) {
+            panic!("unused callback capture destructor panic");
+        }
+    }
+
+    let pool = Arc::new(ThreadPool::new(1).expect("pool should build"));
+    let run_capture = PanickingDrop;
+    pool.submit_job(PoolJob::new(Box::new(|| {}), Box::new(move || drop(run_capture))))
+        .expect("job should be accepted");
+    let (done_tx, done_rx) = mpsc::channel();
+    pool.submit(move || {
+        done_tx.send(()).expect("later task completion should arrive");
+        Ok::<(), io::Error>(())
+    })
+    .expect("later task should be accepted");
+    done_rx
+        .recv_timeout(Duration::from_secs(2))
+        .expect("worker should continue after run");
+
+    let (started_tx, started_rx) = mpsc::channel();
+    let (release_tx, release_rx) = mpsc::channel();
+    let running = pool
+        .submit_tracked(move || {
+            started_tx.send(()).expect("blocking task should start");
+            release_rx.recv().map_err(|err| io::Error::other(err.to_string()))?;
+            Ok::<(), io::Error>(())
+        })
+        .expect("blocker should be accepted");
+    wait_started(started_rx);
+    let cancel_capture = PanickingDrop;
+    pool.submit_job(PoolJob::new(Box::new(move || drop(cancel_capture)), Box::new(|| {})))
+        .expect("queued job should be accepted");
+    let stop = std::thread::spawn({
+        let pool = pool.clone();
+        move || pool.stop()
+    });
+    super::mod_tests::wait_until(|| pool.is_not_running());
+    release_tx.send(()).expect("blocker should be released");
+    running.get().expect("blocker should complete");
+    let report = stop.join().expect("stop should not unwind");
+    assert_eq!(report.cancelled, 1);
+    assert!(pool.wait_termination_timeout(Duration::from_secs(2)));
 }
 
 #[test]

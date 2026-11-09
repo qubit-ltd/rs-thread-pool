@@ -328,8 +328,9 @@ impl ThreadPoolBuilder {
     ///
     /// # Errors
     ///
-    /// Returns [`ExecutorServiceBuilderError`] if the configuration is invalid
-    /// or a prestarted worker thread cannot be spawned.
+    /// Returns [`ExecutorServiceBuilderError`] if the configuration is invalid,
+    /// the thread name prefix contains NUL, or a prestarted worker thread
+    /// cannot be spawned.
     pub fn build(self) -> Result<ThreadPool, ExecutorServiceBuilderError> {
         self.validate()?;
         let prestart_core_threads = self.prestart_core_threads;
@@ -363,8 +364,17 @@ impl ThreadPoolBuilder {
     ///
     /// Returns [`ExecutorServiceBuilderError`] for zero maximum size, core size
     /// larger than maximum size, zero bounded queue capacity, zero stack
-    /// size, or zero keep-alive timeout.
+    /// size, zero keep-alive timeout, or a thread name prefix containing NUL.
     fn validate(&self) -> Result<(), ExecutorServiceBuilderError> {
+        if self.thread_name_prefix.contains('\0') {
+            return Err(ExecutorServiceBuilderError::SpawnWorker {
+                index: None,
+                source: std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "thread name prefix must not contain NUL bytes",
+                ),
+            });
+        }
         map_argument_error(
             self.maximum_pool_size.require_positive("maximum_pool_size"),
             ExecutorServiceBuilderError::ZeroMaximumPoolSize,

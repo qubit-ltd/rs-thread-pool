@@ -20,6 +20,7 @@ use qubit_executor::service::StopReport;
 use qubit_executor::service::SubmissionError;
 use qubit_lock::ParkingLotMonitor;
 
+use self::internal::AcceptedSlotGuard;
 use self::internal::FixedSubmitGuard;
 use super::fixed_thread_pool_state::FixedThreadPoolState;
 use crate::PoolJob;
@@ -198,13 +199,14 @@ impl FixedThreadPoolInner {
             job.discard();
             return Err(PoolJobSubmissionError::Rejected(SubmissionError::Saturated));
         }
+        let mut transaction = AcceptedSlotGuard::new(self);
         if job.accept().is_err() {
-            self.release_queue_slot();
+            drop(transaction);
             self.notify_waiters_after_atomic_change();
             job.discard();
             return Err(PoolJobSubmissionError::AcceptancePanicked);
         }
-        self.enqueue_job(job);
+        self.enqueue_job(job, &mut transaction);
         Ok(())
     }
 
@@ -213,9 +215,10 @@ impl FixedThreadPoolInner {
     /// # Parameters
     ///
     /// * `job` - Job whose queued slot has already been reserved.
-    fn enqueue_job(&self, job: PoolJob) {
+    fn enqueue_job(&self, job: PoolJob, transaction: &mut AcceptedSlotGuard<'_>) {
         self.accounting.publish_accepted_job();
         self.global_queue.push(job);
+        transaction.commit();
         self.wake_one_idle_worker();
     }
 
@@ -678,6 +681,7 @@ mod tests {
     use super::super::fixed_worker::FixedWorker;
     use super::super::fixed_worker_runtime::FixedWorkerRuntime;
     use super::FixedThreadPoolInner;
+    use super::internal::AcceptedSlotGuard;
     use crate::PoolJob;
     use crate::ThreadPoolHooks;
 
@@ -689,6 +693,22 @@ mod tests {
                 panic!("capture destructor panic");
             }
         }
+    }
+
+    #[test]
+    fn test_acceptance_slot_guard_unwind_releases_slot() {
+        let inner = FixedThreadPoolInner::with_hooks(1, Some(1), ThreadPoolHooks::new());
+        assert!(inner.reserve_queue_slot());
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _guard = AcceptedSlotGuard::new(&inner);
+            panic!("injected unwind during fixed acceptance transaction");
+        }));
+        assert!(result.is_err());
+        assert_eq!(inner.queued_count(), 0);
+        assert!(inner.reserve_queue_slot(), "unwound transaction must release its slot");
+        inner.release_queue_slot();
+        inner.shutdown();
+        assert!(inner.wait_for_termination_timeout(Duration::from_secs(2)));
     }
 
     fn rejection_job(accept_panics: bool, panic_in_run: bool, callbacks: Arc<AtomicUsize>) -> PoolJob {

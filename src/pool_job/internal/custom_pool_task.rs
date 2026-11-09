@@ -5,11 +5,10 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use std::panic::AssertUnwindSafe;
-use std::panic::catch_unwind;
 use std::sync::Mutex;
 
 use super::pool_task::PoolTask;
+use crate::internal::contain_panic;
 
 /// Custom job callbacks supplied by higher-level services.
 pub(crate) struct CustomPoolTask {
@@ -24,26 +23,30 @@ pub(crate) struct CustomPoolTask {
 impl PoolTask for CustomPoolTask {
     /// Runs the acceptance callback while containing callback panics.
     fn accept(&self) -> Result<(), ()> {
-        if let Some(accept) = self
+        let accept = self
             .accept
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .take()
-        {
-            return catch_unwind(AssertUnwindSafe(accept)).map_err(|_| ());
+            .take();
+        if let Some(accept) = accept {
+            return contain_panic(accept);
         }
         Ok(())
     }
 
     /// Runs the user callback while containing callback panics.
     fn run(self: Box<Self>) {
-        let Self { run, .. } = *self;
-        let _ignored = catch_unwind(AssertUnwindSafe(run));
+        let _ignored = contain_panic(|| {
+            let Self { run, .. } = *self;
+            let _ignored = contain_panic(run);
+        });
     }
 
     /// Runs the cancellation callback while containing callback panics.
     fn cancel(self: Box<Self>) {
-        let Self { cancel, .. } = *self;
-        let _ignored = catch_unwind(AssertUnwindSafe(cancel));
+        let _ignored = contain_panic(|| {
+            let Self { cancel, .. } = *self;
+            let _ignored = contain_panic(cancel);
+        });
     }
 }

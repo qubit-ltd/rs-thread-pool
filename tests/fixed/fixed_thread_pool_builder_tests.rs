@@ -32,6 +32,55 @@ fn test_fixed_thread_pool_builder_rejects_invalid_configuration() {
 }
 
 #[test]
+fn test_fixed_thread_pool_builder_rejects_nul_thread_name_prefix_without_panicking() {
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        FixedThreadPool::builder()
+            .pool_size(1)
+            .thread_name_prefix("bad\0prefix")
+            .build()
+    }));
+    let result = result.expect("invalid thread name prefix should not panic");
+    let error = match result {
+        Err(error) => error,
+        Ok(_) => panic!("invalid thread name prefix should fail validation"),
+    };
+    match error {
+        ExecutorServiceBuilderError::SpawnWorker { source, .. } => {
+            assert_eq!(source.kind(), io::ErrorKind::InvalidInput);
+        }
+        other => panic!("expected SpawnWorker, got {other:?}"),
+    }
+}
+
+#[test]
+fn test_fixed_thread_pool_builder_accepts_unicode_and_empty_thread_name_prefix() {
+    for prefix in ["固定池-🌱", ""] {
+        let pool = FixedThreadPool::builder()
+            .pool_size(1)
+            .thread_name_prefix(prefix)
+            .build()
+            .expect("valid thread name prefix should build");
+        let name = pool
+            .submit_callable(|| {
+                Ok::<_, io::Error>(
+                    std::thread::current()
+                        .name()
+                        .expect("worker should have a name")
+                        .to_owned(),
+                )
+            })
+            .expect("pool should accept work")
+            .get()
+            .expect("worker task should complete");
+        if !prefix.is_empty() {
+            assert!(name.starts_with(prefix));
+        }
+        pool.shutdown();
+        assert!(pool.wait_termination_timeout(std::time::Duration::from_secs(2)));
+    }
+}
+
+#[test]
 fn test_fixed_thread_pool_builder_reports_worker_spawn_failure() {
     let result = FixedThreadPool::builder().pool_size(1).stack_size(usize::MAX).build();
 
