@@ -440,6 +440,35 @@ impl Drop for TicketDropProbe {
     }
 }
 
+/// Releases a blocked test callback when the test exits, including on panic.
+struct ReleaseOnDrop(Option<mpsc::Sender<()>>);
+
+impl ReleaseOnDrop {
+    fn release(&mut self) {
+        if let Some(sender) = self.0.take() {
+            let _ = sender.send(());
+        }
+    }
+}
+
+impl Drop for ReleaseOnDrop {
+    fn drop(&mut self) {
+        self.release();
+    }
+}
+
+struct TicketDropGate {
+    started: mpsc::Sender<()>,
+    release: mpsc::Receiver<()>,
+}
+
+impl Drop for TicketDropGate {
+    fn drop(&mut self) {
+        let _ = self.started.send(());
+        let _ = self.release.recv_timeout(Duration::from_secs(10));
+    }
+}
+
 /// Occupies the only worker until the returned sender releases it.
 fn block_ticket_worker(pool: &ThreadPool) -> mpsc::Sender<()> {
     let (started_tx, started_rx) = mpsc::channel();
@@ -492,6 +521,133 @@ fn test_ticket_cancel_releases_capture_capacity_and_preserves_fifo() {
     pool.shutdown();
     assert!(pool.wait_termination_timeout(Duration::from_secs(2)));
     assert_eq!(pool.stats().completed_tasks, 2);
+}
+
+#[test]
+fn test_ticket_cancel_reservation_and_capture_drop_hold_capacity_and_termination() {
+    let pool = Arc::new(
+        ThreadPool::builder()
+            .pool_size(1)
+            .queue_capacity(1)
+            .build()
+            .expect("pool builds"),
+    );
+    let (worker_started_tx, worker_started_rx) = mpsc::channel();
+    let (release_worker_tx, release_worker_rx) = mpsc::channel();
+    let mut release_worker = ReleaseOnDrop(Some(release_worker_tx));
+    let (worker_done_tx, worker_done_rx) = mpsc::channel();
+    pool.submit_job(PoolJob::new(
+        Box::new(move || {
+            worker_started_tx.send(()).expect("blocker starts");
+            let _ = release_worker_rx.recv_timeout(Duration::from_secs(10));
+            worker_done_tx.send(()).expect("blocker finishes");
+        }),
+        Box::new(|| {}),
+    ))
+    .expect("worker blocker accepted");
+    worker_started_rx
+        .recv_timeout(Duration::from_secs(2))
+        .expect("worker blocker starts");
+
+    let (cancel_started_tx, cancel_started_rx) = mpsc::channel();
+    let (release_cancel_tx, release_cancel_rx) = mpsc::channel();
+    let mut release_cancel = ReleaseOnDrop(Some(release_cancel_tx));
+    let (drop_started_tx, drop_started_rx) = mpsc::channel();
+    let (release_drop_tx, release_drop_rx) = mpsc::channel();
+    let mut release_drop = ReleaseOnDrop(Some(release_drop_tx));
+    let drop_gate = TicketDropGate {
+        started: drop_started_tx,
+        release: release_drop_rx,
+    };
+    let (job, ticket) = pool.prepare_cancellable_job(
+        Box::new(|| {}),
+        Box::new(move || drop(drop_gate)),
+        Box::new(move || {
+            cancel_started_tx.send(()).expect("cancel callback starts");
+            let _ = release_cancel_rx.recv_timeout(Duration::from_secs(10));
+        }),
+    );
+    pool.submit_job(job).expect("ticket job accepted");
+
+    let cancel_pool = Arc::clone(&pool);
+    let (cancel_result_tx, cancel_result_rx) = mpsc::channel();
+    let cancel = std::thread::spawn(move || {
+        cancel_result_tx
+            .send(ticket.cancel_queued())
+            .expect("cancellation result sent");
+    });
+    cancel_started_rx
+        .recv_timeout(Duration::from_secs(2))
+        .expect("cancel callback enters its gate");
+    release_worker.release();
+    worker_done_rx
+        .recv_timeout(Duration::from_secs(2))
+        .expect("worker blocker finishes");
+
+    let saturated = || {
+        matches!(
+            cancel_pool.submit_job(PoolJob::new(Box::new(|| {}), Box::new(|| {}))),
+            Err(qubit_thread_pool::PoolJobSubmissionError::Rejected(
+                qubit_executor::service::SubmissionError::Saturated
+            ))
+        )
+    };
+    let (join_started_tx, join_started_rx) = mpsc::channel();
+    let (join_done_tx, join_done_rx) = mpsc::channel();
+    let join_pool = Arc::clone(&pool);
+    let join = std::thread::spawn(move || {
+        join_started_tx.send(()).expect("join waiter starts");
+        join_pool.join();
+        join_done_tx.send(()).expect("join waiter completes");
+    });
+    join_started_rx
+        .recv_timeout(Duration::from_secs(2))
+        .expect("join waiter starts");
+    assert!(saturated(), "capacity stays held during the cancel callback");
+    assert!(
+        matches!(
+            join_done_rx.recv_timeout(Duration::from_millis(50)),
+            Err(mpsc::RecvTimeoutError::Timeout)
+        ),
+        "join waits for the cancel callback"
+    );
+
+    release_cancel.release();
+    drop_started_rx
+        .recv_timeout(Duration::from_secs(2))
+        .expect("captured run value enters its Drop gate");
+    assert!(saturated(), "capacity stays held while the run capture is dropped");
+    assert!(
+        matches!(
+            join_done_rx.recv_timeout(Duration::from_millis(50)),
+            Err(mpsc::RecvTimeoutError::Timeout)
+        ),
+        "join waits for captured-value Drop"
+    );
+    assert!(
+        matches!(cancel_result_rx.try_recv(), Err(mpsc::TryRecvError::Empty)),
+        "ticket cancellation is not published before captured-value Drop ends"
+    );
+
+    release_drop.release();
+    assert!(
+        cancel_result_rx
+            .recv_timeout(Duration::from_secs(2))
+            .expect("cancellation completes")
+    );
+    cancel.join().expect("cancellation thread joins");
+    join_done_rx
+        .recv_timeout(Duration::from_secs(2))
+        .expect("join completes after both gates release");
+    join.join().expect("join waiter thread joins");
+    pool.shutdown();
+    assert!(pool.wait_termination_timeout(Duration::from_secs(2)));
+    let stats = pool.stats();
+    assert_eq!(stats.submitted_tasks, 2);
+    assert_eq!(stats.completed_tasks, 1);
+    assert_eq!(stats.cancelled_tasks, 1);
+    assert_eq!(stats.queued_tasks, 0);
+    assert_eq!(stats.running_tasks, 0);
 }
 
 #[test]
@@ -592,7 +748,9 @@ fn test_ticket_worker_claim_wins_before_cancellation() {
         Box::new(|| panic!("claimed job must not be cancelled")),
     );
     pool.submit_job(job).expect("job accepted");
-    run_rx.recv_timeout(Duration::from_secs(2)).expect("run starts before cancellation");
+    run_rx
+        .recv_timeout(Duration::from_secs(2))
+        .expect("run starts before cancellation");
     assert!(!ticket.cancel_queued());
     release_run_tx.send(()).expect("release run");
     pool.shutdown();
@@ -618,14 +776,19 @@ fn test_ticket_stop_claim_wins_before_ticket_cancellation() {
     pool.submit_job(job).expect("job accepted");
     let stop_pool = Arc::clone(&pool);
     let stop = std::thread::spawn(move || stop_pool.stop());
-    cancel_started_rx.recv_timeout(Duration::from_secs(2)).expect("stop owns cancellation");
+    cancel_started_rx
+        .recv_timeout(Duration::from_secs(2))
+        .expect("stop owns cancellation");
     assert!(!ticket.cancel_queued(), "ticket must lose after stop claims the entry");
     release_cancel_tx.send(()).expect("release stop cancellation");
     let report = stop.join().expect("stop joins");
     assert_eq!(report.cancelled, 1);
     release_worker.send(()).expect("release worker");
     assert!(pool.wait_termination_timeout(Duration::from_secs(2)));
-    assert_eq!(pool.stats().completed_tasks + pool.stats().cancelled_tasks, pool.stats().submitted_tasks);
+    assert_eq!(
+        pool.stats().completed_tasks + pool.stats().cancelled_tasks,
+        pool.stats().submitted_tasks
+    );
 }
 
 #[test]

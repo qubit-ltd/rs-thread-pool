@@ -1353,18 +1353,29 @@ mod tests {
         let submit_inner = Arc::clone(&inner);
         let (submit_tx, submit_rx) = mpsc::channel();
         let submit = thread::spawn(move || submit_tx.send(submit_inner.submit(job)).expect("submit result"));
-        accept_started_rx.recv_timeout(Duration::from_secs(2)).expect("accept entered");
+        accept_started_rx
+            .recv_timeout(Duration::from_secs(2))
+            .expect("accept entered");
         let first_ticket = ticket.clone();
         let (first_tx, first_rx) = mpsc::channel();
         let first = thread::spawn(move || first_tx.send(first_ticket.cancel_queued()).expect("first result"));
         wait_for_cancel_reservation(&entry);
         assert!(!ticket.cancel_queued(), "duplicate cancellation must lose immediately");
         release_accept_tx.send(()).expect("release accept");
-        assert!(first_rx.recv_timeout(Duration::from_secs(2)).expect("first cancellation result"));
-        submit_rx.recv_timeout(Duration::from_secs(2)).expect("submit finishes").expect("submit accepted");
+        assert!(
+            first_rx
+                .recv_timeout(Duration::from_secs(2))
+                .expect("first cancellation result")
+        );
+        submit_rx
+            .recv_timeout(Duration::from_secs(2))
+            .expect("submit finishes")
+            .expect("submit accepted");
         submit.join().expect("submit thread joins");
         first.join().expect("cancel thread joins");
-        cancel_rx.recv_timeout(Duration::from_secs(2)).expect("cancel runs once");
+        cancel_rx
+            .recv_timeout(Duration::from_secs(2))
+            .expect("cancel runs once");
         assert!(run_rx.try_recv().is_err());
         inner.shutdown();
         assert!(inner.wait_for_termination_timeout(Duration::from_secs(2)));
@@ -1404,14 +1415,20 @@ mod tests {
         let submit_inner = Arc::clone(&inner);
         let (submit_tx, submit_rx) = mpsc::channel();
         let submit = thread::spawn(move || submit_tx.send(submit_inner.submit(job)).expect("submit result"));
-        accept_started_rx.recv_timeout(Duration::from_secs(2)).expect("accept entered");
+        accept_started_rx
+            .recv_timeout(Duration::from_secs(2))
+            .expect("accept entered");
         let (cancel_tx, cancel_rx) = mpsc::channel();
         let cancel_ticket = ticket.clone();
         let cancel = thread::spawn(move || cancel_tx.send(cancel_ticket.cancel_queued()).expect("cancel result"));
         wait_for_cancel_reservation(&entry);
         assert!(!ticket.cancel_queued(), "duplicate cancellation must lose immediately");
         release_accept_tx.send(()).expect("release accept");
-        assert!(!cancel_rx.recv_timeout(Duration::from_secs(2)).expect("cancellation result"));
+        assert!(
+            !cancel_rx
+                .recv_timeout(Duration::from_secs(2))
+                .expect("cancellation result")
+        );
         assert_eq!(
             submit_rx.recv_timeout(Duration::from_secs(2)).expect("submit finishes"),
             Err(PoolJobSubmissionError::AcceptancePanicked)
@@ -1578,13 +1595,20 @@ mod tests {
         task_rx
             .recv_timeout(Duration::from_secs(5))
             .expect("broadcast should wake a worker to run the task");
+        let spare_worker_snapshot = || {
+            inner.read_state(|state| {
+                (
+                    state.idle_workers,
+                    inner.idle_worker_count.load(Ordering::Acquire),
+                    inner.pending_worker_wakes.load(Ordering::Acquire),
+                )
+            })
+        };
         let spare_idle_deadline = Instant::now() + Duration::from_secs(2);
-        while inner.idle_worker_count.load(Ordering::Acquire) != 1 && Instant::now() < spare_idle_deadline {
+        while spare_worker_snapshot() != (1, 1, 0) && Instant::now() < spare_idle_deadline {
             thread::yield_now();
         }
-        assert_eq!(inner.pending_worker_wakes.load(Ordering::Acquire), 0);
-        assert_eq!(inner.idle_worker_count.load(Ordering::Acquire), 1);
-        assert_eq!(inner.read_state(|state| state.idle_workers), 1);
+        assert_eq!(spare_worker_snapshot(), (1, 1, 0), "spare worker should be idle again");
         let (spare_reparked_tx, spare_reparked_rx) = mpsc::channel();
         let spare_reparked_inner = Arc::clone(&inner);
         cleanup.track(thread::spawn(move || {
@@ -1599,16 +1623,20 @@ mod tests {
         task_release_tx
             .send(())
             .expect("running task should be released after the spare worker reparks");
+        let both_workers_snapshot = || {
+            inner.read_state(|state| {
+                (
+                    state.idle_workers,
+                    inner.idle_worker_count.load(Ordering::Acquire),
+                    inner.pending_worker_wakes.load(Ordering::Acquire),
+                )
+            })
+        };
         let idle_deadline = Instant::now() + Duration::from_secs(2);
-        while (inner.idle_worker_count.load(Ordering::Acquire) != 2
-            || inner.pending_worker_wakes.load(Ordering::Acquire) != 0)
-            && Instant::now() < idle_deadline
-        {
+        while both_workers_snapshot() != (2, 2, 0) && Instant::now() < idle_deadline {
             thread::yield_now();
         }
-        assert_eq!(inner.pending_worker_wakes.load(Ordering::Acquire), 0);
-        assert_eq!(inner.idle_worker_count.load(Ordering::Acquire), 2);
-        assert_eq!(inner.read_state(|state| state.idle_workers), 2);
+        assert_eq!(both_workers_snapshot(), (2, 2, 0), "both workers should be idle again");
         let (reparked_tx, reparked_rx) = mpsc::channel();
         let reparked_inner = Arc::clone(&inner);
         cleanup.track(thread::spawn(move || {
