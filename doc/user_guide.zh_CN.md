@@ -136,6 +136,8 @@ OS 线程。先订阅容量变化，再尝试首次提交；这样提交失败�
 `Shutdown` 应立即结束重试。若 watch channel 关闭，`changed().await` 会
 返回错误，示例会向上传递；只要借用中的线程池仍存活，发送端就仍在，
 因此通常只有线程池状态已释放时才会发生关闭。
+运行时成功修改 core 或 maximum pool size 也会发布提示。增加 maximum
+可能使先前饱和的提交变为可接纳；通知不预留槽位，因此仍须重试并处理饱和。
 
 ```rust
 use std::error::Error;

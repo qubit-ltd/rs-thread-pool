@@ -197,6 +197,10 @@ slot, and another submitter can take the slot first. Handle `Shutdown` as a
 terminal result. If the watch channel closes, `changed().await` returns an
 error; the example propagates it. While the borrowed pool is alive its sender
 remains available, so this normally indicates the pool state has been dropped.
+Successful runtime updates to the core or maximum pool size also publish an
+advisory notification. Increasing the maximum can make a previously saturated
+submission admissible; a notification reserves no slot, so retry and handle
+saturation as usual.
 
 ```rust
 use std::error::Error;

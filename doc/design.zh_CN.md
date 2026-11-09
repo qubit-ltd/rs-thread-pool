@@ -36,6 +36,8 @@
 
 固定池预启动配置数量的 worker，运行期间不扩容。动态池根据 keep-alive、core 超时策略和 maximum size 调整回收空闲 worker。只剩最后一个允许超时的 worker 时，若仍有提交可能发布任务，该 worker 不会退出。运行时修改 core size 影响后续接纳和显式预启动，不会立即为现有队列创建 worker。
 
+启用 `async-wait` 时，运行时成功修改 core 或 maximum size 也会发布容量提示。增加 maximum 可能使先前饱和的提交变为可接纳，但通知不预留槽位，调用方仍须重试并处理饱和。
+
 ## worker 领取与取消
 
 固定池 worker 从 Injector 领取任务，发生竞争时重试；动态池 worker 从可移除 FIFO 取下一条任务。worker 在领取前和最终领取决策处检查 `stop_now`：决策时已观察到 stop 就取消任务，否则登记运行所有权并执行。stop 若发生在决策之后，即使用户代码尚未开始，也不能撤销该运行任务。

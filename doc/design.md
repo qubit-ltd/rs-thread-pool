@@ -72,6 +72,11 @@ changes. The last timed worker does not retire while a submitter may still
 publish a job. Runtime core-size changes affect later admission and explicit
 prestart operations; they do not eagerly start workers for existing queues.
 
+With `async-wait`, successful runtime core- or maximum-size updates also
+publish an advisory capacity notification. Increasing the maximum may make a
+saturated submission admissible, but the notification reserves no slot and
+callers must retry and handle saturation.
+
 ## Worker claim and cancellation
 
 Fixed workers steal from the fixed pool's injector, retrying contention;

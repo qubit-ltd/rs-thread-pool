@@ -187,10 +187,13 @@ impl ThreadPool {
         self.inner.stats()
     }
 
-    /// Subscribes to queue capacity and lifecycle changes.
+    /// Subscribes to queue capacity and lifecycle changes, including successful
+    /// runtime core and maximum size updates.
     ///
-    /// A notification is advisory. Callers must retry submission and handle
-    /// saturation because another submitter may claim the available slot.
+    /// A notification is advisory and does not reserve a slot. Increasing the
+    /// maximum size can make a saturated submission admissible; callers must
+    /// retry submission and handle saturation because another submitter may
+    /// claim the available capacity.
     ///
     /// # Returns
     ///
@@ -327,7 +330,9 @@ impl ThreadPool {
     /// but it does not eagerly create workers or reschedule already queued
     /// work. Call [`Self::prestart_all_core_threads`] when eager creation
     /// is desired. Decreasing the core size lets excess idle workers retire
-    /// according to the keep-alive policy.
+    /// according to the keep-alive policy. With `async-wait`, every successful
+    /// update also sends an advisory capacity notification; it reserves no
+    /// submission slot, so retry and handle saturation.
     ///
     /// # Parameters
     ///
@@ -349,7 +354,10 @@ impl ThreadPool {
     /// Updates the maximum pool size.
     ///
     /// Excess workers are not interrupted. They retire after finishing current
-    /// work or timing out while idle.
+    /// work or timing out while idle. With `async-wait`, every successful
+    /// update also sends an advisory capacity notification; increasing this
+    /// limit can make a saturated submission admissible, but callers must
+    /// retry and handle saturation because no slot is reserved.
     ///
     /// # Parameters
     ///

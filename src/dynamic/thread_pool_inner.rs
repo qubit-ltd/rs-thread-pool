@@ -967,6 +967,8 @@ impl ThreadPoolInner {
             });
         }
         self.state_monitor.notify_all();
+        #[cfg(feature = "async-wait")]
+        self.notify_capacity_changed();
         Ok(())
     }
 
@@ -1007,6 +1009,8 @@ impl ThreadPoolInner {
             });
         }
         self.state_monitor.notify_all();
+        #[cfg(feature = "async-wait")]
+        self.notify_capacity_changed();
         Ok(())
     }
 
