@@ -1,0 +1,92 @@
+{
+  "date": "2026-11-09",
+  "project": "rs-thread-pool",
+  "source": {
+    "commit": "0a46d1802605d0f8812246870ba51d1c19e70082",
+    "tree": "d15304c8cdf25d253bf70cfdd6540ffba375a1b9",
+    "working_tree_source_changes": false,
+    "cargo_lock_sha256": "2a2075fc3617e2264c5570378ac308cb9e32178797eeb44f358a19594888766e",
+    "benchmark_source_sha256": "1ea4239f39a8712fb0af046f8f484208c4994bd1d96bac84e35098d4a3189f9e"
+  },
+  "toolchain": {
+    "rustc": "rustc 1.94.0 (4a4ef493e 2026-03-02)",
+    "cargo": "cargo 1.94.0 (85eff7c80 2026-01-15)"
+  },
+  "host": {
+    "system": "Linux-6.8.0-147-generic-x86_64-with-glibc2.39",
+    "machine": "x86_64",
+    "cpu": "Intel Xeon E5-2680 v4",
+    "logical_cpus": 56,
+    "physical_cores": 28,
+    "sockets": 2,
+    "numa_nodes": 2
+  },
+  "criterion": {
+    "sample_size": 20,
+    "warm_up_seconds": 0.5,
+    "measurement_target_seconds": 1.0,
+    "features": "default (default = [])",
+    "baseline": "rtp-20261109-round1",
+    "round1": "--save-baseline",
+    "round2_and_round3": "--baseline"
+  },
+  "note": "Three repeatability rounds on one implementation, not before/after comparison. Gnuplot was unavailable; Criterion used plotters. Historical TP-006 raw logs and exact dirty source snapshot could not be recovered.",
+  "commands": [
+    {
+      "command": "cargo bench --bench thread_pool_bench --locked -- thread_pool_sparse_multiworker --sample-size 20 --warm-up-time 0.5 --measurement-time 1 --save-baseline rtp-20261109-round1",
+      "exit_code": 0,
+      "log": "sparse-round1.log",
+      "log_sha256": "81f59ded3d4087bdc443671e0df802c89c37f4004c218a0abe8f1d08b9f5382e"
+    },
+    {
+      "command": "cargo bench --bench thread_pool_bench --locked -- thread_pool_ticket_cancellation --sample-size 20 --warm-up-time 0.5 --measurement-time 1 --save-baseline rtp-20261109-round1",
+      "exit_code": 0,
+      "log": "cancel-round1.log",
+      "log_sha256": "589f2bb6d9c12dc1d1e221ab9b95f8e8cb576b6f3a49f1cd825e6e1ee8f47c8d"
+    },
+    {
+      "command": "cargo bench --bench thread_pool_bench --locked -- thread_pool_sparse_multiworker --sample-size 20 --warm-up-time 0.5 --measurement-time 1 --baseline rtp-20261109-round1",
+      "exit_code": 0,
+      "log": "sparse-round2.log",
+      "log_sha256": "72cba18ceca238aaa3f1c19b9d06cb581863b4699e0d6d0cc5cd0b702d89d726"
+    },
+    {
+      "command": "cargo bench --bench thread_pool_bench --locked -- thread_pool_ticket_cancellation --sample-size 20 --warm-up-time 0.5 --measurement-time 1 --baseline rtp-20261109-round1",
+      "exit_code": 0,
+      "log": "cancel-round2.log",
+      "log_sha256": "686a65186ab005c2b5c0af446983478fb5ab32a9eb2ff3566b5ecf11d28fb907"
+    },
+    {
+      "command": "cargo bench --bench thread_pool_bench --locked -- thread_pool_sparse_multiworker --sample-size 20 --warm-up-time 0.5 --measurement-time 1 --baseline rtp-20261109-round1",
+      "exit_code": 0,
+      "log": "sparse-round3.log",
+      "log_sha256": "300fab7108c7564831a8920f2f795eec424c4f26e360bd7de679c37d05895ce3"
+    },
+    {
+      "command": "cargo bench --bench thread_pool_bench --locked -- thread_pool_ticket_cancellation --sample-size 20 --warm-up-time 0.5 --measurement-time 1 --baseline rtp-20261109-round1",
+      "exit_code": 0,
+      "log": "cancel-round3.log",
+      "log_sha256": "d6ea945706bde012c8332c0f0234b2c69e0380a5a5a9035c8a927b02ddcaec31"
+    }
+  ],
+  "other_validation": {
+    "adapter_contracts_command": "cargo test --locked --manifest-path /tmp/rs-executor-adapter-contracts-rpt-20261109/Cargo.toml",
+    "exit_code": 0,
+    "passed": 48,
+    "note": "Temporary copy of adapter-contracts manifest used absolute sibling paths and pointed qubit-thread-pool to the implementation worktree."
+  },
+  "validation_commands": [
+    {
+      "command": "./.infra/bin/align-ci.sh",
+      "exit_code": 0,
+      "log": "align-ci-final.log",
+      "log_sha256": "e83ec8da27f9c0f4fe0bc61685b4c90da67055eb856025ebb791924f9aa33f48"
+    },
+    {
+      "command": "./.infra/bin/ci-check.sh",
+      "exit_code": 0,
+      "log": "ci-check-final.log",
+      "log_sha256": "48035d594c112c79686dbeac4844923195b475db10f8865d9780befe0899b0ce"
+    }
+  ]
+}

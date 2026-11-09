@@ -1,0 +1,1505 @@
+HEAD is now at 218174d refactor(bootstrap): delegate prefix updates to dependency tool
+rs-infra: rs-infra-ci@2c965cad450e9f0e4d01cf1e5985e6d5e11e75b4 (x86_64-unknown-linux-gnu)
+rs-infra: rs-infra-coverage@14ed876040400ec81165984cce9a8e26e3214ccc (x86_64-unknown-linux-gnu)
+rs-infra: rs-infra-dependency@143b832917f69869c5908ff7dca0fbdd0e1150a0 (x86_64-unknown-linux-gnu)
+rs-infra: rs-infra-pages@3c70ad4354e280781cd65335b9dc140035e8e19a (x86_64-unknown-linux-gnu)
+rs-infra: rs-infra-platform@0a85ea54f11bde809bb714d7d1a5c1f941d56e45 (x86_64-unknown-linux-gnu)
+rs-infra: rs-infra-style@1ba28b8d2fb84d6ee4a774c79c9e5c04c69b14d9 (x86_64-unknown-linux-gnu)
+rs-infra: rs-infra-verify@075f7e13c7b8383e276f9def6a08fb1f518f914e (x86_64-unknown-linux-gnu)
+Rust mechanical style checks passed; semantic review remains separate.
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.11s
+coverage-cfg-clippy: not configured; skipping
+Cargo.lock is current.
+✅ lock check completed successfully.
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling unicode-ident v1.0.27
+   Compiling libc v0.2.191
+   Compiling cfg-if v1.0.5
+   Compiling shlex v2.0.1
+   Compiling find-msvc-tools v0.1.15
+   Compiling rustversion v1.0.23
+   Compiling crossbeam-utils v0.8.23
+   Compiling regex-syntax v0.8.11
+   Compiling thiserror v2.0.21
+   Compiling crossbeam-epoch v0.9.21
+   Compiling serde_core v1.0.229
+   Compiling smallvec v1.16.5
+   Compiling once_cell v1.21.4
+   Compiling crossbeam-deque v0.8.8
+   Compiling log v0.4.35
+   Compiling parking_lot_core v0.9.12
+   Compiling zerocopy v0.8.63
+   Compiling zmij v1.0.23
+   Compiling hashbrown v0.17.1
+   Compiling autocfg v1.5.1
+   Compiling pin-project-lite v0.2.17
+   Compiling scopeguard v1.2.0
+   Compiling serde v1.0.229
+   Compiling portable-atomic v1.15.0
+   Compiling lazy_static v1.5.1
+   Compiling rayon-core v1.13.0
+   Compiling either v1.19.0
+   Compiling serde_json v1.0.154
+   Compiling nu-ansi-term v0.50.3
+   Compiling plotters-backend v0.3.7
+   Compiling clap_lex v1.1.1
+   Compiling qubit-fast-cas v0.3.3
+   Compiling ciborium-io v0.2.2
+   Compiling itoa v1.0.19
+   Compiling memchr v2.8.3
+   Compiling anstyle v1.0.14
+   Compiling scoped-tls v1.0.1
+   Compiling same-file v1.0.6
+   Compiling qubit-function v0.18.4
+   Compiling cast v0.3.0
+   Compiling oneshot v0.2.1
+   Compiling anes v0.1.6
+   Compiling oorandom v11.1.5
+   Compiling qubit-argument v0.4.10
+   Compiling thread_local v1.1.10
+   Compiling lock_api v0.4.14
+   Compiling sharded-slab v0.1.7
+   Compiling cc v1.11.1
+   Compiling walkdir v2.5.0
+   Compiling tracing-core v0.1.36
+   Compiling clap_builder v4.6.7
+   Compiling plotters-svg v0.3.7
+   Compiling itertools v0.13.0
+   Compiling num-traits v0.2.19
+   Compiling tracing-log v0.2.0
+   Compiling tracing v0.1.44
+   Compiling arc-swap v1.9.4
+   Compiling qubit-collections v0.2.4
+   Compiling syn v3.0.9
+   Compiling syn v2.0.119
+   Compiling qubit-atomic v0.17.7
+   Compiling plotters v0.3.7
+   Compiling regex-automata v0.4.18
+   Compiling num_cpus v1.17.0
+   Compiling page_size v0.6.0
+   Compiling rayon v1.12.0
+   Compiling generator v0.8.11
+   Compiling alloca v0.4.0
+   Compiling threadpool v1.8.1
+   Compiling parking_lot v0.12.5
+   Compiling criterion-plot v0.8.2
+   Compiling clap v4.6.7
+   Compiling matchers v0.2.0
+   Compiling regex v1.13.1
+   Compiling zerocopy-derive v0.8.63
+   Compiling tracing-subscriber v0.3.23
+   Compiling thiserror-impl v2.0.21
+   Compiling serde_derive v1.0.229
+   Compiling tokio-macros v2.7.2
+   Compiling tokio v1.54.1
+   Compiling qubit-clock v0.13.5
+   Compiling qubit-state-machine v0.11.3
+   Compiling loom v0.7.3
+   Compiling qubit-lock v0.14.5
+   Compiling qubit-executor v0.9.0
+   Compiling tinytemplate v1.2.1
+   Compiling qubit-thread-pool v0.12.1 (/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109)
+   Compiling half v2.7.1
+   Compiling ciborium-ll v0.2.2
+   Compiling ciborium v0.2.2
+   Compiling criterion v0.8.2
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 17.88s
+✅ run --suite build completed successfully.
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.44s
+     Running unittests src/lib.rs (target/debug/deps/qubit_thread_pool-7e7e5011050ab0b2)
+
+running 36 tests
+test dynamic::thread_pool_inner::tests::test_acceptance_guard_unwind_releases_slot_and_rejects_entry ... ok
+test dynamic::thread_pool_inner::tests::test_submit_with_state_lock_rejects_stopping_state ... ok
+test dynamic::thread_pool_inner::tests::test_worker_reservation_rolls_back_during_unwind ... ok
+test fixed::fixed_thread_pool_inner::tests::test_acceptance_panic_discards_job_and_contains_cancel_capture_drop_panic ... ok
+test fixed::fixed_thread_pool_inner::tests::test_acceptance_panic_discards_job_and_contains_run_capture_drop_panic ... ok
+test fixed::fixed_thread_pool_inner::tests::test_acceptance_slot_guard_unwind_releases_slot ... ok
+test fixed::fixed_thread_pool_inner::tests::test_saturated_rejection_contains_cancel_capture_drop_panic ... ok
+test fixed::fixed_thread_pool_inner::tests::test_fixed_accept_panic_drops_job_without_leaking_state ... ok
+test fixed::fixed_thread_pool_inner::tests::test_saturated_rejection_contains_run_capture_drop_panic ... ok
+test fixed::fixed_thread_pool_inner::tests::test_shutdown_rejection_contains_cancel_capture_drop_panic ... ok
+test fixed::fixed_thread_pool_inner::tests::test_shutdown_rejection_contains_run_capture_drop_panic ... ok
+test dynamic::thread_pool_inner::tests::test_ticket_cancel_reservation_precedes_accept_success_and_duplicate ... ok
+test dynamic::thread_pool_inner::tests::test_stop_report_excludes_ticket_cancellation_after_stop_snapshot ... ok
+test dynamic::thread_pool_inner::tests::test_ticket_cancel_reservation_precedes_accept_panic ... ok
+test tests::internal::admission_gate_tests::test_closes_after_existing_submitter_leaves ... ok
+test internal::panic_boundary::tests::test_panicking_payload_destructor_is_contained ... ok
+test tests::internal::pool_accounting_tests::test_accepted_job_runs_to_completion ... ok
+test tests::internal::pool_accounting_tests::test_admission_remains_busy_until_last_submitter_leaves ... ok
+test tests::internal::pool_accounting_tests::test_cancel_rejects_queued_task_underflow - should panic ... ok
+test fixed::fixed_worker::tests::test_worker_contains_cancel_capture_drop_panic_with_task_hooks ... ok
+test fixed::fixed_worker::tests::test_worker_contains_cancel_capture_drop_panic_without_task_hooks ... ok
+test tests::internal::pool_accounting_tests::test_cancelled_job_releases_reserved_slot ... ok
+test tests::internal::pool_accounting_tests::test_claim_rejects_queued_task_underflow - should panic ... ok
+test tests::internal::admission_gate_tests::test_concurrent_close_never_allows_entry_after_close ... ok
+test tests::internal::pool_accounting_tests::test_finish_rejects_cancelling_task_underflow - should panic ... ok
+test tests::internal::pool_accounting_tests::test_finish_rejects_running_task_underflow - should panic ... ok
+test tests::internal::pool_accounting_tests::test_rollback_and_handoff_preserve_capacity ... ok
+test tests::internal::pool_accounting_tests::test_rollback_rejects_queue_slot_underflow - should panic ... ok
+test tests::pool_job_tests::test_pool_job_run_cancel_and_discard_contain_panicking_payloads ... ok
+test dynamic::thread_pool_inner::tests::test_dynamic_worker_wake_with_older_termination_waiter ... ok
+test tests::pool_job_tests::test_ticket_reserved_cancellation_contains_capture_drop_panic_and_wakes_waiter ... ok
+test fixed::fixed_thread_pool_inner::tests::test_fixed_worker_wake_with_older_termination_waiter ... ok
+test tests::pool_job_tests::test_ticket_reserved_during_accept_never_publishes_to_worker ... ok
+test tests::pool_job_tests::test_ticket_rejection_contains_capture_drop_panic ... ok
+test fixed::fixed_thread_pool_inner::tests::test_stop_reports_worker_side_cancel_after_stop_now ... ok
+test fixed::fixed_thread_pool_inner::tests::test_fixed_stop_waits_for_cancel_callback ... ok
+
+test result: ok. 36 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running tests/lib_tests.rs (target/debug/deps/lib_tests-db316d7b0fe5cf2d)
+
+running 126 tests
+test dynamic::mod_tests::test_dynamic_module_exports_thread_pool_entrypoint ... ok
+test dynamic::thread_pool_async_wait_tests::test_invalid_resize_does_not_publish_capacity ... ok
+test dynamic::thread_pool_async_wait_tests::test_thread_pool_capacity_changes_on_shutdown ... ok
+test dynamic::thread_pool_async_wait_tests::test_capacity_changes_after_core_resize ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_builder_rejects_invalid_configuration ... ok
+test dynamic::thread_pool_async_wait_tests::test_thread_pool_capacity_changes_when_worker_takes_queued_job ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_bounded_queue_rejects_when_saturated ... ok
+test dynamic::thread_pool_async_wait_tests::test_capacity_changes_after_maximum_growth ... ok
+test dynamic::thread_pool_async_wait_tests::test_thread_pool_capacity_changes_after_queued_ticket_cancellation ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_builder_accepts_unicode_and_empty_thread_name_prefix ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_builder_rejects_nul_thread_name_prefix_without_panicking ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_prestart_reports_build_spawn_failure ... ok
+test dynamic::thread_pool_config_tests::test_thread_pool_config_is_reflected_by_builder_and_stats ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_prestart_all_core_threads_reports_state ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_prestart_core_thread_reports_state ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_prestarts_core_workers ... ok
+test dynamic::thread_pool_failure_tests::test_rejected_execution_compares_by_variant ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_excess_workers_retire_after_maximum_size_decreases ... ok
+test dynamic::thread_pool_failure_tests::test_thread_pool_cancels_queued_job_when_initial_worker_spawn_fails ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_unbounded_queue_keeps_core_limit ... ok
+test dynamic::thread_pool_failure_tests::test_thread_pool_reports_worker_spawn_failure ... ok
+test dynamic::thread_pool_failure_tests::test_thread_pool_spawn_failure_does_not_accept_or_cancel_direct_job ... ok
+test dynamic::thread_pool_failure_tests::test_thread_pool_spawn_failure_does_not_accept_or_cancel_queued_start_job ... ok
+test dynamic::thread_pool_hooks_tests::test_thread_pool_nested_hook_payload_destructor_panic_is_contained ... ok
+test dynamic::thread_pool_hooks_tests::test_thread_pool_ordinary_hook_panic_payload_is_dropped ... ok
+test dynamic::thread_pool_hooks_tests::test_thread_pool_runs_configured_hooks ... ok
+test dynamic::thread_pool_lifecycle_tests::test_thread_pool_lifecycle_accessors_report_running_shutdown_and_terminated ... ok
+test dynamic::thread_pool_inner_tests::test_thread_pool_inner_tracks_running_queued_and_completed_counts ... ok
+test dynamic::thread_pool_hooks_tests::test_thread_pool_runs_task_hooks_for_queued_jobs ... ok
+test dynamic::thread_pool_lifecycle_tests::test_thread_pool_wait_termination_timeout_handles_max_duration ... ok
+test dynamic::thread_pool_shutdown_tests::test_thread_pool_shutdown_rejects_new_tasks ... ok
+test dynamic::thread_pool_shutdown_tests::test_lazy_pool_accept_shutdown_still_runs_job ... ok
+test dynamic::thread_pool_lifecycle_tests::test_thread_pool_lifecycle_reports_shutting_down_with_running_work ... ok
+test dynamic::thread_pool_shutdown_tests::test_lazy_pool_shutdown_during_acceptance_still_runs_job ... ok
+test dynamic::thread_pool_shutdown_tests::test_thread_pool_shutdown_drains_queued_tasks ... ok
+test dynamic::thread_pool_stop_tests::test_thread_pool_stop_after_shutdown_is_idempotent ... ok
+test dynamic::thread_pool_state_tests::test_thread_pool_state_reports_queue_saturation_and_shutdown_cancellation ... ok
+test dynamic::thread_pool_stop_tests::test_thread_pool_stop_cancels_queued_tasks ... ok
+test dynamic::thread_pool_submission_tests::test_thread_pool_bounded_submit_queues_when_worker_busy ... ok
+test dynamic::thread_pool_shutdown_tests::test_thread_pool_submit_and_join_wait_for_detached_task ... ok
+test dynamic::thread_pool_submission_tests::test_thread_pool_core_size_update_grows_next_submission ... ok
+test dynamic::thread_pool_stop_tests::test_thread_pool_stop_is_idempotent_from_stopping ... ok
+test dynamic::thread_pool_stop_tests::test_thread_pool_cancel_before_start_reports_cancelled ... ok
+test dynamic::thread_pool_submission_tests::test_thread_pool_accessors_and_dynamic_settings ... ok
+test dynamic::thread_pool_submission_tests::test_thread_pool_submit_custom_job_runs_job ... ok
+test dynamic::thread_pool_stop_tests::test_thread_pool_stop_does_not_report_ticket_cancellation_as_its_own ... ok
+test dynamic::thread_pool_submission_tests::test_thread_pool_submit_custom_job_accepts_and_cancels_queued_job ... ok
+test dynamic::thread_pool_submission_tests::test_lazy_pool_acceptance_runs_on_submitter_thread ... ok
+test fixed::fixed_thread_pool_builder_tests::test_fixed_thread_pool_builder_rejects_nul_thread_name_prefix_without_panicking ... ok
+test dynamic::thread_pool_hooks_tests::test_thread_pool_hook_payload_destructor_panic_is_contained ... ok
+test fixed::fixed_thread_pool_inner_tests::test_fixed_thread_pool_inner_tracks_public_task_counts ... ok
+test fixed::fixed_thread_pool_lifecycle_tests::test_fixed_thread_pool_lifecycle_reports_shutdown_and_termination ... ok
+test fixed::fixed_thread_pool_builder_tests::test_fixed_thread_pool_builder_sets_thread_options ... ok
+test dynamic::thread_pool_submission_tests::test_thread_pool_submit_acceptance_is_not_task_success ... ok
+test dynamic::thread_pool_submission_tests::test_ticket_acceptance_panic_and_rejection_never_cancel ... ok
+test dynamic::thread_pool_stop_tests::test_stop_cancels_spawned_worker_job_while_acceptance_is_inflight ... ok
+test dynamic::thread_pool_stop_tests::test_thread_pool_repeated_stop_does_not_recount_in_progress_cancellation ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_handle_can_be_awaited ... ok
+test dynamic::thread_pool_submission_tests::test_ticket_removal_preserves_remaining_fifo_order ... ok
+test dynamic::thread_pool_submission_tests::test_thread_pool_direct_accept_can_reenter_pool_without_deadlock ... ok
+test dynamic::thread_pool_submission_tests::test_thread_pool_submit_callable_returns_value ... ok
+test dynamic::thread_pool_submission_tests::test_ticket_cancel_contains_run_capture_drop_panic_and_finishes_accounting ... ok
+test dynamic::thread_pool_submission_tests::test_ticket_cancel_releases_capture_capacity_and_preserves_fifo ... ok
+test fixed::fixed_thread_pool_builder_tests::test_fixed_thread_pool_builder_reports_worker_spawn_failure ... ok
+test fixed::fixed_thread_pool_builder_tests::test_fixed_thread_pool_builder_rejects_invalid_configuration ... ok
+test fixed::fixed_thread_pool_lifecycle_tests::test_fixed_thread_pool_wait_termination_timeout_handles_max_duration ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_join_waits_for_detached_task_without_shutdown ... ok
+test dynamic::thread_pool_submission_tests::test_ticket_stop_claim_wins_before_ticket_cancellation ... ok
+test dynamic::thread_pool_submission_tests::test_ticket_cancel_during_accept_waits_and_releases_captures ... ok
+test fixed::fixed_thread_pool_state_tests::test_fixed_thread_pool_state_is_reflected_in_stats ... ok
+test fixed::fixed_thread_pool_builder_tests::test_fixed_thread_pool_builder_accepts_unicode_and_empty_thread_name_prefix ... ok
+test dynamic::thread_pool_submission_tests::test_ticket_worker_claim_wins_before_cancellation ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_stop_cancels_queued_tasks ... ok
+test fixed::mod_tests::test_fixed_module_exports_thread_pool_entrypoint ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_bounded_queue_rejects_when_saturated ... ok
+test dynamic::thread_pool_submission_tests::test_thread_pool_handle_can_be_awaited ... ok
+test test_lib_exports_primary_executor_types ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_shutdown_rejects_new_tasks ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_multiple_workers_drain_global_queue ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_cancel_before_start_reports_cancelled ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_shutdown_rejection_contains_task_capture_drop_panic ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_submit_acceptance_is_not_task_success ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_runs_configured_hooks ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_large_pool_runs_global_queue_tasks ... ok
+test dynamic::thread_pool_worker_tests::test_worker_runs_job_on_named_worker_thread ... ok
+test dynamic::thread_pool_failure_tests::test_thread_pool_custom_job_panic_does_not_kill_worker_or_leak_running_count ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_shutdown_drains_queued_tasks ... ok
+test dynamic::thread_pool_submission_tests::test_ticket_cancel_callback_can_submit_to_same_queue ... ok
+test dynamic::thread_pool_failure_tests::test_thread_pool_initial_accept_panic_does_not_kill_worker_or_leak_running_count ... ok
+test fixed::fixed_worker_runtime_tests::test_fixed_worker_runtime_uses_configured_thread_name_prefix ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_submit_callable_returns_value ... ok
+test fixed::fixed_worker_tests::test_fixed_worker_runs_public_submitted_task ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_hook_payload_destructor_panic_is_contained ... ok
+test dynamic::thread_pool_shutdown_tests::test_thread_pool_accept_callback_can_request_shutdown ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_default_executes_tasks ... ok
+test dynamic::thread_pool_shutdown_tests::test_thread_pool_shutdown_returns_before_inflight_accept_then_drains ... ok
+test dynamic::thread_pool_submission_tests::test_thread_pool_submit_wakes_prestarted_idle_worker ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_stop_cancels_queued_batch ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_large_pool_uses_global_queue_stop ... ok
+test dynamic::thread_pool_submission_tests::test_thread_pool_blocked_accept_does_not_hold_state_lock ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_default_uses_builder_defaults ... ok
+test dynamic::thread_pool_async_wait_tests::test_thread_pool_await_termination_can_be_cancelled ... ok
+test dynamic::thread_pool_async_wait_tests::test_thread_pool_await_termination_waits_for_shutdown ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_builder_sets_unbounded_queue_and_thread_options ... ok
+test dynamic::thread_pool_async_wait_tests::test_thread_pool_await_termination_after_stop_cancels_queued_task ... ok
+test dynamic::thread_pool_async_wait_tests::test_thread_pool_await_termination_waits_for_running_task_and_multiple_waiters ... ok
+test dynamic::thread_pool_hooks_tests::test_termination_waits_for_shutdown_exit_hook ... ok
+test dynamic::thread_pool_failure_tests::test_custom_task_contains_unused_callback_capture_drop_panics ... ok
+test dynamic::thread_pool_failure_tests::test_thread_pool_queued_accept_panic_does_not_unwind_or_leak_state ... ok
+test dynamic::thread_pool_failure_tests::test_thread_pool_stop_contains_custom_cancel_panic ... ok
+test dynamic::thread_pool_state_tests::test_termination_waits_for_stop_exit_hook ... ok
+test dynamic::thread_pool_submission_tests::test_ticket_cancel_races_worker_claim_and_stop_once ... ok
+test dynamic::thread_pool_async_wait_tests::test_async_termination_waits_for_exit_hook_and_notifies_all_waiters ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_join_waits_for_running_and_queued_tasks ... ok
+test dynamic::thread_pool_hooks_tests::test_termination_waits_for_all_concurrent_exit_hooks ... ok
+test dynamic::thread_pool_state_tests::test_termination_waits_for_core_timeout_exit_hook_before_shutdown ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_grows_above_core_when_queue_is_full ... ok
+test dynamic::thread_pool_shutdown_tests::test_ticket_cancellation_keeps_join_and_shutdown_busy_until_callback_returns ... ok
+test dynamic::thread_pool_hooks_tests::test_termination_waits_for_core_size_shrink_exit_hooks_and_preserves_capacity ... ok
+test dynamic::thread_pool_submission_tests::test_lazy_pool_keeps_worker_alive_during_acceptance ... ok
+test dynamic::thread_pool_stop_tests::test_thread_pool_stop_waits_for_inflight_accept_then_cancels ... ok
+test dynamic::thread_pool_shutdown_tests::test_thread_pool_wait_termination_waits_for_custom_cancel_callback ... ok
+test dynamic::thread_pool_submission_tests::test_concurrent_core_size_updates_keep_values_within_bounds ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_core_threads_can_timeout ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_wait_termination_waits_for_running_task ... ok
+test dynamic::thread_pool_submission_tests::test_ticket_cancel_reservation_and_capture_drop_hold_capacity_and_termination ... ok
+
+test result: ok. 126 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.17s
+
+     Running tests/thread_pool_hooks_tests.rs (target/debug/deps/thread_pool_hooks_tests-9b3365ac8fa3f023)
+
+running 1 test
+test test_thread_pool_hooks_builder_and_debug ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/thread_pool_stats_tests.rs (target/debug/deps/thread_pool_stats_tests-773298056cc10356)
+
+running 5 tests
+test test_thread_pool_stats_default_uses_empty_running_snapshot ... ok
+test test_dynamic_and_fixed_stats_report_unbounded_queue_capacity ... ok
+test test_thread_pool_stats_reflect_configuration ... ok
+test test_dynamic_stats_report_completed_tasks_after_termination ... ok
+test test_fixed_stats_report_completed_tasks_after_termination ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests qubit_thread_pool
+
+running 10 tests
+test src/dynamic/thread_pool_builder.rs - dynamic::thread_pool_builder::ThreadPoolBuilder (line 36) ... ok
+test src/fixed/fixed_thread_pool.rs - fixed::fixed_thread_pool::FixedThreadPool (line 39) ... ok
+test src/dynamic/thread_pool.rs - dynamic::thread_pool::ThreadPool (line 45) ... ok
+test src/thread_pool_stats.rs - thread_pool_stats::ThreadPoolStats (line 19) ... ok
+test src/pool_job.rs - pool_job::PoolJob (line 30) ... ok
+test src/fixed/fixed_thread_pool_builder.rs - fixed::fixed_thread_pool_builder::FixedThreadPoolBuilder (line 30) ... ok
+test src/thread_pool_hooks.rs - thread_pool_hooks::ThreadPoolHooks (line 29) ... ok
+test src/lib.rs - (line 21) ... ok
+test src/pool_job_submission_error.rs - pool_job_submission_error::PoolJobSubmissionError (line 15) ... ok
+test src/pool_job_ticket.rs - pool_job_ticket::PoolJobTicket (line 23) ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+all doctests ran in 0.49s; merged doctests compilation took 0.48s
+✅ run --suite test completed successfully.
+    Checking cfg-if v1.0.5
+    Checking smallvec v1.16.5
+   Compiling syn v3.0.9
+    Checking once_cell v1.21.4
+    Checking log v0.4.35
+    Checking regex-syntax v0.8.11
+    Checking pin-project-lite v0.2.17
+   Compiling crossbeam-utils v0.8.23
+    Checking scopeguard v1.2.0
+    Checking hashbrown v0.17.1
+    Checking lazy_static v1.5.1
+    Checking arc-swap v1.9.4
+    Checking qubit-fast-cas v0.3.3
+    Checking nu-ansi-term v0.50.3
+    Checking oneshot v0.2.1
+    Checking scoped-tls v1.0.1
+    Checking qubit-function v0.18.4
+    Checking qubit-argument v0.4.10
+    Checking libc v0.2.191
+    Checking portable-atomic v1.15.0
+    Checking thread_local v1.1.10
+    Checking tokio v1.54.1
+    Checking sharded-slab v0.1.7
+    Checking lock_api v0.4.14
+    Checking tracing-core v0.1.36
+    Checking tracing-log v0.2.0
+    Checking tracing v0.1.44
+    Checking qubit-atomic v0.17.7
+    Checking crossbeam-epoch v0.9.21
+    Checking qubit-collections v0.2.4
+    Checking crossbeam-deque v0.8.8
+    Checking regex-automata v0.4.18
+    Checking parking_lot_core v0.9.12
+    Checking generator v0.8.11
+    Checking parking_lot v0.12.5
+   Compiling thiserror-impl v2.0.21
+    Checking matchers v0.2.0
+    Checking tracing-subscriber v0.3.23
+    Checking thiserror v2.0.21
+    Checking qubit-clock v0.13.5
+    Checking qubit-state-machine v0.11.3
+    Checking qubit-lock v0.14.5
+    Checking qubit-executor v0.9.0
+    Checking loom v0.7.3
+ Documenting qubit-thread-pool v0.12.1 (/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.40s
+   Generated /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/doc/qubit_thread_pool/index.html
+✅ run --suite doc completed successfully.
+README dependency versions match workspace package versions (4 declarations).
+✅ run --suite readme completed successfully.
+   Compiling proc-macro2 v1.0.107
+   Compiling unicode-ident v1.0.27
+   Compiling quote v1.0.47
+   Compiling libc v0.2.191
+   Compiling thiserror v2.0.21
+   Compiling rustversion v1.0.23
+   Compiling parking_lot_core v0.9.12
+   Compiling portable-atomic v1.15.0
+   Compiling smallvec v1.16.5
+     Running `/home/starfish/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name build_script_build --edition=2021 /home/starfish/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/proc-macro2-1.0.107/build.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type bin --emit=dep-info,link -C embed-bitcode=no -C debug-assertions=off --cfg 'feature="default"' --cfg 'feature="proc-macro"' --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("default", "nightly", "proc-macro", "span-locations"))' -C metadata=dee7c56a76c9c4f1 -C extra-filename=-6435373554139d49 --out-dir /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/build/proc-macro2-6435373554139d49 -C strip=debuginfo -L dependency=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps --cap-lints allow`
+     Running `/home/starfish/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name unicode_ident --edition=2021 /home/starfish/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unicode-ident-1.0.27/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C embed-bitcode=no -C debug-assertions=off --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=5728161c0822da4a -C extra-filename=-943730e1ed924ec7 --out-dir /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps -C strip=debuginfo -L dependency=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps --cap-lints allow`
+     Running `/home/starfish/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name build_script_build --edition=2021 /home/starfish/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libc-0.2.191/build.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type bin --emit=dep-info,link -C embed-bitcode=no --allow=unused_qualifications '--warn=clippy::unnecessary_semicolon' '--allow=clippy::unnecessary_cast' '--warn=clippy::ptr_as_ptr' '--allow=clippy::non_minimal_cfg' '--allow=clippy::missing_safety_doc' '--warn=clippy::map_unwrap_or' '--warn=clippy::manual_assert' '--allow=clippy::identity_op' '--warn=clippy::explicit_iter_loop' -C debug-assertions=off --cfg 'feature="default"' --cfg 'feature="std"' --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("align", "const-extern-fn", "default", "extra_traits", "rustc-dep-of-std", "rustc-std-workspace-core", "std", "use_std"))' -C metadata=d50662f621b98df0 -C extra-filename=-d189d454b97d4e8b --out-dir /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/build/libc-d189d454b97d4e8b -C strip=debuginfo -L dependency=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps --cap-lints allow`
+     Running `/home/starfish/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name build_script_build --edition=2021 /home/starfish/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/quote-1.0.47/build.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type bin --emit=dep-info,link -C embed-bitcode=no -C debug-assertions=off --cfg 'feature="default"' --cfg 'feature="proc-macro"' --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("default", "proc-macro"))' -C metadata=d1f01bfeedf85bb5 -C extra-filename=-cc1a4178a3d6d04c --out-dir /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/build/quote-cc1a4178a3d6d04c -C strip=debuginfo -L dependency=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps --cap-lints allow`
+     Running `/home/starfish/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name build_script_build --edition=2021 /home/starfish/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.21/build.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type bin --emit=dep-info,link -C embed-bitcode=no -C debug-assertions=off --cfg 'feature="default"' --cfg 'feature="std"' --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("default", "std"))' -C metadata=b4a3df6246f92220 -C extra-filename=-7537f09e9224cfb0 --out-dir /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/build/thiserror-7537f09e9224cfb0 -C strip=debuginfo -L dependency=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps --cap-lints allow`
+     Running `/home/starfish/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name build_script_build --edition=2018 /home/starfish/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rustversion-1.0.23/build/build.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type bin --emit=dep-info,link -C embed-bitcode=no -C debug-assertions=off --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=a3e8415c6896bc14 -C extra-filename=-4ac6f1b8dbd07c4f --out-dir /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/build/rustversion-4ac6f1b8dbd07c4f -C strip=debuginfo -L dependency=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps --cap-lints allow`
+     Running `/home/starfish/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name build_script_build --edition=2021 /home/starfish/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/parking_lot_core-0.9.12/build.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type bin --emit=dep-info,link -C embed-bitcode=no -C debug-assertions=off --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("backtrace", "deadlock_detection", "nightly", "petgraph"))' -C metadata=ee7baa158aa276ac -C extra-filename=-b88e22e93ac4ee46 --out-dir /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/build/parking_lot_core-b88e22e93ac4ee46 -C strip=debuginfo -L dependency=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps --cap-lints allow`
+   Compiling hashbrown v0.17.1
+   Compiling crossbeam-utils v0.8.23
+   Compiling scopeguard v1.2.0
+   Compiling cfg-if v1.0.5
+   Compiling crossbeam-epoch v0.9.21
+   Compiling crossbeam-deque v0.8.8
+   Compiling qubit-fast-cas v0.3.3
+   Compiling oneshot v0.2.1
+   Compiling qubit-function v0.18.4
+   Compiling log v0.4.35
+   Compiling qubit-argument v0.4.10
+     Running `/home/starfish/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name build_script_build --edition=2018 /home/starfish/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/portable-atomic-1.15.0/build.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type bin --emit=dep-info,link -C embed-bitcode=no '--warn=clippy::unused_trait_names' --warn=unreachable_pub --warn=unnameable_types --warn=unexpected_cfgs '--warn=clippy::undocumented_unsafe_blocks' '--warn=clippy::transmute_undefined_repr' '--warn=clippy::trailing_empty_array' --warn=single_use_lifetimes --warn=rust_2018_idioms '--warn=clippy::pedantic' --warn=non_ascii_idents '--warn=clippy::inline_asm_x86_att_syntax' --warn=improper_ctypes_definitions --warn=improper_ctypes --warn=deprecated_safe '--warn=clippy::default_union_representation' '--warn=clippy::as_underscore' '--warn=clippy::as_ptr_cast_mut' '--warn=clippy::all' '--allow=clippy::type_complexity' '--allow=clippy::too_many_lines' '--allow=clippy::too_many_arguments' '--allow=clippy::struct_field_names' '--allow=clippy::struct_excessive_bools' '--allow=clippy::single_match_else' '--allow=clippy::single_match' '--allow=clippy::similar_names' '--allow=clippy::range_plus_one' '--allow=clippy::nonminimal_bool' '--allow=clippy::naive_bytecount' '--allow=clippy::module_name_repetitions' '--allow=clippy::missing_errors_doc' '--allow=clippy::manual_range_contains' '--allow=clippy::manual_assert' '--allow=clippy::incompatible_msrv' '--allow=clippy::float_cmp' '--allow=clippy::doc_markdown' '--allow=clippy::declare_interior_mutable_const' '--allow=clippy::collapsible_match' '--allow=clippy::cast_lossless' '--allow=clippy::borrow_as_ptr' '--allow=clippy::bool_assert_comparison' '--allow=clippy::assert_is_empty' --check-cfg 'cfg(target_arch,values("xtensa"))' --check-cfg 'cfg(target_arch,values("amdgpu"))' --check-cfg 'cfg(target_arch,values("loongarch32"))' --check-cfg 'cfg(target_os,values("trusty"))' --check-cfg 'cfg(target_os,values("psx"))' --check-cfg 'cfg(target_os,values("zos"))' --check-cfg 'cfg(target_env,values("psx"))' --check-cfg 'cfg(target_feature,values("lse2","lse128","rcpc3"))' --check-cfg 'cfg(target_feature,values("quadword-atomics"))' --check-cfg 'cfg(target_feature,values("zaamo","zabha"))' --check-cfg 'cfg(target_feature,values("zacas"))' --check-cfg 'cfg(target_feature,values("ztso"))' --check-cfg 'cfg(target_feature,values("miscellaneous-extensions-3"))' --check-cfg 'cfg(target_pointer_width,values("128"))' --check-cfg 'cfg(portable_atomic_no_outline_atomics,portable_atomic_outline_atomics,portable_atomic_unstable_f16,portable_atomic_unstable_f128)' --check-cfg 'cfg(portable_atomic_test_detect_false,portable_atomic_test_no_std_static_assert_ffi,qemu,valgrind,valgrind_cross)' -C debug-assertions=off --cfg 'feature="default"' --cfg 'feature="fallback"' --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("critical-section", "default", "disable-fiq", "fallback", "float", "force-amo", "require-cas", "s-mode", "serde", "std", "unsafe-assume-privileged", "unsafe-assume-single-core"))' -C metadata=fa816cc5048dae3a -C extra-filename=-f8b689a6f1f3d247 --out-dir /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/build/portable-atomic-f8b689a6f1f3d247 -C strip=debuginfo -L dependency=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps --cap-lints allow`
+     Running `/home/starfish/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name smallvec --edition=2018 /home/starfish/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/smallvec-1.16.5/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C opt-level=3 -C embed-bitcode=no --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("arbitrary", "bincode", "const_generics", "const_new", "drain_filter", "drain_keep_rest", "impl_bincode", "malloc_size_of", "may_dangle", "serde", "specialization", "union", "unty", "write"))' -C metadata=b39dcdf7945eb5b2 -C extra-filename=-2fab9cab7cbfb201 --out-dir /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps -C strip=debuginfo -L dependency=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps --cap-lints allow`
+     Running `/home/starfish/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name hashbrown --edition=2024 /home/starfish/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/hashbrown-0.17.1/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C opt-level=3 -C embed-bitcode=no --warn=unused_extern_crates --warn=unsafe_op_in_unsafe_fn --warn=unreachable_pub '--warn=clippy::str_to_string' '--warn=clippy::semicolon_if_nothing_returned' '--warn=clippy::ref_as_ptr' '--warn=clippy::redundant_else' '--warn=clippy::ptr_cast_constness' '--warn=clippy::ptr_as_ptr' '--allow=clippy::option_if_let_else' '--warn=clippy::needless_continue' '--allow=clippy::must_use_candidate' '--allow=clippy::module_name_repetitions' '--allow=clippy::missing_safety_doc' '--allow=clippy::missing_errors_doc' --warn=missing_docs '--allow=clippy::manual_map' '--warn=clippy::manual_let_else' --warn=explicit_outlives_requirements --warn=ellipsis_inclusive_range_patterns --warn=elided_lifetimes_in_paths '--allow=clippy::doc_markdown' '--warn=clippy::borrow_as_ptr' --warn=bare_trait_objects --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("alloc", "allocator-api2", "core", "default", "default-hasher", "equivalent", "inline-more", "nightly", "raw-entry", "rayon", "rustc-dep-of-std", "rustc-internal-api", "serde"))' -C metadata=e056b3c49ed0aeb7 -C extra-filename=-153e1e11d1267911 --out-dir /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps -C strip=debuginfo -L dependency=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps --cap-lints allow`
+     Running `/home/starfish/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name build_script_build --edition=2021 /home/starfish/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/crossbeam-utils-0.8.23/build.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type bin --emit=dep-info,link -C embed-bitcode=no --warn=unexpected_cfgs '--allow=clippy::lint_groups_priority' '--allow=clippy::declare_interior_mutable_const' --check-cfg 'cfg(crossbeam_loom)' --check-cfg 'cfg(crossbeam_sanitize)' -C debug-assertions=off --cfg 'feature="std"' --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("default", "loom", "nightly", "std"))' -C metadata=dfafd339a0e51e81 -C extra-filename=-8f0a0796eef1f9c8 --out-dir /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/build/crossbeam-utils-8f0a0796eef1f9c8 -C strip=debuginfo -L dependency=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps --cap-lints allow`
+     Running `/home/starfish/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name scopeguard --edition=2015 /home/starfish/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/scopeguard-1.2.0/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C opt-level=3 -C embed-bitcode=no --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("default", "use_std"))' -C metadata=6879363c113b988a -C extra-filename=-e2a46a01604b4060 --out-dir /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps -C strip=debuginfo -L dependency=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps --cap-lints allow`
+     Running `/home/starfish/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name cfg_if --edition=2018 /home/starfish/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cfg-if-1.0.5/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C opt-level=3 -C embed-bitcode=no --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("core", "rustc-dep-of-std"))' -C metadata=9baf89701b46b6b8 -C extra-filename=-e29f15447b0a0c58 --out-dir /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps -C strip=debuginfo -L dependency=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps --cap-lints allow`
+     Running `/home/starfish/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name build_script_build --edition=2021 /home/starfish/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/crossbeam-epoch-0.9.21/build.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type bin --emit=dep-info,link -C embed-bitcode=no --warn=unexpected_cfgs '--allow=clippy::lint_groups_priority' '--allow=clippy::declare_interior_mutable_const' --check-cfg 'cfg(crossbeam_loom)' --check-cfg 'cfg(crossbeam_sanitize)' -C debug-assertions=off --cfg 'feature="alloc"' --cfg 'feature="std"' --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("alloc", "default", "loom", "loom-crate", "nightly", "std"))' -C metadata=23482b9140600081 -C extra-filename=-d6f8b0dd1705c13f --out-dir /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/build/crossbeam-epoch-d6f8b0dd1705c13f -C strip=debuginfo -L dependency=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps --cap-lints allow`
+     Running `/home/starfish/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name build_script_build --edition=2021 /home/starfish/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/crossbeam-deque-0.8.8/build.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type bin --emit=dep-info,link -C embed-bitcode=no --warn=unexpected_cfgs '--allow=clippy::lint_groups_priority' '--allow=clippy::declare_interior_mutable_const' --check-cfg 'cfg(crossbeam_loom)' --check-cfg 'cfg(crossbeam_sanitize)' -C debug-assertions=off --cfg 'feature="default"' --cfg 'feature="std"' --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("default", "std"))' -C metadata=87dd71c46a158f0a -C extra-filename=-d68a426cdb53b6fe --out-dir /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/build/crossbeam-deque-d68a426cdb53b6fe -C strip=debuginfo -L dependency=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps --cap-lints allow`
+     Running `/home/starfish/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name qubit_fast_cas --edition=2024 /home/starfish/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/qubit-fast-cas-0.3.3/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C opt-level=3 -C embed-bitcode=no --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=14a6eaa96fd38cef -C extra-filename=-19ee5924b1d0a184 --out-dir /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps -C strip=debuginfo -L dependency=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps --cap-lints allow`
+     Running `/home/starfish/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name oneshot --edition=2024 /home/starfish/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/oneshot-0.2.1/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C opt-level=3 -C embed-bitcode=no '--warn=clippy::wildcard_imports' '--deny=clippy::wildcard_dependencies' --warn=unused_macro_rules --warn=unused_lifetimes '--deny=clippy::unused_async' '--warn=clippy::unicode_not_nfc' --deny=unexpected_cfgs '--warn=clippy::undocumented_unsafe_blocks' --warn=single_use_lifetimes --forbid=non_ascii_idents --deny=missing_abi --deny=macro_use_extern_crate '--warn=clippy::implicit_clone' --warn=explicit_outlives_requirements '--warn=clippy::borrow_as_ptr' '--warn=clippy::as_underscore' '--warn=clippy::as_ptr_cast_mut' '--warn=clippy::allow_attributes' --deny=absolute_paths_not_starting_with_crate --check-cfg 'cfg(oneshot_loom)' --check-cfg 'cfg(oneshot_test_delay)' --check-cfg 'cfg(criterion)' --cfg 'feature="async"' --cfg 'feature="std"' --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("async", "loom", "std"))' -C metadata=46951e001fa38229 -C extra-filename=-0cfd8351c466c6d3 --out-dir /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps -C strip=debuginfo -L dependency=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps --cap-lints allow`
+     Running `/home/starfish/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name qubit_function --edition=2024 /home/starfish/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/qubit-function-0.18.4/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C opt-level=3 -C embed-bitcode=no --warn=unexpected_cfgs --check-cfg 'cfg(docsrs)' --cfg 'feature="default"' --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("default", "full", "once", "rc", "stateful"))' -C metadata=04907c025a893918 -C extra-filename=-51303dede53f5170 --out-dir /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps -C strip=debuginfo -L dependency=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps --cap-lints allow`
+     Running `/home/starfish/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name log --edition=2021 /home/starfish/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/log-0.4.35/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C opt-level=3 -C embed-bitcode=no --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("alloc", "kv", "kv_serde", "kv_std", "kv_sval", "kv_unstable", "kv_unstable_serde", "kv_unstable_std", "kv_unstable_sval", "max_level_debug", "max_level_error", "max_level_info", "max_level_off", "max_level_trace", "max_level_warn", "release_max_level_debug", "release_max_level_error", "release_max_level_info", "release_max_level_off", "release_max_level_trace", "release_max_level_warn", "serde", "serde_core", "std", "sval", "sval_ref", "value-bag"))' -C metadata=9f4f2235c128a885 -C extra-filename=-6af8bdd29bb1168c --out-dir /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps -C strip=debuginfo -L dependency=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps --cap-lints allow`
+     Running `/home/starfish/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name qubit_argument --edition=2024 /home/starfish/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/qubit-argument-0.4.10/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C opt-level=3 -C embed-bitcode=no --cfg 'feature="default"' --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("default", "regex"))' -C metadata=e4a0d2950889d1d6 -C extra-filename=-5a54757621ce19fe --out-dir /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps -C strip=debuginfo -L dependency=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps --cap-lints allow`
+   Compiling lock_api v0.4.14
+     Running `/home/starfish/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name lock_api --edition=2021 /home/starfish/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/lock_api-0.4.14/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C opt-level=3 -C embed-bitcode=no --cfg 'feature="atomic_usize"' --cfg 'feature="default"' --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("arc_lock", "atomic_usize", "default", "nightly", "owning_ref", "serde"))' -C metadata=5a22c7ff0a89cb2b -C extra-filename=-52c2a7b84d1b49e5 --out-dir /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps -C strip=debuginfo -L dependency=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps --extern scopeguard=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps/libscopeguard-e2a46a01604b4060.rmeta --cap-lints allow`
+     Running `/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/build/parking_lot_core-b88e22e93ac4ee46/build-script-build`
+     Running `/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/build/crossbeam-deque-d68a426cdb53b6fe/build-script-build`
+     Running `/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/build/quote-cc1a4178a3d6d04c/build-script-build`
+     Running `/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/build/crossbeam-epoch-d6f8b0dd1705c13f/build-script-build`
+     Running `/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/build/proc-macro2-6435373554139d49/build-script-build`
+     Running `/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/build/crossbeam-utils-8f0a0796eef1f9c8/build-script-build`
+     Running `/home/starfish/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name crossbeam_utils --edition=2021 /home/starfish/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/crossbeam-utils-0.8.23/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C opt-level=3 -C embed-bitcode=no --warn=unexpected_cfgs '--allow=clippy::lint_groups_priority' '--allow=clippy::declare_interior_mutable_const' --check-cfg 'cfg(crossbeam_loom)' --check-cfg 'cfg(crossbeam_sanitize)' --cfg 'feature="std"' --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("default", "loom", "nightly", "std"))' -C metadata=6c04903158c2a99f -C extra-filename=-753b498cc1ec1cd1 --out-dir /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps -C strip=debuginfo -L dependency=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps --cap-lints allow --check-cfg 'cfg(crossbeam_no_atomic,crossbeam_sanitize_thread)'`
+     Running `/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/build/thiserror-7537f09e9224cfb0/build-script-build`
+     Running `/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/build/rustversion-4ac6f1b8dbd07c4f/build-script-build`
+     Running `/home/starfish/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name rustversion --edition=2018 /home/starfish/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rustversion-1.0.23/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type proc-macro --emit=dep-info,link -C prefer-dynamic -C embed-bitcode=no -C debug-assertions=off --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=39ced8e525f78e97 -C extra-filename=-4322c570bc6e2c36 --out-dir /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps -C strip=debuginfo -L dependency=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps --extern proc_macro --cap-lints allow --check-cfg 'cfg(cfg_macro_not_allowed)' --check-cfg 'cfg(host_os, values("windows"))'`
+     Running `/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/build/libc-d189d454b97d4e8b/build-script-build`
+     Running `/home/starfish/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name libc --edition=2021 /home/starfish/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libc-0.2.191/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C opt-level=3 -C embed-bitcode=no --allow=unused_qualifications '--warn=clippy::unnecessary_semicolon' '--allow=clippy::unnecessary_cast' '--warn=clippy::ptr_as_ptr' '--allow=clippy::non_minimal_cfg' '--allow=clippy::missing_safety_doc' '--warn=clippy::map_unwrap_or' '--warn=clippy::manual_assert' '--allow=clippy::identity_op' '--warn=clippy::explicit_iter_loop' --cfg 'feature="default"' --cfg 'feature="std"' --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("align", "const-extern-fn", "default", "extra_traits", "rustc-dep-of-std", "rustc-std-workspace-core", "std", "use_std"))' -C metadata=72fce3cc1d408658 -C extra-filename=-38a2bd12dce32a8a --out-dir /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps -C strip=debuginfo -L dependency=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps --cap-lints allow --cfg linux_time_bits64 --check-cfg 'cfg(libc_deny_warnings)' --check-cfg 'cfg(emscripten_old_stat_abi)' --check-cfg 'cfg(emscripten_fsblkcnt_is_32bit)' --check-cfg 'cfg(emscripten_sigset_large)' --check-cfg 'cfg(emscripten_nfds_is_ulong)' --check-cfg 'cfg(espidf_picolibc)' --check-cfg 'cfg(espidf_time32)' --check-cfg 'cfg(freebsd10)' --check-cfg 'cfg(freebsd11)' --check-cfg 'cfg(freebsd12)' --check-cfg 'cfg(freebsd13)' --check-cfg 'cfg(freebsd14)' --check-cfg 'cfg(freebsd15)' --check-cfg 'cfg(libc_elfv2)' --check-cfg 'cfg(vxworks_lt_25_09)' --check-cfg 'cfg(libc_pauthtest)' --check-cfg 'cfg(gnu_file_offset_bits64)' --check-cfg 'cfg(gnu_time_bits64)' --check-cfg 'cfg(linux_time_bits64)' --check-cfg 'cfg(musl_v1_2)' --check-cfg 'cfg(musl32_time64)' --check-cfg 'cfg(musl_redir_time64)' --check-cfg 'cfg(uclibc32_time64)' --check-cfg 'cfg(target_os,values("switch","aix","ohos","hurd","rtems","visionos","nuttx","cygwin","qurt","qnx","helenos"))' --check-cfg 'cfg(target_env,values("illumos","wasi","aix","ohos","nto71_iosock"))' --check-cfg 'cfg(target_arch,values("loongarch64","mips32r6","mips64r6","csky"))'`
+     Running `/home/starfish/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name proc_macro2 --edition=2021 /home/starfish/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/proc-macro2-1.0.107/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C embed-bitcode=no -C debug-assertions=off --cfg 'feature="default"' --cfg 'feature="proc-macro"' --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("default", "nightly", "proc-macro", "span-locations"))' -C metadata=7611d402720be30d -C extra-filename=-0701bc09aa8ec84f --out-dir /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps -C strip=debuginfo -L dependency=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps --extern unicode_ident=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps/libunicode_ident-943730e1ed924ec7.rmeta --cap-lints allow --cfg wrap_proc_macro --cfg proc_macro_span_location --cfg proc_macro_span_file --check-cfg 'cfg(fuzzing)' --check-cfg 'cfg(no_is_available)' --check-cfg 'cfg(no_literal_byte_character)' --check-cfg 'cfg(no_literal_c_string)' --check-cfg 'cfg(no_source_text)' --check-cfg 'cfg(proc_macro_span)' --check-cfg 'cfg(proc_macro_span_file)' --check-cfg 'cfg(proc_macro_span_location)' --check-cfg 'cfg(procmacro2_backtrace)' --check-cfg 'cfg(procmacro2_build_probe)' --check-cfg 'cfg(procmacro2_nightly_testing)' --check-cfg 'cfg(procmacro2_semver_exempt)' --check-cfg 'cfg(randomize_layout)' --check-cfg 'cfg(span_locations)' --check-cfg 'cfg(super_unstable)' --check-cfg 'cfg(wrap_proc_macro)'`
+     Running `/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/build/portable-atomic-f8b689a6f1f3d247/build-script-build`
+     Running `/home/starfish/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name portable_atomic --edition=2018 /home/starfish/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/portable-atomic-1.15.0/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C opt-level=3 -C embed-bitcode=no '--warn=clippy::unused_trait_names' --warn=unreachable_pub --warn=unnameable_types --warn=unexpected_cfgs '--warn=clippy::undocumented_unsafe_blocks' '--warn=clippy::transmute_undefined_repr' '--warn=clippy::trailing_empty_array' --warn=single_use_lifetimes --warn=rust_2018_idioms '--warn=clippy::pedantic' --warn=non_ascii_idents '--warn=clippy::inline_asm_x86_att_syntax' --warn=improper_ctypes_definitions --warn=improper_ctypes --warn=deprecated_safe '--warn=clippy::default_union_representation' '--warn=clippy::as_underscore' '--warn=clippy::as_ptr_cast_mut' '--warn=clippy::all' '--allow=clippy::type_complexity' '--allow=clippy::too_many_lines' '--allow=clippy::too_many_arguments' '--allow=clippy::struct_field_names' '--allow=clippy::struct_excessive_bools' '--allow=clippy::single_match_else' '--allow=clippy::single_match' '--allow=clippy::similar_names' '--allow=clippy::range_plus_one' '--allow=clippy::nonminimal_bool' '--allow=clippy::naive_bytecount' '--allow=clippy::module_name_repetitions' '--allow=clippy::missing_errors_doc' '--allow=clippy::manual_range_contains' '--allow=clippy::manual_assert' '--allow=clippy::incompatible_msrv' '--allow=clippy::float_cmp' '--allow=clippy::doc_markdown' '--allow=clippy::declare_interior_mutable_const' '--allow=clippy::collapsible_match' '--allow=clippy::cast_lossless' '--allow=clippy::borrow_as_ptr' '--allow=clippy::bool_assert_comparison' '--allow=clippy::assert_is_empty' --check-cfg 'cfg(target_arch,values("xtensa"))' --check-cfg 'cfg(target_arch,values("amdgpu"))' --check-cfg 'cfg(target_arch,values("loongarch32"))' --check-cfg 'cfg(target_os,values("trusty"))' --check-cfg 'cfg(target_os,values("psx"))' --check-cfg 'cfg(target_os,values("zos"))' --check-cfg 'cfg(target_env,values("psx"))' --check-cfg 'cfg(target_feature,values("lse2","lse128","rcpc3"))' --check-cfg 'cfg(target_feature,values("quadword-atomics"))' --check-cfg 'cfg(target_feature,values("zaamo","zabha"))' --check-cfg 'cfg(target_feature,values("zacas"))' --check-cfg 'cfg(target_feature,values("ztso"))' --check-cfg 'cfg(target_feature,values("miscellaneous-extensions-3"))' --check-cfg 'cfg(target_pointer_width,values("128"))' --check-cfg 'cfg(portable_atomic_no_outline_atomics,portable_atomic_outline_atomics,portable_atomic_unstable_f16,portable_atomic_unstable_f128)' --check-cfg 'cfg(portable_atomic_test_detect_false,portable_atomic_test_no_std_static_assert_ffi,qemu,valgrind,valgrind_cross)' --cfg 'feature="default"' --cfg 'feature="fallback"' --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("critical-section", "default", "disable-fiq", "fallback", "float", "force-amo", "require-cas", "s-mode", "serde", "std", "unsafe-assume-privileged", "unsafe-assume-single-core"))' -C metadata=5b93bd0d449dd280 -C extra-filename=-8a3334378d3cf278 --out-dir /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps -C strip=debuginfo -L dependency=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps --cap-lints allow --check-cfg 'cfg(target_feature,values("lsfe","fast-serialization","load-store-on-cond","distinct-ops","rmw"))' --check-cfg 'cfg(portable_atomic_atomic_intrinsics,portable_atomic_disable_fiq,portable_atomic_force_amo,portable_atomic_ll_sc_rmw,portable_atomic_no_asm,portable_atomic_no_asm_maybe_uninit,portable_atomic_no_asm_syscall,portable_atomic_no_atomic_64,portable_atomic_no_atomic_cas,portable_atomic_no_atomic_load_store,portable_atomic_no_atomic_min_max,portable_atomic_no_cfg_target_has_atomic,portable_atomic_no_cmpxchg16b_intrinsic,portable_atomic_no_cmpxchg16b_target_feature,portable_atomic_no_const_mut_refs,portable_atomic_no_const_raw_ptr_deref,portable_atomic_no_const_transmute,portable_atomic_no_core_unwind_safe,portable_atomic_no_diagnostic_namespace,portable_atomic_no_strict_provenance,portable_atomic_no_strict_provenance_atomic_ptr,portable_atomic_no_stronger_failure_ordering,portable_atomic_no_track_caller,portable_atomic_no_unsafe_op_in_unsafe_fn,portable_atomic_pre_llvm_16,portable_atomic_pre_llvm_18,portable_atomic_pre_llvm_20,portable_atomic_s_mode,portable_atomic_sanitize_thread,portable_atomic_target_feature,portable_atomic_unsafe_assume_privileged,portable_atomic_unsafe_assume_single_core,portable_atomic_unstable_asm,portable_atomic_unstable_asm_experimental_arch,portable_atomic_unstable_cfg_target_has_atomic,portable_atomic_unstable_isa_attribute)' --check-cfg 'cfg(portable_atomic_target_feature,values("cmpxchg16b","distinct-ops","fast-serialization","load-store-on-cond","lse","lse128","lse2","lsfe","mclass","miscellaneous-extensions-3","quadword-atomics","rcpc3","rmw","v6","v7","zaamo","zabha","zacas"))'`
+   Compiling arc-swap v1.9.4
+     Running `/home/starfish/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name arc_swap --edition=2018 /home/starfish/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arc-swap-1.9.4/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C opt-level=3 -C embed-bitcode=no --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("experimental-strategies", "experimental-thread-local", "internal-test-strategies", "rwlock-strategy", "serde", "weak"))' -C metadata=c5b588eaa43a181d -C extra-filename=-aa6a454fdc255201 --out-dir /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps -C strip=debuginfo -L dependency=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps --extern rustversion=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps/librustversion-4322c570bc6e2c36.so --cap-lints allow`
+     Running `/home/starfish/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name crossbeam_epoch --edition=2021 /home/starfish/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/crossbeam-epoch-0.9.21/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C opt-level=3 -C embed-bitcode=no --warn=unexpected_cfgs '--allow=clippy::lint_groups_priority' '--allow=clippy::declare_interior_mutable_const' --check-cfg 'cfg(crossbeam_loom)' --check-cfg 'cfg(crossbeam_sanitize)' --cfg 'feature="alloc"' --cfg 'feature="std"' --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("alloc", "default", "loom", "loom-crate", "nightly", "std"))' -C metadata=3196645e4c884514 -C extra-filename=-6ed4f75bc9967c9b --out-dir /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps -C strip=debuginfo -L dependency=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps --extern crossbeam_utils=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps/libcrossbeam_utils-753b498cc1ec1cd1.rmeta --cap-lints allow --check-cfg 'cfg(crossbeam_sanitize_thread)'`
+     Running `/home/starfish/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name quote --edition=2021 /home/starfish/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/quote-1.0.47/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C embed-bitcode=no -C debug-assertions=off --cfg 'feature="default"' --cfg 'feature="proc-macro"' --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("default", "proc-macro"))' -C metadata=4a57a415d667e1d6 -C extra-filename=-6129aa3b994cceea --out-dir /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps -C strip=debuginfo -L dependency=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps --extern proc_macro2=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps/libproc_macro2-0701bc09aa8ec84f.rmeta --cap-lints allow --check-cfg 'cfg(no_diagnostic_namespace)'`
+   Compiling qubit-collections v0.2.4
+     Running `/home/starfish/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name qubit_collections --edition=2024 /home/starfish/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/qubit-collections-0.2.4/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C opt-level=3 -C embed-bitcode=no --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=bd62468cf4bb9402 -C extra-filename=-37efc0616fd54a41 --out-dir /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps -C strip=debuginfo -L dependency=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps --extern hashbrown=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps/libhashbrown-153e1e11d1267911.rmeta --cap-lints allow`
+   Compiling qubit-atomic v0.17.7
+     Running `/home/starfish/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name qubit_atomic --edition=2024 /home/starfish/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/qubit-atomic-0.17.7/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C opt-level=3 -C embed-bitcode=no --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=81dbcf0e61ae900c -C extra-filename=-26544ba51410be93 --out-dir /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps -C strip=debuginfo -L dependency=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps --extern arc_swap=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps/libarc_swap-aa6a454fdc255201.rmeta --extern portable_atomic=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps/libportable_atomic-8a3334378d3cf278.rmeta --cap-lints allow`
+     Running `/home/starfish/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name crossbeam_deque --edition=2021 /home/starfish/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/crossbeam-deque-0.8.8/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C opt-level=3 -C embed-bitcode=no --warn=unexpected_cfgs '--allow=clippy::lint_groups_priority' '--allow=clippy::declare_interior_mutable_const' --check-cfg 'cfg(crossbeam_loom)' --check-cfg 'cfg(crossbeam_sanitize)' --cfg 'feature="default"' --cfg 'feature="std"' --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("default", "std"))' -C metadata=9633dade2f7c6069 -C extra-filename=-37eaa8114a99a313 --out-dir /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps -C strip=debuginfo -L dependency=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps --extern crossbeam_epoch=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps/libcrossbeam_epoch-6ed4f75bc9967c9b.rmeta --extern crossbeam_utils=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps/libcrossbeam_utils-753b498cc1ec1cd1.rmeta --cap-lints allow --check-cfg 'cfg(crossbeam_sanitize_thread)'`
+   Compiling syn v3.0.9
+     Running `/home/starfish/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name syn --edition=2021 /home/starfish/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/syn-3.0.9/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C embed-bitcode=no -C debug-assertions=off --cfg 'feature="clone-impls"' --cfg 'feature="default"' --cfg 'feature="derive"' --cfg 'feature="parsing"' --cfg 'feature="printing"' --cfg 'feature="proc-macro"' --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("clone-impls", "default", "derive", "extra-traits", "fold", "full", "parsing", "printing", "proc-macro", "test", "visit", "visit-mut"))' -C metadata=29290171f4f5b01e -C extra-filename=-f2612e67e5fc41fb --out-dir /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps -C strip=debuginfo -L dependency=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps --extern proc_macro2=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps/libproc_macro2-0701bc09aa8ec84f.rmeta --extern quote=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps/libquote-6129aa3b994cceea.rmeta --extern unicode_ident=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps/libunicode_ident-943730e1ed924ec7.rmeta --cap-lints allow`
+     Running `/home/starfish/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name parking_lot_core --edition=2021 /home/starfish/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/parking_lot_core-0.9.12/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C opt-level=3 -C embed-bitcode=no --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("backtrace", "deadlock_detection", "nightly", "petgraph"))' -C metadata=20d5f138800ee74b -C extra-filename=-1494e3793812a2ad --out-dir /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps -C strip=debuginfo -L dependency=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps --extern cfg_if=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps/libcfg_if-e29f15447b0a0c58.rmeta --extern libc=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps/liblibc-38a2bd12dce32a8a.rmeta --extern smallvec=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps/libsmallvec-2fab9cab7cbfb201.rmeta --cap-lints allow --check-cfg 'cfg(tsan_enabled)'`
+   Compiling parking_lot v0.12.5
+     Running `/home/starfish/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name parking_lot --edition=2021 /home/starfish/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/parking_lot-0.12.5/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C opt-level=3 -C embed-bitcode=no --cfg 'feature="default"' --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("arc_lock", "deadlock_detection", "default", "hardware-lock-elision", "nightly", "owning_ref", "send_guard", "serde"))' -C metadata=ef8ca3a7134665fa -C extra-filename=-a83e102705d3230f --out-dir /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps -C strip=debuginfo -L dependency=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps --extern lock_api=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps/liblock_api-52c2a7b84d1b49e5.rmeta --extern parking_lot_core=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps/libparking_lot_core-1494e3793812a2ad.rmeta --cap-lints allow`
+   Compiling thiserror-impl v2.0.21
+     Running `/home/starfish/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name thiserror_impl --edition=2021 /home/starfish/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-impl-2.0.21/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type proc-macro --emit=dep-info,link -C prefer-dynamic -C embed-bitcode=no -C debug-assertions=off --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=39a03541214079a5 -C extra-filename=-f632a2d270338a03 --out-dir /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps -C strip=debuginfo -L dependency=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps --extern proc_macro2=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps/libproc_macro2-0701bc09aa8ec84f.rlib --extern quote=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps/libquote-6129aa3b994cceea.rlib --extern syn=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps/libsyn-f2612e67e5fc41fb.rlib --extern proc_macro --cap-lints allow`
+     Running `/home/starfish/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name thiserror --edition=2021 /home/starfish/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.21/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C opt-level=3 -C embed-bitcode=no --cfg 'feature="default"' --cfg 'feature="std"' --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("default", "std"))' -C metadata=1e2138e844ff30ab -C extra-filename=-9d2c36b8389e1967 --out-dir /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps -C strip=debuginfo -L dependency=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps --extern thiserror_impl=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps/libthiserror_impl-f632a2d270338a03.so --cap-lints allow --check-cfg 'cfg(error_generic_member_access)' --check-cfg 'cfg(thiserror_nightly_testing)' --check-cfg 'cfg(thiserror_no_backtrace_type)'`
+   Compiling qubit-clock v0.13.5
+   Compiling qubit-state-machine v0.11.3
+     Running `/home/starfish/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name qubit_clock --edition=2024 /home/starfish/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/qubit-clock-0.13.5/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C opt-level=3 -C embed-bitcode=no --warn=unexpected_cfgs --check-cfg 'cfg(coverage)' --check-cfg 'cfg(loom)' --check-cfg 'cfg(tokio_unstable)' --cfg 'feature="default"' --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("default", "loom-model", "test-util", "tokio"))' -C metadata=ad2026caf21cd6f8 -C extra-filename=-eb3d3da4d39c27db --out-dir /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps -C strip=debuginfo -L dependency=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps --extern qubit_collections=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps/libqubit_collections-37efc0616fd54a41.rmeta --extern thiserror=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps/libthiserror-9d2c36b8389e1967.rmeta --cap-lints allow`
+     Running `/home/starfish/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name qubit_state_machine --edition=2024 /home/starfish/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/qubit-state-machine-0.11.3/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C opt-level=3 -C embed-bitcode=no --warn=unexpected_cfgs --check-cfg 'cfg(coverage)' --cfg 'feature="fast"' --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("default", "fast", "standard"))' -C metadata=e4eade51497ae799 -C extra-filename=-9e0f848fe9c316c2 --out-dir /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps -C strip=debuginfo -L dependency=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps --extern qubit_fast_cas=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps/libqubit_fast_cas-19ee5924b1d0a184.rmeta --extern thiserror=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps/libthiserror-9d2c36b8389e1967.rmeta --cap-lints allow`
+   Compiling qubit-lock v0.14.5
+     Running `/home/starfish/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name qubit_lock --edition=2024 /home/starfish/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/qubit-lock-0.14.5/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C opt-level=3 -C embed-bitcode=no --warn=unexpected_cfgs --check-cfg 'cfg(loom)' --cfg 'feature="monitor"' --cfg 'feature="parking-lot"' --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("async-lock", "async-monitor", "default", "loom-model", "monitor", "parking-lot"))' -C metadata=bf6c01efff8c8ed2 -C extra-filename=-481945dd37b052d6 --out-dir /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps -C strip=debuginfo -L dependency=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps --extern parking_lot=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps/libparking_lot-a83e102705d3230f.rmeta --extern qubit_clock=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps/libqubit_clock-eb3d3da4d39c27db.rmeta --cap-lints allow`
+   Compiling qubit-executor v0.9.0
+     Running `/home/starfish/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name qubit_executor --edition=2024 /home/starfish/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/qubit-executor-0.9.0/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C opt-level=3 -C embed-bitcode=no --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=b11ef1996ac9e2cf -C extra-filename=-ba3870973818909b --out-dir /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps -C strip=debuginfo -L dependency=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps --extern log=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps/liblog-6af8bdd29bb1168c.rmeta --extern oneshot=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps/liboneshot-0cfd8351c466c6d3.rmeta --extern parking_lot=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps/libparking_lot-a83e102705d3230f.rmeta --extern qubit_atomic=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps/libqubit_atomic-26544ba51410be93.rmeta --extern qubit_collections=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps/libqubit_collections-37efc0616fd54a41.rmeta --extern qubit_fast_cas=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps/libqubit_fast_cas-19ee5924b1d0a184.rmeta --extern qubit_function=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps/libqubit_function-51303dede53f5170.rmeta --extern qubit_lock=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps/libqubit_lock-481945dd37b052d6.rmeta --extern qubit_state_machine=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps/libqubit_state_machine-9e0f848fe9c316c2.rmeta --extern thiserror=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps/libthiserror-9d2c36b8389e1967.rmeta --cap-lints allow`
+   Compiling qubit-thread-pool v0.12.1 (/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109)
+     Running `/home/starfish/.rustup/toolchains/1.94.0-x86_64-unknown-linux-gnu/bin/rustc --crate-name qubit_thread_pool --edition=2024 src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C opt-level=3 -C embed-bitcode=no --warn=unexpected_cfgs --check-cfg 'cfg(coverage)' --check-cfg 'cfg(loom)' --cfg 'feature="default"' --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("async-wait", "default", "loom-model"))' -C metadata=2465c5860fc58e31 -C extra-filename=-21ab84891dff7470 --out-dir /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps -C strip=debuginfo -L dependency=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps --extern crossbeam_deque=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps/libcrossbeam_deque-37eaa8114a99a313.rmeta --extern qubit_argument=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps/libqubit_argument-5a54757621ce19fe.rmeta --extern qubit_executor=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps/libqubit_executor-ba3870973818909b.rmeta --extern qubit_function=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps/libqubit_function-51303dede53f5170.rmeta --extern qubit_lock=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps/libqubit_lock-481945dd37b052d6.rmeta --extern thiserror=/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps/libthiserror-9d2c36b8389e1967.rmeta`
+    Finished `release` profile [optimized] target(s) in 6.63s
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling unicode-ident v1.0.27
+   Compiling thiserror v2.0.21
+   Compiling libc v0.2.191
+   Compiling parking_lot_core v0.9.12
+   Compiling rustversion v1.0.23
+   Compiling crossbeam-utils v0.8.23
+   Compiling portable-atomic v1.15.0
+    Checking smallvec v1.16.5
+    Checking scopeguard v1.2.0
+    Checking cfg-if v1.0.5
+    Checking hashbrown v0.17.1
+   Compiling crossbeam-epoch v0.9.21
+    Checking qubit-fast-cas v0.3.3
+   Compiling crossbeam-deque v0.8.8
+    Checking qubit-function v0.18.4
+    Checking oneshot v0.2.1
+    Checking log v0.4.35
+    Checking qubit-argument v0.4.10
+    Checking lock_api v0.4.14
+    Checking qubit-collections v0.2.4
+    Checking arc-swap v1.9.4
+    Checking qubit-atomic v0.17.7
+   Compiling syn v3.0.9
+    Checking parking_lot v0.12.5
+   Compiling thiserror-impl v2.0.21
+    Checking qubit-clock v0.13.5
+    Checking qubit-state-machine v0.11.3
+    Checking qubit-lock v0.14.5
+    Checking qubit-executor v0.9.0
+    Checking qubit-thread-pool v0.12.1 (/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 6.82s
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+   Compiling syn v3.0.9
+   Compiling cfg-if v1.0.5
+   Compiling crossbeam-utils v0.8.23
+   Compiling serde_core v1.0.229
+   Compiling syn v2.0.119
+   Compiling zerocopy v0.8.63
+   Compiling shlex v2.0.1
+   Compiling hashbrown v0.17.1
+   Compiling scopeguard v1.2.0
+   Compiling serde v1.0.229
+   Compiling autocfg v1.5.1
+   Compiling zmij v1.0.23
+   Compiling smallvec v1.16.5
+   Compiling find-msvc-tools v0.1.15
+   Compiling serde_json v1.0.154
+   Compiling rayon-core v1.13.0
+   Compiling either v1.19.0
+   Compiling anstyle v1.0.14
+   Compiling ciborium-io v0.2.2
+   Compiling memchr v2.8.3
+   Compiling qubit-fast-cas v0.3.3
+   Compiling plotters-backend v0.3.7
+   Compiling regex-syntax v0.8.11
+   Compiling itoa v1.0.19
+   Compiling clap_lex v1.1.1
+   Compiling same-file v1.0.6
+   Compiling cast v0.3.0
+   Compiling log v0.4.35
+   Compiling oneshot v0.2.1
+   Compiling qubit-function v0.18.4
+   Compiling qubit-argument v0.4.10
+   Compiling oorandom v11.1.5
+   Compiling pin-project-lite v0.2.17
+   Compiling anes v0.1.6
+   Compiling libc v0.2.191
+   Compiling portable-atomic v1.15.0
+   Compiling arc-swap v1.9.4
+   Compiling lock_api v0.4.14
+   Compiling walkdir v2.5.0
+   Compiling plotters-svg v0.3.7
+   Compiling clap_builder v4.6.7
+   Compiling cc v1.11.1
+   Compiling itertools v0.13.0
+   Compiling num-traits v0.2.19
+   Compiling qubit-atomic v0.17.7
+   Compiling crossbeam-epoch v0.9.21
+   Compiling qubit-collections v0.2.4
+   Compiling crossbeam-deque v0.8.8
+   Compiling regex-automata v0.4.18
+   Compiling parking_lot_core v0.9.12
+   Compiling num_cpus v1.17.0
+   Compiling page_size v0.6.0
+   Compiling plotters v0.3.7
+   Compiling rayon v1.12.0
+   Compiling threadpool v1.8.1
+   Compiling parking_lot v0.12.5
+   Compiling alloca v0.4.0
+   Compiling criterion-plot v0.8.2
+   Compiling clap v4.6.7
+   Compiling regex v1.13.1
+   Compiling zerocopy-derive v0.8.63
+   Compiling thiserror-impl v2.0.21
+   Compiling serde_derive v1.0.229
+   Compiling tokio-macros v2.7.2
+   Compiling tokio v1.54.1
+   Compiling thiserror v2.0.21
+   Compiling qubit-clock v0.13.5
+   Compiling qubit-state-machine v0.11.3
+   Compiling qubit-lock v0.14.5
+   Compiling qubit-executor v0.9.0
+   Compiling qubit-thread-pool v0.12.1 (/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109)
+   Compiling tinytemplate v1.2.1
+   Compiling half v2.7.1
+   Compiling ciborium-ll v0.2.2
+   Compiling ciborium v0.2.2
+   Compiling criterion v0.8.2
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 20.02s
+     Running unittests src/lib.rs (target/infra-feature-matrix/debug/deps/qubit_thread_pool-2bb26c8c05199e7b)
+
+running 36 tests
+test dynamic::thread_pool_inner::tests::test_acceptance_guard_unwind_releases_slot_and_rejects_entry ... ok
+test dynamic::thread_pool_inner::tests::test_submit_with_state_lock_rejects_stopping_state ... ok
+test fixed::fixed_thread_pool_inner::tests::test_acceptance_panic_discards_job_and_contains_run_capture_drop_panic ... ok
+test dynamic::thread_pool_inner::tests::test_worker_reservation_rolls_back_during_unwind ... ok
+test fixed::fixed_thread_pool_inner::tests::test_acceptance_slot_guard_unwind_releases_slot ... ok
+test fixed::fixed_thread_pool_inner::tests::test_fixed_accept_panic_drops_job_without_leaking_state ... ok
+test fixed::fixed_thread_pool_inner::tests::test_acceptance_panic_discards_job_and_contains_cancel_capture_drop_panic ... ok
+test dynamic::thread_pool_inner::tests::test_ticket_cancel_reservation_precedes_accept_success_and_duplicate ... ok
+test dynamic::thread_pool_inner::tests::test_ticket_cancel_reservation_precedes_accept_panic ... ok
+test fixed::fixed_thread_pool_inner::tests::test_saturated_rejection_contains_run_capture_drop_panic ... ok
+test fixed::fixed_thread_pool_inner::tests::test_saturated_rejection_contains_cancel_capture_drop_panic ... ok
+test dynamic::thread_pool_inner::tests::test_stop_report_excludes_ticket_cancellation_after_stop_snapshot ... ok
+test fixed::fixed_thread_pool_inner::tests::test_shutdown_rejection_contains_cancel_capture_drop_panic ... ok
+test fixed::fixed_thread_pool_inner::tests::test_shutdown_rejection_contains_run_capture_drop_panic ... ok
+test internal::panic_boundary::tests::test_panicking_payload_destructor_is_contained ... ok
+test tests::internal::admission_gate_tests::test_closes_after_existing_submitter_leaves ... ok
+test tests::internal::pool_accounting_tests::test_accepted_job_runs_to_completion ... ok
+test tests::internal::pool_accounting_tests::test_cancel_rejects_queued_task_underflow - should panic ... ok
+test tests::internal::pool_accounting_tests::test_admission_remains_busy_until_last_submitter_leaves ... ok
+test tests::internal::admission_gate_tests::test_concurrent_close_never_allows_entry_after_close ... ok
+test fixed::fixed_worker::tests::test_worker_contains_cancel_capture_drop_panic_with_task_hooks ... ok
+test tests::internal::pool_accounting_tests::test_finish_rejects_cancelling_task_underflow - should panic ... ok
+test tests::internal::pool_accounting_tests::test_cancelled_job_releases_reserved_slot ... ok
+test tests::internal::pool_accounting_tests::test_finish_rejects_running_task_underflow - should panic ... ok
+test tests::internal::pool_accounting_tests::test_rollback_and_handoff_preserve_capacity ... ok
+test tests::internal::pool_accounting_tests::test_rollback_rejects_queue_slot_underflow - should panic ... ok
+test tests::internal::pool_accounting_tests::test_claim_rejects_queued_task_underflow - should panic ... ok
+test fixed::fixed_worker::tests::test_worker_contains_cancel_capture_drop_panic_without_task_hooks ... ok
+test tests::pool_job_tests::test_pool_job_run_cancel_and_discard_contain_panicking_payloads ... ok
+test dynamic::thread_pool_inner::tests::test_dynamic_worker_wake_with_older_termination_waiter ... ok
+test tests::pool_job_tests::test_ticket_reserved_cancellation_contains_capture_drop_panic_and_wakes_waiter ... ok
+test tests::pool_job_tests::test_ticket_reserved_during_accept_never_publishes_to_worker ... ok
+test tests::pool_job_tests::test_ticket_rejection_contains_capture_drop_panic ... ok
+test fixed::fixed_thread_pool_inner::tests::test_fixed_worker_wake_with_older_termination_waiter ... ok
+test fixed::fixed_thread_pool_inner::tests::test_stop_reports_worker_side_cancel_after_stop_now ... ok
+test fixed::fixed_thread_pool_inner::tests::test_fixed_stop_waits_for_cancel_callback ... ok
+
+test result: ok. 36 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running tests/lib_tests.rs (target/infra-feature-matrix/debug/deps/lib_tests-9c524110a74be76d)
+
+running 115 tests
+test dynamic::mod_tests::test_dynamic_module_exports_thread_pool_entrypoint ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_builder_rejects_nul_thread_name_prefix_without_panicking ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_bounded_queue_rejects_when_saturated ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_builder_rejects_invalid_configuration ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_prestart_core_thread_reports_state ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_prestart_reports_build_spawn_failure ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_excess_workers_retire_after_maximum_size_decreases ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_unbounded_queue_keeps_core_limit ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_prestarts_core_workers ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_prestart_all_core_threads_reports_state ... ok
+test dynamic::thread_pool_failure_tests::test_rejected_execution_compares_by_variant ... ok
+test dynamic::thread_pool_failure_tests::test_thread_pool_cancels_queued_job_when_initial_worker_spawn_fails ... ok
+test dynamic::thread_pool_config_tests::test_thread_pool_config_is_reflected_by_builder_and_stats ... ok
+test dynamic::thread_pool_failure_tests::test_thread_pool_reports_worker_spawn_failure ... ok
+test dynamic::thread_pool_failure_tests::test_thread_pool_spawn_failure_does_not_accept_or_cancel_direct_job ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_builder_accepts_unicode_and_empty_thread_name_prefix ... ok
+test dynamic::thread_pool_failure_tests::test_thread_pool_spawn_failure_does_not_accept_or_cancel_queued_start_job ... ok
+test dynamic::thread_pool_hooks_tests::test_thread_pool_ordinary_hook_panic_payload_is_dropped ... ok
+test dynamic::thread_pool_hooks_tests::test_thread_pool_runs_configured_hooks ... ok
+test dynamic::thread_pool_lifecycle_tests::test_thread_pool_lifecycle_accessors_report_running_shutdown_and_terminated ... ok
+test dynamic::thread_pool_hooks_tests::test_thread_pool_nested_hook_payload_destructor_panic_is_contained ... ok
+test dynamic::thread_pool_hooks_tests::test_thread_pool_runs_task_hooks_for_queued_jobs ... ok
+test dynamic::thread_pool_inner_tests::test_thread_pool_inner_tracks_running_queued_and_completed_counts ... ok
+test dynamic::thread_pool_lifecycle_tests::test_thread_pool_wait_termination_timeout_handles_max_duration ... ok
+test dynamic::thread_pool_shutdown_tests::test_thread_pool_shutdown_rejects_new_tasks ... ok
+test dynamic::thread_pool_lifecycle_tests::test_thread_pool_lifecycle_reports_shutting_down_with_running_work ... ok
+test dynamic::thread_pool_shutdown_tests::test_thread_pool_submit_and_join_wait_for_detached_task ... ok
+test dynamic::thread_pool_shutdown_tests::test_thread_pool_shutdown_drains_queued_tasks ... ok
+test dynamic::thread_pool_shutdown_tests::test_lazy_pool_accept_shutdown_still_runs_job ... ok
+test dynamic::thread_pool_state_tests::test_thread_pool_state_reports_queue_saturation_and_shutdown_cancellation ... ok
+test dynamic::thread_pool_shutdown_tests::test_lazy_pool_shutdown_during_acceptance_still_runs_job ... ok
+test dynamic::thread_pool_stop_tests::test_thread_pool_stop_after_shutdown_is_idempotent ... ok
+test dynamic::thread_pool_stop_tests::test_thread_pool_stop_is_idempotent_from_stopping ... ok
+test dynamic::thread_pool_hooks_tests::test_thread_pool_hook_payload_destructor_panic_is_contained ... ok
+test dynamic::thread_pool_stop_tests::test_thread_pool_cancel_before_start_reports_cancelled ... ok
+test dynamic::thread_pool_stop_tests::test_thread_pool_stop_cancels_queued_tasks ... ok
+test dynamic::thread_pool_submission_tests::test_thread_pool_accessors_and_dynamic_settings ... ok
+test dynamic::thread_pool_stop_tests::test_stop_cancels_spawned_worker_job_while_acceptance_is_inflight ... ok
+test dynamic::thread_pool_submission_tests::test_lazy_pool_acceptance_runs_on_submitter_thread ... ok
+test fixed::fixed_thread_pool_builder_tests::test_fixed_thread_pool_builder_rejects_invalid_configuration ... ok
+test fixed::fixed_thread_pool_builder_tests::test_fixed_thread_pool_builder_sets_thread_options ... ok
+test dynamic::thread_pool_submission_tests::test_thread_pool_submit_custom_job_accepts_and_cancels_queued_job ... ok
+test dynamic::thread_pool_submission_tests::test_thread_pool_core_size_update_grows_next_submission ... ok
+test dynamic::thread_pool_stop_tests::test_thread_pool_stop_does_not_report_ticket_cancellation_as_its_own ... ok
+test dynamic::thread_pool_stop_tests::test_thread_pool_repeated_stop_does_not_recount_in_progress_cancellation ... ok
+test dynamic::thread_pool_submission_tests::test_thread_pool_submit_callable_returns_value ... ok
+test dynamic::thread_pool_submission_tests::test_ticket_acceptance_panic_and_rejection_never_cancel ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_bounded_queue_rejects_when_saturated ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_cancel_before_start_reports_cancelled ... ok
+test dynamic::thread_pool_submission_tests::test_thread_pool_bounded_submit_queues_when_worker_busy ... ok
+test dynamic::thread_pool_submission_tests::test_ticket_cancel_contains_run_capture_drop_panic_and_finishes_accounting ... ok
+test dynamic::thread_pool_submission_tests::test_thread_pool_submit_custom_job_runs_job ... ok
+test fixed::fixed_thread_pool_builder_tests::test_fixed_thread_pool_builder_rejects_nul_thread_name_prefix_without_panicking ... ok
+test dynamic::thread_pool_submission_tests::test_thread_pool_handle_can_be_awaited ... ok
+test dynamic::thread_pool_submission_tests::test_ticket_cancel_during_accept_waits_and_releases_captures ... ok
+test dynamic::thread_pool_submission_tests::test_ticket_cancel_releases_capture_capacity_and_preserves_fifo ... ok
+test fixed::fixed_thread_pool_builder_tests::test_fixed_thread_pool_builder_reports_worker_spawn_failure ... ok
+test fixed::fixed_thread_pool_lifecycle_tests::test_fixed_thread_pool_wait_termination_timeout_handles_max_duration ... ok
+test dynamic::thread_pool_submission_tests::test_ticket_worker_claim_wins_before_cancellation ... ok
+test fixed::fixed_thread_pool_state_tests::test_fixed_thread_pool_state_is_reflected_in_stats ... ok
+test fixed::fixed_thread_pool_lifecycle_tests::test_fixed_thread_pool_lifecycle_reports_shutdown_and_termination ... ok
+test dynamic::thread_pool_submission_tests::test_ticket_cancel_callback_can_submit_to_same_queue ... ok
+test dynamic::thread_pool_submission_tests::test_ticket_removal_preserves_remaining_fifo_order ... ok
+test dynamic::thread_pool_submission_tests::test_thread_pool_direct_accept_can_reenter_pool_without_deadlock ... ok
+test dynamic::thread_pool_worker_tests::test_worker_runs_job_on_named_worker_thread ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_shutdown_drains_queued_tasks ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_handle_can_be_awaited ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_join_waits_for_detached_task_without_shutdown ... ok
+test dynamic::thread_pool_submission_tests::test_thread_pool_submit_acceptance_is_not_task_success ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_submit_acceptance_is_not_task_success ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_hook_payload_destructor_panic_is_contained ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_runs_configured_hooks ... ok
+test dynamic::thread_pool_failure_tests::test_custom_task_contains_unused_callback_capture_drop_panics ... ok
+test fixed::fixed_worker_tests::test_fixed_worker_runs_public_submitted_task ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_shutdown_rejects_new_tasks ... ok
+test test_lib_exports_primary_executor_types ... ok
+test fixed::fixed_worker_runtime_tests::test_fixed_worker_runtime_uses_configured_thread_name_prefix ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_submit_callable_returns_value ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_shutdown_rejection_contains_task_capture_drop_panic ... ok
+test fixed::fixed_thread_pool_inner_tests::test_fixed_thread_pool_inner_tracks_public_task_counts ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_stop_cancels_queued_tasks ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_large_pool_runs_global_queue_tasks ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_multiple_workers_drain_global_queue ... ok
+test fixed::fixed_thread_pool_builder_tests::test_fixed_thread_pool_builder_accepts_unicode_and_empty_thread_name_prefix ... ok
+test dynamic::thread_pool_submission_tests::test_ticket_stop_claim_wins_before_ticket_cancellation ... ok
+test fixed::mod_tests::test_fixed_module_exports_thread_pool_entrypoint ... ok
+test dynamic::thread_pool_shutdown_tests::test_thread_pool_accept_callback_can_request_shutdown ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_default_uses_builder_defaults ... ok
+test dynamic::thread_pool_shutdown_tests::test_thread_pool_shutdown_returns_before_inflight_accept_then_drains ... ok
+test dynamic::thread_pool_submission_tests::test_thread_pool_blocked_accept_does_not_hold_state_lock ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_stop_cancels_queued_batch ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_large_pool_uses_global_queue_stop ... ok
+test dynamic::thread_pool_submission_tests::test_thread_pool_submit_wakes_prestarted_idle_worker ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_default_executes_tasks ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_builder_sets_unbounded_queue_and_thread_options ... ok
+test dynamic::thread_pool_failure_tests::test_thread_pool_custom_job_panic_does_not_kill_worker_or_leak_running_count ... ok
+test dynamic::thread_pool_failure_tests::test_thread_pool_queued_accept_panic_does_not_unwind_or_leak_state ... ok
+test dynamic::thread_pool_failure_tests::test_thread_pool_initial_accept_panic_does_not_kill_worker_or_leak_running_count ... ok
+test dynamic::thread_pool_hooks_tests::test_termination_waits_for_shutdown_exit_hook ... ok
+test dynamic::thread_pool_failure_tests::test_thread_pool_stop_contains_custom_cancel_panic ... ok
+test dynamic::thread_pool_state_tests::test_termination_waits_for_stop_exit_hook ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_join_waits_for_running_and_queued_tasks ... ok
+test dynamic::thread_pool_hooks_tests::test_termination_waits_for_all_concurrent_exit_hooks ... ok
+test dynamic::thread_pool_state_tests::test_termination_waits_for_core_timeout_exit_hook_before_shutdown ... ok
+test dynamic::thread_pool_submission_tests::test_ticket_cancel_races_worker_claim_and_stop_once ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_grows_above_core_when_queue_is_full ... ok
+test dynamic::thread_pool_shutdown_tests::test_thread_pool_wait_termination_waits_for_custom_cancel_callback ... ok
+test dynamic::thread_pool_shutdown_tests::test_ticket_cancellation_keeps_join_and_shutdown_busy_until_callback_returns ... ok
+test dynamic::thread_pool_submission_tests::test_concurrent_core_size_updates_keep_values_within_bounds ... ok
+test dynamic::thread_pool_hooks_tests::test_termination_waits_for_core_size_shrink_exit_hooks_and_preserves_capacity ... ok
+test dynamic::thread_pool_stop_tests::test_thread_pool_stop_waits_for_inflight_accept_then_cancels ... ok
+test dynamic::thread_pool_submission_tests::test_lazy_pool_keeps_worker_alive_during_acceptance ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_core_threads_can_timeout ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_wait_termination_waits_for_running_task ... ok
+test dynamic::thread_pool_submission_tests::test_ticket_cancel_reservation_and_capture_drop_hold_capacity_and_termination ... ok
+
+test result: ok. 115 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
+
+     Running tests/thread_pool_hooks_tests.rs (target/infra-feature-matrix/debug/deps/thread_pool_hooks_tests-523ccc35605ff7e0)
+
+running 1 test
+test test_thread_pool_hooks_builder_and_debug ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/thread_pool_stats_tests.rs (target/infra-feature-matrix/debug/deps/thread_pool_stats_tests-65562f7aa7fd475f)
+
+running 5 tests
+test test_thread_pool_stats_default_uses_empty_running_snapshot ... ok
+test test_dynamic_and_fixed_stats_report_unbounded_queue_capacity ... ok
+test test_fixed_stats_report_completed_tasks_after_termination ... ok
+test test_thread_pool_stats_reflect_configuration ... ok
+test test_dynamic_stats_report_completed_tasks_after_termination ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests qubit_thread_pool
+
+running 10 tests
+test src/dynamic/thread_pool.rs - dynamic::thread_pool::ThreadPool (line 45) ... ok
+test src/lib.rs - (line 21) ... ok
+test src/dynamic/thread_pool_builder.rs - dynamic::thread_pool_builder::ThreadPoolBuilder (line 36) ... ok
+test src/pool_job.rs - pool_job::PoolJob (line 30) ... ok
+test src/thread_pool_hooks.rs - thread_pool_hooks::ThreadPoolHooks (line 29) ... ok
+test src/fixed/fixed_thread_pool_builder.rs - fixed::fixed_thread_pool_builder::FixedThreadPoolBuilder (line 30) ... ok
+test src/fixed/fixed_thread_pool.rs - fixed::fixed_thread_pool::FixedThreadPool (line 39) ... ok
+test src/pool_job_submission_error.rs - pool_job_submission_error::PoolJobSubmissionError (line 15) ... ok
+test src/thread_pool_stats.rs - thread_pool_stats::ThreadPoolStats (line 19) ... ok
+test src/pool_job_ticket.rs - pool_job_ticket::PoolJobTicket (line 23) ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+all doctests ran in 0.45s; merged doctests compilation took 0.44s
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+ Documenting qubit-thread-pool v0.12.1 (/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.21s
+   Generated /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/infra-feature-matrix/doc/qubit_thread_pool/index.html
+    Checking qubit-thread-pool v0.12.1 (/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.39s
+   Compiling qubit-thread-pool v0.12.1 (/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.84s
+     Running unittests src/lib.rs (target/infra-feature-matrix/debug/deps/qubit_thread_pool-078aee7feb6f20cf)
+
+running 36 tests
+test dynamic::thread_pool_inner::tests::test_acceptance_guard_unwind_releases_slot_and_rejects_entry ... ok
+test dynamic::thread_pool_inner::tests::test_submit_with_state_lock_rejects_stopping_state ... ok
+test dynamic::thread_pool_inner::tests::test_worker_reservation_rolls_back_during_unwind ... ok
+test fixed::fixed_thread_pool_inner::tests::test_acceptance_panic_discards_job_and_contains_run_capture_drop_panic ... ok
+test fixed::fixed_thread_pool_inner::tests::test_fixed_accept_panic_drops_job_without_leaking_state ... ok
+test fixed::fixed_thread_pool_inner::tests::test_acceptance_slot_guard_unwind_releases_slot ... ok
+test fixed::fixed_thread_pool_inner::tests::test_acceptance_panic_discards_job_and_contains_cancel_capture_drop_panic ... ok
+test fixed::fixed_thread_pool_inner::tests::test_saturated_rejection_contains_cancel_capture_drop_panic ... ok
+test dynamic::thread_pool_inner::tests::test_ticket_cancel_reservation_precedes_accept_success_and_duplicate ... ok
+test dynamic::thread_pool_inner::tests::test_stop_report_excludes_ticket_cancellation_after_stop_snapshot ... ok
+test fixed::fixed_thread_pool_inner::tests::test_saturated_rejection_contains_run_capture_drop_panic ... ok
+test dynamic::thread_pool_inner::tests::test_ticket_cancel_reservation_precedes_accept_panic ... ok
+test fixed::fixed_thread_pool_inner::tests::test_shutdown_rejection_contains_cancel_capture_drop_panic ... ok
+test fixed::fixed_thread_pool_inner::tests::test_shutdown_rejection_contains_run_capture_drop_panic ... ok
+test tests::internal::admission_gate_tests::test_closes_after_existing_submitter_leaves ... ok
+test internal::panic_boundary::tests::test_panicking_payload_destructor_is_contained ... ok
+test tests::internal::pool_accounting_tests::test_accepted_job_runs_to_completion ... ok
+test tests::internal::pool_accounting_tests::test_admission_remains_busy_until_last_submitter_leaves ... ok
+test tests::internal::admission_gate_tests::test_concurrent_close_never_allows_entry_after_close ... ok
+test tests::internal::pool_accounting_tests::test_cancelled_job_releases_reserved_slot ... ok
+test fixed::fixed_worker::tests::test_worker_contains_cancel_capture_drop_panic_without_task_hooks ... ok
+test tests::internal::pool_accounting_tests::test_cancel_rejects_queued_task_underflow - should panic ... ok
+test tests::internal::pool_accounting_tests::test_finish_rejects_cancelling_task_underflow - should panic ... ok
+test tests::internal::pool_accounting_tests::test_finish_rejects_running_task_underflow - should panic ... ok
+test tests::internal::pool_accounting_tests::test_claim_rejects_queued_task_underflow - should panic ... ok
+test tests::internal::pool_accounting_tests::test_rollback_and_handoff_preserve_capacity ... ok
+test tests::internal::pool_accounting_tests::test_rollback_rejects_queue_slot_underflow - should panic ... ok
+test tests::pool_job_tests::test_pool_job_run_cancel_and_discard_contain_panicking_payloads ... ok
+test dynamic::thread_pool_inner::tests::test_dynamic_worker_wake_with_older_termination_waiter ... ok
+test fixed::fixed_worker::tests::test_worker_contains_cancel_capture_drop_panic_with_task_hooks ... ok
+test fixed::fixed_thread_pool_inner::tests::test_fixed_worker_wake_with_older_termination_waiter ... ok
+test tests::pool_job_tests::test_ticket_reserved_cancellation_contains_capture_drop_panic_and_wakes_waiter ... ok
+test tests::pool_job_tests::test_ticket_rejection_contains_capture_drop_panic ... ok
+test tests::pool_job_tests::test_ticket_reserved_during_accept_never_publishes_to_worker ... ok
+test fixed::fixed_thread_pool_inner::tests::test_stop_reports_worker_side_cancel_after_stop_now ... ok
+test fixed::fixed_thread_pool_inner::tests::test_fixed_stop_waits_for_cancel_callback ... ok
+
+test result: ok. 36 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running tests/lib_tests.rs (target/infra-feature-matrix/debug/deps/lib_tests-7657cd920a30bec5)
+
+running 115 tests
+test dynamic::mod_tests::test_dynamic_module_exports_thread_pool_entrypoint ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_builder_rejects_nul_thread_name_prefix_without_panicking ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_bounded_queue_rejects_when_saturated ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_builder_rejects_invalid_configuration ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_builder_accepts_unicode_and_empty_thread_name_prefix ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_prestart_reports_build_spawn_failure ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_prestart_all_core_threads_reports_state ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_prestart_core_thread_reports_state ... ok
+test dynamic::thread_pool_config_tests::test_thread_pool_config_is_reflected_by_builder_and_stats ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_unbounded_queue_keeps_core_limit ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_prestarts_core_workers ... ok
+test dynamic::thread_pool_failure_tests::test_rejected_execution_compares_by_variant ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_excess_workers_retire_after_maximum_size_decreases ... ok
+test dynamic::thread_pool_failure_tests::test_thread_pool_cancels_queued_job_when_initial_worker_spawn_fails ... ok
+test dynamic::thread_pool_failure_tests::test_thread_pool_reports_worker_spawn_failure ... ok
+test dynamic::thread_pool_failure_tests::test_thread_pool_spawn_failure_does_not_accept_or_cancel_direct_job ... ok
+test dynamic::thread_pool_failure_tests::test_thread_pool_spawn_failure_does_not_accept_or_cancel_queued_start_job ... ok
+test dynamic::thread_pool_hooks_tests::test_thread_pool_ordinary_hook_panic_payload_is_dropped ... ok
+test dynamic::thread_pool_hooks_tests::test_thread_pool_runs_configured_hooks ... ok
+test dynamic::thread_pool_hooks_tests::test_thread_pool_runs_task_hooks_for_queued_jobs ... ok
+test dynamic::thread_pool_hooks_tests::test_thread_pool_nested_hook_payload_destructor_panic_is_contained ... ok
+test dynamic::thread_pool_lifecycle_tests::test_thread_pool_lifecycle_accessors_report_running_shutdown_and_terminated ... ok
+test dynamic::thread_pool_lifecycle_tests::test_thread_pool_wait_termination_timeout_handles_max_duration ... ok
+test dynamic::thread_pool_lifecycle_tests::test_thread_pool_lifecycle_reports_shutting_down_with_running_work ... ok
+test dynamic::thread_pool_inner_tests::test_thread_pool_inner_tracks_running_queued_and_completed_counts ... ok
+test dynamic::thread_pool_shutdown_tests::test_lazy_pool_accept_shutdown_still_runs_job ... ok
+test dynamic::thread_pool_shutdown_tests::test_thread_pool_shutdown_rejects_new_tasks ... ok
+test dynamic::thread_pool_shutdown_tests::test_thread_pool_shutdown_drains_queued_tasks ... ok
+test dynamic::thread_pool_shutdown_tests::test_lazy_pool_shutdown_during_acceptance_still_runs_job ... ok
+test dynamic::thread_pool_hooks_tests::test_thread_pool_hook_payload_destructor_panic_is_contained ... ok
+test dynamic::thread_pool_shutdown_tests::test_thread_pool_submit_and_join_wait_for_detached_task ... ok
+test dynamic::thread_pool_stop_tests::test_thread_pool_stop_after_shutdown_is_idempotent ... ok
+test dynamic::thread_pool_stop_tests::test_thread_pool_cancel_before_start_reports_cancelled ... ok
+test dynamic::thread_pool_state_tests::test_thread_pool_state_reports_queue_saturation_and_shutdown_cancellation ... ok
+test dynamic::thread_pool_stop_tests::test_thread_pool_repeated_stop_does_not_recount_in_progress_cancellation ... ok
+test dynamic::thread_pool_submission_tests::test_thread_pool_bounded_submit_queues_when_worker_busy ... ok
+test dynamic::thread_pool_submission_tests::test_ticket_acceptance_panic_and_rejection_never_cancel ... ok
+test dynamic::thread_pool_submission_tests::test_thread_pool_accessors_and_dynamic_settings ... ok
+test dynamic::thread_pool_stop_tests::test_thread_pool_stop_cancels_queued_tasks ... ok
+test dynamic::thread_pool_stop_tests::test_thread_pool_stop_does_not_report_ticket_cancellation_as_its_own ... ok
+test dynamic::thread_pool_stop_tests::test_stop_cancels_spawned_worker_job_while_acceptance_is_inflight ... ok
+test dynamic::thread_pool_submission_tests::test_thread_pool_submit_custom_job_runs_job ... ok
+test dynamic::thread_pool_submission_tests::test_thread_pool_submit_acceptance_is_not_task_success ... ok
+test dynamic::thread_pool_submission_tests::test_thread_pool_handle_can_be_awaited ... ok
+test dynamic::thread_pool_submission_tests::test_ticket_cancel_releases_capture_capacity_and_preserves_fifo ... ok
+test dynamic::thread_pool_submission_tests::test_thread_pool_submit_custom_job_accepts_and_cancels_queued_job ... ok
+test dynamic::thread_pool_submission_tests::test_lazy_pool_acceptance_runs_on_submitter_thread ... ok
+test dynamic::thread_pool_submission_tests::test_thread_pool_submit_callable_returns_value ... ok
+test dynamic::thread_pool_worker_tests::test_worker_runs_job_on_named_worker_thread ... ok
+test dynamic::thread_pool_submission_tests::test_thread_pool_direct_accept_can_reenter_pool_without_deadlock ... ok
+test fixed::fixed_thread_pool_builder_tests::test_fixed_thread_pool_builder_rejects_nul_thread_name_prefix_without_panicking ... ok
+test dynamic::thread_pool_submission_tests::test_ticket_cancel_callback_can_submit_to_same_queue ... ok
+test fixed::fixed_thread_pool_builder_tests::test_fixed_thread_pool_builder_rejects_invalid_configuration ... ok
+test dynamic::thread_pool_submission_tests::test_ticket_worker_claim_wins_before_cancellation ... ok
+test fixed::fixed_thread_pool_lifecycle_tests::test_fixed_thread_pool_lifecycle_reports_shutdown_and_termination ... ok
+test fixed::fixed_thread_pool_builder_tests::test_fixed_thread_pool_builder_accepts_unicode_and_empty_thread_name_prefix ... ok
+test dynamic::thread_pool_stop_tests::test_thread_pool_stop_is_idempotent_from_stopping ... ok
+test fixed::fixed_thread_pool_inner_tests::test_fixed_thread_pool_inner_tracks_public_task_counts ... ok
+test fixed::fixed_thread_pool_lifecycle_tests::test_fixed_thread_pool_wait_termination_timeout_handles_max_duration ... ok
+test dynamic::thread_pool_submission_tests::test_ticket_removal_preserves_remaining_fifo_order ... ok
+test fixed::fixed_thread_pool_builder_tests::test_fixed_thread_pool_builder_reports_worker_spawn_failure ... ok
+test fixed::fixed_thread_pool_state_tests::test_fixed_thread_pool_state_is_reflected_in_stats ... ok
+test dynamic::thread_pool_submission_tests::test_ticket_cancel_contains_run_capture_drop_panic_and_finishes_accounting ... ok
+test fixed::fixed_thread_pool_builder_tests::test_fixed_thread_pool_builder_sets_thread_options ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_cancel_before_start_reports_cancelled ... ok
+test dynamic::thread_pool_failure_tests::test_custom_task_contains_unused_callback_capture_drop_panics ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_runs_configured_hooks ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_shutdown_drains_queued_tasks ... ok
+test dynamic::thread_pool_submission_tests::test_ticket_stop_claim_wins_before_ticket_cancellation ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_bounded_queue_rejects_when_saturated ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_stop_cancels_queued_tasks ... ok
+test dynamic::thread_pool_submission_tests::test_thread_pool_core_size_update_grows_next_submission ... ok
+test test_lib_exports_primary_executor_types ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_join_waits_for_detached_task_without_shutdown ... ok
+test dynamic::thread_pool_shutdown_tests::test_thread_pool_accept_callback_can_request_shutdown ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_shutdown_rejection_contains_task_capture_drop_panic ... ok
+test dynamic::thread_pool_submission_tests::test_ticket_cancel_during_accept_waits_and_releases_captures ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_handle_can_be_awaited ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_submit_callable_returns_value ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_multiple_workers_drain_global_queue ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_submit_acceptance_is_not_task_success ... ok
+test fixed::fixed_worker_tests::test_fixed_worker_runs_public_submitted_task ... ok
+test fixed::mod_tests::test_fixed_module_exports_thread_pool_entrypoint ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_hook_payload_destructor_panic_is_contained ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_shutdown_rejects_new_tasks ... ok
+test fixed::fixed_worker_runtime_tests::test_fixed_worker_runtime_uses_configured_thread_name_prefix ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_large_pool_runs_global_queue_tasks ... ok
+test dynamic::thread_pool_shutdown_tests::test_thread_pool_shutdown_returns_before_inflight_accept_then_drains ... ok
+test dynamic::thread_pool_submission_tests::test_thread_pool_submit_wakes_prestarted_idle_worker ... ok
+test dynamic::thread_pool_submission_tests::test_thread_pool_blocked_accept_does_not_hold_state_lock ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_large_pool_uses_global_queue_stop ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_default_uses_builder_defaults ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_stop_cancels_queued_batch ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_builder_sets_unbounded_queue_and_thread_options ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_default_executes_tasks ... ok
+test dynamic::thread_pool_failure_tests::test_thread_pool_custom_job_panic_does_not_kill_worker_or_leak_running_count ... ok
+test dynamic::thread_pool_hooks_tests::test_termination_waits_for_shutdown_exit_hook ... ok
+test dynamic::thread_pool_failure_tests::test_thread_pool_initial_accept_panic_does_not_kill_worker_or_leak_running_count ... ok
+test dynamic::thread_pool_state_tests::test_termination_waits_for_stop_exit_hook ... ok
+test dynamic::thread_pool_failure_tests::test_thread_pool_queued_accept_panic_does_not_unwind_or_leak_state ... ok
+test dynamic::thread_pool_failure_tests::test_thread_pool_stop_contains_custom_cancel_panic ... ok
+test dynamic::thread_pool_hooks_tests::test_termination_waits_for_all_concurrent_exit_hooks ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_join_waits_for_running_and_queued_tasks ... ok
+test dynamic::thread_pool_submission_tests::test_ticket_cancel_races_worker_claim_and_stop_once ... ok
+test dynamic::thread_pool_state_tests::test_termination_waits_for_core_timeout_exit_hook_before_shutdown ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_grows_above_core_when_queue_is_full ... ok
+test dynamic::thread_pool_shutdown_tests::test_thread_pool_wait_termination_waits_for_custom_cancel_callback ... ok
+test dynamic::thread_pool_shutdown_tests::test_ticket_cancellation_keeps_join_and_shutdown_busy_until_callback_returns ... ok
+test dynamic::thread_pool_hooks_tests::test_termination_waits_for_core_size_shrink_exit_hooks_and_preserves_capacity ... ok
+test dynamic::thread_pool_stop_tests::test_thread_pool_stop_waits_for_inflight_accept_then_cancels ... ok
+test dynamic::thread_pool_submission_tests::test_lazy_pool_keeps_worker_alive_during_acceptance ... ok
+test dynamic::thread_pool_submission_tests::test_concurrent_core_size_updates_keep_values_within_bounds ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_core_threads_can_timeout ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_wait_termination_waits_for_running_task ... ok
+test dynamic::thread_pool_submission_tests::test_ticket_cancel_reservation_and_capture_drop_hold_capacity_and_termination ... ok
+
+test result: ok. 115 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
+
+     Running tests/thread_pool_hooks_tests.rs (target/infra-feature-matrix/debug/deps/thread_pool_hooks_tests-40fd42cb05cd6d6e)
+
+running 1 test
+test test_thread_pool_hooks_builder_and_debug ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/thread_pool_stats_tests.rs (target/infra-feature-matrix/debug/deps/thread_pool_stats_tests-855d8573a4dbc4d4)
+
+running 5 tests
+test test_thread_pool_stats_default_uses_empty_running_snapshot ... ok
+test test_fixed_stats_report_completed_tasks_after_termination ... ok
+test test_thread_pool_stats_reflect_configuration ... ok
+test test_dynamic_stats_report_completed_tasks_after_termination ... ok
+test test_dynamic_and_fixed_stats_report_unbounded_queue_capacity ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests qubit_thread_pool
+
+running 10 tests
+test src/pool_job.rs - pool_job::PoolJob (line 30) ... ok
+test src/pool_job_submission_error.rs - pool_job_submission_error::PoolJobSubmissionError (line 15) ... ok
+test src/dynamic/thread_pool.rs - dynamic::thread_pool::ThreadPool (line 45) ... ok
+test src/fixed/fixed_thread_pool_builder.rs - fixed::fixed_thread_pool_builder::FixedThreadPoolBuilder (line 30) ... ok
+test src/fixed/fixed_thread_pool.rs - fixed::fixed_thread_pool::FixedThreadPool (line 39) ... ok
+test src/dynamic/thread_pool_builder.rs - dynamic::thread_pool_builder::ThreadPoolBuilder (line 36) ... ok
+test src/lib.rs - (line 21) ... ok
+test src/thread_pool_hooks.rs - thread_pool_hooks::ThreadPoolHooks (line 29) ... ok
+test src/pool_job_ticket.rs - pool_job_ticket::PoolJobTicket (line 23) ... ok
+test src/thread_pool_stats.rs - thread_pool_stats::ThreadPoolStats (line 19) ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+all doctests ran in 0.45s; merged doctests compilation took 0.44s
+ Documenting qubit-thread-pool v0.12.1 (/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.21s
+   Generated /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/infra-feature-matrix/doc/qubit_thread_pool/index.html
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Checking once_cell v1.21.4
+    Checking log v0.4.35
+    Checking regex-syntax v0.8.11
+    Checking lazy_static v1.5.1
+    Checking pin-project-lite v0.2.17
+    Checking thread_local v1.1.10
+    Checking nu-ansi-term v0.50.3
+    Checking scoped-tls v1.0.1
+   Compiling generator v0.8.11
+    Checking sharded-slab v0.1.7
+    Checking qubit-executor v0.9.0
+    Checking tracing-core v0.1.36
+    Checking tracing v0.1.44
+    Checking tracing-log v0.2.0
+    Checking regex-automata v0.4.18
+    Checking matchers v0.2.0
+    Checking tracing-subscriber v0.3.23
+    Checking loom v0.7.3
+    Checking qubit-thread-pool v0.12.1 (/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 7.14s
+internal::pool_accounting::loom_tests::test_loom_bounded_slot_is_reclaimed: test
+tests::internal::admission_gate_tests::test_loom_close_races_with_entry: test
+tests::internal::admission_gate_tests::test_loom_close_rejects_later_entry: test
+tests::internal::pool_accounting_tests::loom_tests::test_loom_cancellation_retains_slot_until_finished: test
+
+4 tests, 0 benchmarks
+0 tests, 0 benchmarks
+0 tests, 0 benchmarks
+0 tests, 0 benchmarks
+Running 4 Loom model test(s) for qubit-thread-pool
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+       Fresh unicode-ident v1.0.27
+       Fresh proc-macro2 v1.0.107
+       Fresh cfg-if v1.0.5
+       Fresh shlex v2.0.1
+       Fresh find-msvc-tools v0.1.15
+       Fresh smallvec v1.16.5
+       Fresh regex-syntax v0.8.11
+       Fresh log v0.4.35
+       Fresh once_cell v1.21.4
+       Fresh hashbrown v0.17.1
+       Fresh cc v1.11.1
+       Fresh regex-automata v0.4.18
+       Fresh tracing-core v0.1.36
+       Fresh autocfg v1.5.1
+       Fresh scopeguard v1.2.0
+       Fresh pin-project-lite v0.2.17
+       Fresh qubit-collections v0.2.4
+       Fresh either v1.19.0
+       Fresh lazy_static v1.5.1
+       Fresh thread_local v1.1.10
+       Fresh memchr v2.8.3
+       Fresh anstyle v1.0.14
+       Fresh clap_lex v1.1.1
+       Fresh itoa v1.0.19
+       Fresh plotters-backend v0.3.7
+       Fresh qubit-fast-cas v0.3.3
+       Fresh nu-ansi-term v0.50.3
+       Fresh ciborium-io v0.2.2
+       Fresh oneshot v0.2.1
+       Fresh same-file v1.0.6
+       Fresh scoped-tls v1.0.1
+       Fresh cast v0.3.0
+       Fresh qubit-function v0.18.4
+       Fresh qubit-argument v0.4.10
+       Fresh oorandom v11.1.5
+       Fresh anes v0.1.6
+       Fresh quote v1.0.47
+       Fresh libc v0.2.191
+       Fresh rustversion v1.0.23
+       Fresh crossbeam-utils v0.8.23
+       Fresh serde_core v1.0.229
+       Fresh lock_api v0.4.14
+       Fresh tracing-log v0.2.0
+       Fresh matchers v0.2.0
+       Fresh tracing v0.1.44
+       Fresh sharded-slab v0.1.7
+       Fresh plotters-svg v0.3.7
+       Fresh clap_builder v4.6.7
+       Fresh itertools v0.13.0
+       Fresh tokio v1.54.1
+       Fresh walkdir v2.5.0
+       Fresh regex v1.13.1
+       Fresh syn v3.0.9
+       Fresh syn v2.0.119
+       Fresh crossbeam-epoch v0.9.21
+       Fresh parking_lot_core v0.9.12
+       Fresh portable-atomic v1.15.0
+       Fresh arc-swap v1.9.4
+       Fresh zmij v1.0.23
+       Fresh tracing-subscriber v0.3.23
+       Fresh clap v4.6.7
+       Fresh criterion-plot v0.8.2
+       Fresh num_cpus v1.17.0
+       Fresh page_size v0.6.0
+       Fresh thiserror-impl v2.0.21
+       Fresh zerocopy-derive v0.8.63
+       Fresh serde_derive v1.0.229
+       Fresh crossbeam-deque v0.8.8
+       Fresh parking_lot v0.12.5
+       Fresh qubit-atomic v0.17.7
+       Fresh serde_json v1.0.154
+       Fresh num-traits v0.2.19
+       Fresh alloca v0.4.0
+       Fresh threadpool v1.8.1
+       Fresh thiserror v2.0.21
+       Fresh zerocopy v0.8.63
+       Fresh serde v1.0.229
+       Fresh rayon-core v1.13.0
+       Fresh generator v0.8.11
+       Fresh plotters v0.3.7
+       Fresh half v2.7.1
+       Fresh qubit-clock v0.13.5
+       Fresh qubit-state-machine v0.11.3
+       Fresh loom v0.7.3
+       Fresh rayon v1.12.0
+       Fresh tinytemplate v1.2.1
+       Fresh ciborium-ll v0.2.2
+       Fresh qubit-lock v0.14.5
+       Fresh ciborium v0.2.2
+       Fresh qubit-executor v0.9.0
+       Fresh criterion v0.8.2
+       Fresh qubit-thread-pool v0.12.1 (/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109)
+    Finished `release` profile [optimized] target(s) in 0.48s
+     Running `/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps/qubit_thread_pool-8d8aa9a7e102d113 loom`
+
+running 4 tests
+test tests::internal::admission_gate_tests::test_loom_close_rejects_later_entry ... ok
+test tests::internal::admission_gate_tests::test_loom_close_races_with_entry ... ok
+test tests::internal::pool_accounting_tests::loom_tests::test_loom_cancellation_retains_slot_until_finished ... ok
+test internal::pool_accounting::loom_tests::test_loom_bounded_slot_is_reclaimed ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 34 filtered out; finished in 0.02s
+
+     Running `/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps/lib_tests-9e2480515ad39bae loom`
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 113 filtered out; finished in 0.00s
+
+     Running `/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps/thread_pool_hooks_tests-2b623923b0edeb06 loom`
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+     Running `/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release/deps/thread_pool_stats_tests-bdc6241289fc56e9 loom`
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+✅ Loom model checks passed.
+✅ run --suite loom completed successfully.
+   Packaging qubit-thread-pool v0.12.1 (/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109)
+    Updating crates.io index
+    Packaged 87 files, 606.9KiB (125.3KiB compressed)
+   Verifying qubit-thread-pool v0.12.1 (/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109)
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+   Compiling log v0.4.35
+   Compiling crossbeam-utils v0.8.23
+   Compiling thiserror v2.0.21
+   Compiling qubit-clock v0.13.5
+   Compiling qubit-state-machine v0.11.3
+   Compiling crossbeam-epoch v0.9.21
+   Compiling qubit-lock v0.14.5
+   Compiling crossbeam-deque v0.8.8
+   Compiling qubit-executor v0.9.0
+   Compiling qubit-thread-pool v0.12.1 (/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/package/qubit-thread-pool-0.12.1)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 9.63s
+✅ Cargo package verification passed for 1 workspace package(s).
+✅ run --suite package completed successfully.
+info: cargo-llvm-cov currently setting cfg(coverage); you can opt-out it by passing --no-cfg-coverage
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling unicode-ident v1.0.27
+   Compiling libc v0.2.191
+   Compiling cfg-if v1.0.5
+   Compiling rustversion v1.0.23
+   Compiling shlex v2.0.1
+   Compiling find-msvc-tools v0.1.15
+   Compiling crossbeam-utils v0.8.23
+   Compiling thiserror v2.0.21
+   Compiling serde_core v1.0.229
+   Compiling regex-syntax v0.8.11
+   Compiling smallvec v1.16.5
+   Compiling crossbeam-epoch v0.9.21
+   Compiling parking_lot_core v0.9.12
+   Compiling zerocopy v0.8.63
+   Compiling log v0.4.35
+   Compiling crossbeam-deque v0.8.8
+   Compiling once_cell v1.21.4
+   Compiling scopeguard v1.2.0
+   Compiling serde v1.0.229
+   Compiling hashbrown v0.17.1
+   Compiling zmij v1.0.23
+   Compiling portable-atomic v1.15.0
+   Compiling autocfg v1.5.1
+   Compiling pin-project-lite v0.2.17
+   Compiling rayon-core v1.13.0
+   Compiling lazy_static v1.5.1
+   Compiling serde_json v1.0.154
+   Compiling either v1.19.0
+   Compiling clap_lex v1.1.1
+   Compiling plotters-backend v0.3.7
+   Compiling nu-ansi-term v0.50.3
+   Compiling itoa v1.0.19
+   Compiling ciborium-io v0.2.2
+   Compiling memchr v2.8.3
+   Compiling qubit-fast-cas v0.3.3
+   Compiling anstyle v1.0.14
+   Compiling scoped-tls v1.0.1
+   Compiling cast v0.3.0
+   Compiling oneshot v0.2.1
+   Compiling qubit-function v0.18.4
+   Compiling same-file v1.0.6
+   Compiling qubit-argument v0.4.10
+   Compiling oorandom v11.1.5
+   Compiling anes v0.1.6
+   Compiling thread_local v1.1.10
+   Compiling walkdir v2.5.0
+   Compiling lock_api v0.4.14
+   Compiling sharded-slab v0.1.7
+   Compiling tracing-core v0.1.36
+   Compiling plotters-svg v0.3.7
+   Compiling itertools v0.13.0
+   Compiling cc v1.11.1
+   Compiling clap_builder v4.6.7
+   Compiling num-traits v0.2.19
+   Compiling qubit-collections v0.2.4
+   Compiling tracing-log v0.2.0
+   Compiling tracing v0.1.44
+   Compiling arc-swap v1.9.4
+   Compiling qubit-atomic v0.17.7
+   Compiling syn v3.0.9
+   Compiling syn v2.0.119
+   Compiling regex-automata v0.4.18
+   Compiling plotters v0.3.7
+   Compiling rayon v1.12.0
+   Compiling generator v0.8.11
+   Compiling alloca v0.4.0
+   Compiling page_size v0.6.0
+   Compiling num_cpus v1.17.0
+   Compiling criterion-plot v0.8.2
+   Compiling threadpool v1.8.1
+   Compiling parking_lot v0.12.5
+   Compiling clap v4.6.7
+   Compiling zerocopy-derive v0.8.63
+   Compiling thiserror-impl v2.0.21
+   Compiling serde_derive v1.0.229
+   Compiling tokio-macros v2.7.2
+   Compiling tokio v1.54.1
+   Compiling matchers v0.2.0
+   Compiling regex v1.13.1
+   Compiling tracing-subscriber v0.3.23
+   Compiling qubit-clock v0.13.5
+   Compiling qubit-state-machine v0.11.3
+   Compiling qubit-lock v0.14.5
+   Compiling qubit-executor v0.9.0
+   Compiling loom v0.7.3
+   Compiling tinytemplate v1.2.1
+   Compiling qubit-thread-pool v0.12.1 (/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109)
+   Compiling half v2.7.1
+   Compiling ciborium-ll v0.2.2
+   Compiling ciborium v0.2.2
+   Compiling criterion v0.8.2
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 26.07s
+     Running unittests src/lib.rs (target/llvm-cov-target/debug/deps/qubit_thread_pool-6258dddcee64d28e)
+
+running 36 tests
+test dynamic::thread_pool_inner::tests::test_submit_with_state_lock_rejects_stopping_state ... ok
+test dynamic::thread_pool_inner::tests::test_acceptance_guard_unwind_releases_slot_and_rejects_entry ... ok
+test dynamic::thread_pool_inner::tests::test_worker_reservation_rolls_back_during_unwind ... ok
+test fixed::fixed_thread_pool_inner::tests::test_acceptance_panic_discards_job_and_contains_cancel_capture_drop_panic ... ok
+test fixed::fixed_thread_pool_inner::tests::test_acceptance_panic_discards_job_and_contains_run_capture_drop_panic ... ok
+test fixed::fixed_thread_pool_inner::tests::test_acceptance_slot_guard_unwind_releases_slot ... ok
+test fixed::fixed_thread_pool_inner::tests::test_fixed_accept_panic_drops_job_without_leaking_state ... ok
+test dynamic::thread_pool_inner::tests::test_stop_report_excludes_ticket_cancellation_after_stop_snapshot ... ok
+test dynamic::thread_pool_inner::tests::test_ticket_cancel_reservation_precedes_accept_panic ... ok
+test fixed::fixed_thread_pool_inner::tests::test_saturated_rejection_contains_cancel_capture_drop_panic ... ok
+test dynamic::thread_pool_inner::tests::test_ticket_cancel_reservation_precedes_accept_success_and_duplicate ... ok
+test fixed::fixed_thread_pool_inner::tests::test_saturated_rejection_contains_run_capture_drop_panic ... ok
+test fixed::fixed_thread_pool_inner::tests::test_shutdown_rejection_contains_run_capture_drop_panic ... ok
+test fixed::fixed_thread_pool_inner::tests::test_shutdown_rejection_contains_cancel_capture_drop_panic ... ok
+test internal::panic_boundary::tests::test_panicking_payload_destructor_is_contained ... ok
+test fixed::fixed_worker::tests::test_worker_contains_cancel_capture_drop_panic_with_task_hooks ... ok
+test tests::internal::pool_accounting_tests::test_accepted_job_runs_to_completion ... ok
+test tests::internal::pool_accounting_tests::test_admission_remains_busy_until_last_submitter_leaves ... ok
+test tests::internal::pool_accounting_tests::test_cancel_rejects_queued_task_underflow - should panic ... ok
+test fixed::fixed_worker::tests::test_worker_contains_cancel_capture_drop_panic_without_task_hooks ... ok
+test tests::internal::admission_gate_tests::test_closes_after_existing_submitter_leaves ... ok
+test tests::internal::pool_accounting_tests::test_cancelled_job_releases_reserved_slot ... ok
+test tests::internal::pool_accounting_tests::test_finish_rejects_cancelling_task_underflow - should panic ... ok
+test tests::internal::pool_accounting_tests::test_finish_rejects_running_task_underflow - should panic ... ok
+test tests::internal::pool_accounting_tests::test_claim_rejects_queued_task_underflow - should panic ... ok
+test tests::internal::pool_accounting_tests::test_rollback_and_handoff_preserve_capacity ... ok
+test tests::internal::pool_accounting_tests::test_rollback_rejects_queue_slot_underflow - should panic ... ok
+test tests::pool_job_tests::test_pool_job_run_cancel_and_discard_contain_panicking_payloads ... ok
+test tests::internal::admission_gate_tests::test_concurrent_close_never_allows_entry_after_close ... ok
+test dynamic::thread_pool_inner::tests::test_dynamic_worker_wake_with_older_termination_waiter ... ok
+test tests::pool_job_tests::test_ticket_reserved_cancellation_contains_capture_drop_panic_and_wakes_waiter ... ok
+test fixed::fixed_thread_pool_inner::tests::test_fixed_worker_wake_with_older_termination_waiter ... ok
+test tests::pool_job_tests::test_ticket_reserved_during_accept_never_publishes_to_worker ... ok
+test tests::pool_job_tests::test_ticket_rejection_contains_capture_drop_panic ... ok
+test fixed::fixed_thread_pool_inner::tests::test_stop_reports_worker_side_cancel_after_stop_now ... ok
+test fixed::fixed_thread_pool_inner::tests::test_fixed_stop_waits_for_cancel_callback ... ok
+
+test result: ok. 36 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running tests/lib_tests.rs (target/llvm-cov-target/debug/deps/lib_tests-645c80134301939a)
+
+running 126 tests
+test dynamic::mod_tests::test_dynamic_module_exports_thread_pool_entrypoint ... ok
+test dynamic::thread_pool_async_wait_tests::test_invalid_resize_does_not_publish_capacity ... ok
+test dynamic::thread_pool_async_wait_tests::test_capacity_changes_after_core_resize ... ok
+test dynamic::thread_pool_async_wait_tests::test_thread_pool_capacity_changes_on_shutdown ... ok
+test dynamic::thread_pool_async_wait_tests::test_thread_pool_capacity_changes_after_queued_ticket_cancellation ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_bounded_queue_rejects_when_saturated ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_builder_rejects_invalid_configuration ... ok
+test dynamic::thread_pool_async_wait_tests::test_capacity_changes_after_maximum_growth ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_builder_rejects_nul_thread_name_prefix_without_panicking ... ok
+test dynamic::thread_pool_async_wait_tests::test_thread_pool_capacity_changes_when_worker_takes_queued_job ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_prestart_reports_build_spawn_failure ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_prestart_all_core_threads_reports_state ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_prestart_core_thread_reports_state ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_excess_workers_retire_after_maximum_size_decreases ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_prestarts_core_workers ... ok
+test dynamic::thread_pool_config_tests::test_thread_pool_config_is_reflected_by_builder_and_stats ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_unbounded_queue_keeps_core_limit ... ok
+test dynamic::thread_pool_failure_tests::test_rejected_execution_compares_by_variant ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_builder_accepts_unicode_and_empty_thread_name_prefix ... ok
+test dynamic::thread_pool_failure_tests::test_thread_pool_cancels_queued_job_when_initial_worker_spawn_fails ... ok
+test dynamic::thread_pool_failure_tests::test_thread_pool_reports_worker_spawn_failure ... ok
+test dynamic::thread_pool_failure_tests::test_thread_pool_spawn_failure_does_not_accept_or_cancel_direct_job ... ok
+test dynamic::thread_pool_failure_tests::test_thread_pool_spawn_failure_does_not_accept_or_cancel_queued_start_job ... ok
+test dynamic::thread_pool_hooks_tests::test_thread_pool_ordinary_hook_panic_payload_is_dropped ... ok
+test dynamic::thread_pool_hooks_tests::test_thread_pool_nested_hook_payload_destructor_panic_is_contained ... ok
+test dynamic::thread_pool_hooks_tests::test_thread_pool_runs_task_hooks_for_queued_jobs ... ok
+test dynamic::thread_pool_hooks_tests::test_thread_pool_runs_configured_hooks ... ok
+test dynamic::thread_pool_inner_tests::test_thread_pool_inner_tracks_running_queued_and_completed_counts ... ok
+test dynamic::thread_pool_lifecycle_tests::test_thread_pool_lifecycle_accessors_report_running_shutdown_and_terminated ... ok
+test dynamic::thread_pool_lifecycle_tests::test_thread_pool_wait_termination_timeout_handles_max_duration ... ok
+test dynamic::thread_pool_lifecycle_tests::test_thread_pool_lifecycle_reports_shutting_down_with_running_work ... ok
+test dynamic::thread_pool_shutdown_tests::test_thread_pool_shutdown_rejects_new_tasks ... ok
+test dynamic::thread_pool_shutdown_tests::test_lazy_pool_accept_shutdown_still_runs_job ... ok
+test dynamic::thread_pool_shutdown_tests::test_thread_pool_shutdown_drains_queued_tasks ... ok
+test dynamic::thread_pool_shutdown_tests::test_lazy_pool_shutdown_during_acceptance_still_runs_job ... ok
+test dynamic::thread_pool_shutdown_tests::test_thread_pool_submit_and_join_wait_for_detached_task ... ok
+test dynamic::thread_pool_hooks_tests::test_thread_pool_hook_payload_destructor_panic_is_contained ... ok
+test dynamic::thread_pool_stop_tests::test_thread_pool_stop_after_shutdown_is_idempotent ... ok
+test dynamic::thread_pool_stop_tests::test_thread_pool_stop_is_idempotent_from_stopping ... ok
+test dynamic::thread_pool_submission_tests::test_thread_pool_accessors_and_dynamic_settings ... ok
+test dynamic::thread_pool_state_tests::test_thread_pool_state_reports_queue_saturation_and_shutdown_cancellation ... ok
+test dynamic::thread_pool_submission_tests::test_thread_pool_bounded_submit_queues_when_worker_busy ... ok
+test dynamic::thread_pool_stop_tests::test_thread_pool_cancel_before_start_reports_cancelled ... ok
+test dynamic::thread_pool_submission_tests::test_ticket_worker_claim_wins_before_cancellation ... ok
+test fixed::fixed_thread_pool_builder_tests::test_fixed_thread_pool_builder_reports_worker_spawn_failure ... ok
+test dynamic::thread_pool_stop_tests::test_thread_pool_stop_cancels_queued_tasks ... ok
+test dynamic::thread_pool_submission_tests::test_ticket_stop_claim_wins_before_ticket_cancellation ... ok
+test fixed::fixed_thread_pool_builder_tests::test_fixed_thread_pool_builder_rejects_nul_thread_name_prefix_without_panicking ... ok
+test dynamic::thread_pool_submission_tests::test_thread_pool_submit_callable_returns_value ... ok
+test dynamic::thread_pool_submission_tests::test_thread_pool_submit_custom_job_accepts_and_cancels_queued_job ... ok
+test fixed::fixed_thread_pool_lifecycle_tests::test_fixed_thread_pool_lifecycle_reports_shutdown_and_termination ... ok
+test fixed::fixed_thread_pool_inner_tests::test_fixed_thread_pool_inner_tracks_public_task_counts ... ok
+test fixed::fixed_thread_pool_builder_tests::test_fixed_thread_pool_builder_sets_thread_options ... ok
+test dynamic::thread_pool_submission_tests::test_thread_pool_handle_can_be_awaited ... ok
+test dynamic::thread_pool_submission_tests::test_thread_pool_submit_custom_job_runs_job ... ok
+test dynamic::thread_pool_submission_tests::test_ticket_acceptance_panic_and_rejection_never_cancel ... ok
+test dynamic::thread_pool_submission_tests::test_lazy_pool_acceptance_runs_on_submitter_thread ... ok
+test dynamic::thread_pool_stop_tests::test_thread_pool_stop_does_not_report_ticket_cancellation_as_its_own ... ok
+test dynamic::thread_pool_stop_tests::test_stop_cancels_spawned_worker_job_while_acceptance_is_inflight ... ok
+test fixed::fixed_thread_pool_lifecycle_tests::test_fixed_thread_pool_wait_termination_timeout_handles_max_duration ... ok
+test dynamic::thread_pool_submission_tests::test_ticket_cancel_callback_can_submit_to_same_queue ... ok
+test dynamic::thread_pool_stop_tests::test_thread_pool_repeated_stop_does_not_recount_in_progress_cancellation ... ok
+test dynamic::thread_pool_submission_tests::test_thread_pool_direct_accept_can_reenter_pool_without_deadlock ... ok
+test fixed::fixed_thread_pool_builder_tests::test_fixed_thread_pool_builder_rejects_invalid_configuration ... ok
+test dynamic::thread_pool_submission_tests::test_thread_pool_core_size_update_grows_next_submission ... ok
+test dynamic::thread_pool_worker_tests::test_worker_runs_job_on_named_worker_thread ... ok
+test dynamic::thread_pool_submission_tests::test_ticket_cancel_contains_run_capture_drop_panic_and_finishes_accounting ... ok
+test dynamic::thread_pool_submission_tests::test_thread_pool_submit_acceptance_is_not_task_success ... ok
+test dynamic::thread_pool_submission_tests::test_ticket_removal_preserves_remaining_fifo_order ... ok
+test fixed::fixed_thread_pool_state_tests::test_fixed_thread_pool_state_is_reflected_in_stats ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_bounded_queue_rejects_when_saturated ... ok
+test dynamic::thread_pool_submission_tests::test_ticket_cancel_releases_capture_capacity_and_preserves_fifo ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_cancel_before_start_reports_cancelled ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_multiple_workers_drain_global_queue ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_runs_configured_hooks ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_join_waits_for_detached_task_without_shutdown ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_handle_can_be_awaited ... ok
+test fixed::fixed_thread_pool_builder_tests::test_fixed_thread_pool_builder_accepts_unicode_and_empty_thread_name_prefix ... ok
+test dynamic::thread_pool_failure_tests::test_custom_task_contains_unused_callback_capture_drop_panics ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_shutdown_drains_queued_tasks ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_large_pool_runs_global_queue_tasks ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_stop_cancels_queued_tasks ... ok
+test dynamic::thread_pool_shutdown_tests::test_thread_pool_accept_callback_can_request_shutdown ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_submit_acceptance_is_not_task_success ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_shutdown_rejects_new_tasks ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_shutdown_rejection_contains_task_capture_drop_panic ... ok
+test dynamic::thread_pool_submission_tests::test_ticket_cancel_during_accept_waits_and_releases_captures ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_submit_callable_returns_value ... ok
+test dynamic::thread_pool_shutdown_tests::test_thread_pool_shutdown_returns_before_inflight_accept_then_drains ... ok
+test test_lib_exports_primary_executor_types ... ok
+test fixed::fixed_worker_runtime_tests::test_fixed_worker_runtime_uses_configured_thread_name_prefix ... ok
+test dynamic::thread_pool_submission_tests::test_thread_pool_blocked_accept_does_not_hold_state_lock ... ok
+test fixed::mod_tests::test_fixed_module_exports_thread_pool_entrypoint ... ok
+test fixed::fixed_worker_tests::test_fixed_worker_runs_public_submitted_task ... ok
+test dynamic::thread_pool_submission_tests::test_thread_pool_submit_wakes_prestarted_idle_worker ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_default_uses_builder_defaults ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_stop_cancels_queued_batch ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_hook_payload_destructor_panic_is_contained ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_large_pool_uses_global_queue_stop ... ok
+test dynamic::thread_pool_async_wait_tests::test_thread_pool_await_termination_can_be_cancelled ... ok
+test dynamic::thread_pool_async_wait_tests::test_thread_pool_await_termination_waits_for_shutdown ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_builder_sets_unbounded_queue_and_thread_options ... ok
+test dynamic::thread_pool_async_wait_tests::test_thread_pool_await_termination_waits_for_running_task_and_multiple_waiters ... ok
+test dynamic::thread_pool_async_wait_tests::test_thread_pool_await_termination_after_stop_cancels_queued_task ... ok
+test dynamic::thread_pool_failure_tests::test_thread_pool_custom_job_panic_does_not_kill_worker_or_leak_running_count ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_default_executes_tasks ... ok
+test dynamic::thread_pool_hooks_tests::test_termination_waits_for_shutdown_exit_hook ... ok
+test dynamic::thread_pool_failure_tests::test_thread_pool_initial_accept_panic_does_not_kill_worker_or_leak_running_count ... ok
+test dynamic::thread_pool_failure_tests::test_thread_pool_queued_accept_panic_does_not_unwind_or_leak_state ... ok
+test dynamic::thread_pool_failure_tests::test_thread_pool_stop_contains_custom_cancel_panic ... ok
+test dynamic::thread_pool_state_tests::test_termination_waits_for_stop_exit_hook ... ok
+test dynamic::thread_pool_async_wait_tests::test_async_termination_waits_for_exit_hook_and_notifies_all_waiters ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_join_waits_for_running_and_queued_tasks ... ok
+test dynamic::thread_pool_hooks_tests::test_termination_waits_for_all_concurrent_exit_hooks ... ok
+test dynamic::thread_pool_submission_tests::test_ticket_cancel_races_worker_claim_and_stop_once ... ok
+test dynamic::thread_pool_state_tests::test_termination_waits_for_core_timeout_exit_hook_before_shutdown ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_grows_above_core_when_queue_is_full ... ok
+test dynamic::thread_pool_shutdown_tests::test_ticket_cancellation_keeps_join_and_shutdown_busy_until_callback_returns ... ok
+test dynamic::thread_pool_shutdown_tests::test_thread_pool_wait_termination_waits_for_custom_cancel_callback ... ok
+test dynamic::thread_pool_hooks_tests::test_termination_waits_for_core_size_shrink_exit_hooks_and_preserves_capacity ... ok
+test dynamic::thread_pool_stop_tests::test_thread_pool_stop_waits_for_inflight_accept_then_cancels ... ok
+test dynamic::thread_pool_submission_tests::test_lazy_pool_keeps_worker_alive_during_acceptance ... ok
+test dynamic::thread_pool_builder_tests::test_thread_pool_core_threads_can_timeout ... ok
+test dynamic::thread_pool_submission_tests::test_concurrent_core_size_updates_keep_values_within_bounds ... ok
+test fixed::fixed_thread_pool_tests::test_fixed_thread_pool_wait_termination_waits_for_running_task ... ok
+test dynamic::thread_pool_submission_tests::test_ticket_cancel_reservation_and_capture_drop_hold_capacity_and_termination ... ok
+
+test result: ok. 126 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
+
+     Running tests/thread_pool_hooks_tests.rs (target/llvm-cov-target/debug/deps/thread_pool_hooks_tests-dcefb4c2ec17099d)
+
+running 1 test
+test test_thread_pool_hooks_builder_and_debug ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/thread_pool_stats_tests.rs (target/llvm-cov-target/debug/deps/thread_pool_stats_tests-14898679905fb1cc)
+
+running 5 tests
+test test_thread_pool_stats_default_uses_empty_running_snapshot ... ok
+test test_thread_pool_stats_reflect_configuration ... ok
+test test_dynamic_and_fixed_stats_report_unbounded_queue_capacity ... ok
+test test_fixed_stats_report_completed_tasks_after_termination ... ok
+test test_dynamic_stats_report_completed_tasks_after_termination ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+    Finished report saved to /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/infra/coverage/raw.json
+Coverage summary:
+  Source                                                              Functions                Lines              Regions             Branches
+  ------                                                              ---------                -----              -------             --------
+  src/dynamic/thread_pool.rs                                    100.00% (32/32)    100.00% (126/126)     99.33% (148/149)          0.00% (0/0)
+  src/dynamic/thread_pool_builder.rs                            100.00% (21/21)    100.00% (149/149)    100.00% (157/157)          0.00% (0/0)
+  src/dynamic/thread_pool_inner.rs                             93.39% (113/121)   98.58% (1042/1057)   98.53% (1675/1700)          0.00% (0/0)
+  ...amic/thread_pool_inner/internal/accepted_job_guard.rs        100.00% (3/3)      100.00% (21/21)      100.00% (21/21)          0.00% (0/0)
+  ...dynamic/thread_pool_inner/internal/reserved_worker.rs        100.00% (3/3)      100.00% (22/22)      100.00% (19/19)          0.00% (0/0)
+  ...hread_pool_inner/internal/thread_pool_submit_guard.rs        100.00% (1/1)        100.00% (5/5)         83.33% (5/6)          0.00% (0/0)
+  src/dynamic/thread_pool_state.rs                                100.00% (3/3)      100.00% (21/21)      100.00% (17/17)          0.00% (0/0)
+  src/dynamic/thread_pool_worker.rs                               100.00% (9/9)       97.89% (93/95)     96.86% (154/159)          0.00% (0/0)
+  src/fixed/fixed_thread_pool.rs                                100.00% (23/23)     98.40% (123/125)     97.55% (159/163)          0.00% (0/0)
+  src/fixed/fixed_thread_pool_builder.rs                        100.00% (17/17)      100.00% (97/97)    100.00% (105/105)          0.00% (0/0)
+  src/fixed/fixed_thread_pool_inner.rs                         91.23% (104/114)     95.97% (762/794)   96.91% (1378/1422)          0.00% (0/0)
+  ...xed_thread_pool_inner/internal/accepted_slot_guard.rs        100.00% (3/3)      100.00% (11/11)      100.00% (11/11)          0.00% (0/0)
+  ...ixed_thread_pool_inner/internal/fixed_submit_guard.rs        100.00% (1/1)        100.00% (5/5)         83.33% (5/6)          0.00% (0/0)
+  src/fixed/fixed_thread_pool_state.rs                            100.00% (1/1)        100.00% (7/7)        100.00% (3/3)          0.00% (0/0)
+  src/fixed/fixed_worker.rs                                      91.30% (21/23)     93.49% (158/169)     93.75% (255/272)          0.00% (0/0)
+  src/fixed/fixed_worker_runtime.rs                               100.00% (2/2)        100.00% (6/6)        100.00% (6/6)          0.00% (0/0)
+  src/internal/admission_gate.rs                                  100.00% (6/6)       96.77% (30/31)       95.45% (42/44)          0.00% (0/0)
+  src/internal/panic_boundary.rs                                  100.00% (6/6)      100.00% (23/23)      100.00% (31/31)          0.00% (0/0)
+  src/internal/pool_accounting.rs                               100.00% (20/20)    100.00% (100/100)    100.00% (157/157)          0.00% (0/0)
+  src/pool_job.rs                                               100.00% (16/16)      100.00% (89/89)      100.00% (91/91)          0.00% (0/0)
+  src/pool_job/internal/completable_pool_task.rs                  100.00% (3/3)      100.00% (12/12)      100.00% (21/21)          0.00% (0/0)
+  src/pool_job/internal/custom_pool_task.rs                       100.00% (5/5)       92.00% (23/25)       93.94% (31/33)          0.00% (0/0)
+  src/pool_job/internal/queued_job.rs                             100.00% (5/5)       89.29% (25/28)       88.24% (30/34)          0.00% (0/0)
+  src/pool_job_submission_error.rs                                100.00% (1/1)         80.00% (4/5)         83.33% (5/6)          0.00% (0/0)
+  src/pool_job_ticket.rs                                          100.00% (1/1)       96.00% (24/25)       96.77% (30/31)          0.00% (0/0)
+  src/thread_pool_hooks.rs                                      100.00% (13/13)      100.00% (57/57)      100.00% (75/75)          0.00% (0/0)
+  src/thread_pool_stats.rs                                        100.00% (1/1)      100.00% (16/16)        100.00% (3/3)          0.00% (0/0)
+
+Coverage thresholds satisfied:
+  functions: >= 95.00% (actual 95.59%, 434/454)
+  lines: > 90.00% (actual 97.76%, 3051/3121)
+  regions: > 85.00% (actual 97.72%, 4634/4742)
+✅ rs-infra-coverage: collect succeeded
+    Fetching advisory database from `https://github.com/RustSec/advisory-db.git`
+      Loaded 1429 security advisories (from /home/starfish/.cargo/advisory-db)
+    Updating crates.io index
+warning: directory /home/starfish/.cargo/advisory-db is locked, waiting for up to 300 seconds for it to become available
+    Scanning Cargo.lock for vulnerabilities (117 crate dependencies)
+✅ rs-infra-ci: check succeeded
+Cleaning transient build artifacts: /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/debug
+Cleaning transient build artifacts: /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/release
+Cleaning transient build artifacts: /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/llvm-cov-target
+Cleaning transient build artifacts: /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/infra-feature-matrix
+Cleaning transient build artifacts: /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/infra/coverage
+Cleaning transient build artifacts: /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/tmp
+Build artifact cleanup completed

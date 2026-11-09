@@ -1,0 +1,25 @@
+HEAD is now at 218174d refactor(bootstrap): delegate prefix updates to dependency tool
+Cleaning transient build artifacts: /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/debug
+Cleaning transient build artifacts: /data/working/qubit/.worktrees/rs-thread-pool/implement-20261109/target/tmp
+Build artifact cleanup completed
+rs-infra: rs-infra-style@1ba28b8d2fb84d6ee4a774c79c9e5c04c69b14d9 (x86_64-unknown-linux-gnu)
+❌ Rust style operation failed: src/dynamic/thread_pool_inner/internal/accepted_job_guard.rs:1: Rust source must begin with the accepted seven-line copyright and license header
+src/dynamic/thread_pool_inner/internal/accepted_job_guard.rs:14: Production item has no Rustdoc.
+src/dynamic/thread_pool_inner/internal/accepted_job_guard.rs:15: Production item has no Rustdoc.
+src/dynamic/thread_pool_inner/internal/accepted_job_guard.rs:16: Production item has no Rustdoc.
+src/dynamic/thread_pool_inner/internal/accepted_job_guard.rs:21: Rustdoc is missing # Parameters.
+src/dynamic/thread_pool_inner/internal/accepted_job_guard.rs:36: Production item has no Rustdoc.
+src/dynamic/thread_pool_inner/internal/reserved_worker.rs:18: Production type does not match its snake_case filename.
+src/dynamic/thread_pool_inner/internal/reserved_worker.rs:19: Production item has no Rustdoc.
+src/dynamic/thread_pool_inner/internal/reserved_worker.rs:20: Production item has no Rustdoc.
+src/dynamic/thread_pool_inner/internal/reserved_worker.rs:23: Production item has no Rustdoc.
+src/dynamic/thread_pool_inner/internal/reserved_worker.rs:28: Rustdoc is missing # Parameters.
+src/dynamic/thread_pool_inner/internal/reserved_worker.rs:46: Production item has no Rustdoc.
+src/fixed/fixed_thread_pool_inner/internal/accepted_slot_guard.rs:1: Rust source must begin with the accepted seven-line copyright and license header
+src/fixed/fixed_thread_pool_inner/internal/accepted_slot_guard.rs:10: Production item has no Rustdoc.
+src/fixed/fixed_thread_pool_inner/internal/accepted_slot_guard.rs:11: Production item has no Rustdoc.
+src/fixed/fixed_thread_pool_inner/internal/accepted_slot_guard.rs:16: Rustdoc is missing # Parameters.
+src/fixed/fixed_thread_pool_inner/internal/accepted_slot_guard.rs:27: Production item has no Rustdoc.
+src/internal/panic_boundary.rs:1: Rust source must begin with the accepted seven-line copyright and license header
+src/internal/panic_boundary.rs:12: Rustdoc is missing # Type Parameters.
+src/internal/panic_boundary.rs:12: Rustdoc is missing # Parameters.

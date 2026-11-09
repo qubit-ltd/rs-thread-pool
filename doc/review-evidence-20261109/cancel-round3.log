@@ -1,0 +1,141 @@
+    Finished `bench` profile [optimized] target(s) in 0.18s
+     Running benches/thread_pool_bench.rs (target/release/deps/thread_pool_bench-a903293a2fda5db4)
+Gnuplot not found, using plotters backend
+Benchmarking thread_pool_ticket_cancellation/queue=1/cancel=10%/dynamic
+Benchmarking thread_pool_ticket_cancellation/queue=1/cancel=10%/dynamic: Warming up for 500.00 ms
+Benchmarking thread_pool_ticket_cancellation/queue=1/cancel=10%/dynamic: Collecting 20 samples in estimated 1.0001 s (1.5M iterations)
+Benchmarking thread_pool_ticket_cancellation/queue=1/cancel=10%/dynamic: Analyzing
+thread_pool_ticket_cancellation/queue=1/cancel=10%/dynamic
+                        time:   [195.21 ns 205.27 ns 215.80 ns]
+                        thrpt:  [4.6338 Melem/s 4.8715 Melem/s 5.1227 Melem/s]
+                 change:
+                        time:   [+17.914% +23.672% +28.981%] (p = 0.00 < 0.05)
+                        thrpt:  [−22.469% −19.141% −15.193%]
+                        Performance has regressed.
+TP006 latency case=ticket_cancel/queue=1/ratio=10%/replicas=10/seed=0x5eedcafe phase=criterion_warmup_plus_measurement sample_count=2551755 p50_ns=205 p95_ns=243 p99_ns=321 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24
+Benchmarking thread_pool_ticket_cancellation/queue=1/cancel=50%/dynamic
+Benchmarking thread_pool_ticket_cancellation/queue=1/cancel=50%/dynamic: Warming up for 500.00 ms
+Benchmarking thread_pool_ticket_cancellation/queue=1/cancel=50%/dynamic: Collecting 20 samples in estimated 1.0001 s (1.9M iterations)
+Benchmarking thread_pool_ticket_cancellation/queue=1/cancel=50%/dynamic: Analyzing
+thread_pool_ticket_cancellation/queue=1/cancel=50%/dynamic
+                        time:   [164.18 ns 164.54 ns 165.02 ns]
+                        thrpt:  [6.0599 Melem/s 6.0774 Melem/s 6.0909 Melem/s]
+                 change:
+                        time:   [−0.6974% −0.0080% +0.6214%] (p = 0.98 > 0.05)
+                        thrpt:  [−0.6176% +0.0080% +0.7023%]
+                        No change in performance detected.
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high severe
+TP006 latency case=ticket_cancel/queue=1/ratio=50%/replicas=2/seed=0x5eedcafe phase=criterion_warmup_plus_measurement sample_count=2915475 p50_ns=163 p95_ns=211 p99_ns=247 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24
+Benchmarking thread_pool_ticket_cancellation/queue=1/cancel=100%/dynamic
+Benchmarking thread_pool_ticket_cancellation/queue=1/cancel=100%/dynamic: Warming up for 500.00 ms
+Benchmarking thread_pool_ticket_cancellation/queue=1/cancel=100%/dynamic: Collecting 20 samples in estimated 1.0001 s (2.0M iterations)
+Benchmarking thread_pool_ticket_cancellation/queue=1/cancel=100%/dynamic: Analyzing
+thread_pool_ticket_cancellation/queue=1/cancel=100%/dynamic
+                        time:   [167.92 ns 168.21 ns 168.50 ns]
+                        thrpt:  [5.9348 Melem/s 5.9450 Melem/s 5.9553 Melem/s]
+                 change:
+                        time:   [+1.0994% +1.5239% +1.8922%] (p = 0.00 < 0.05)
+                        thrpt:  [−1.8570% −1.5010% −1.0874%]
+                        Performance has regressed.
+TP006 latency case=ticket_cancel/queue=1/ratio=100%/replicas=1/seed=0x5eedcafe phase=criterion_warmup_plus_measurement sample_count=3036225 p50_ns=163 p95_ns=212 p99_ns=236 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24
+Benchmarking thread_pool_ticket_cancellation/queue=128/cancel=10%/dynamic
+Benchmarking thread_pool_ticket_cancellation/queue=128/cancel=10%/dynamic: Warming up for 500.00 ms
+Benchmarking thread_pool_ticket_cancellation/queue=128/cancel=10%/dynamic: Collecting 20 samples in estimated 1.0003 s (27k iterations)
+Benchmarking thread_pool_ticket_cancellation/queue=128/cancel=10%/dynamic: Analyzing
+thread_pool_ticket_cancellation/queue=128/cancel=10%/dynamic
+                        time:   [15.304 µs 15.334 µs 15.387 µs]
+                        thrpt:  [4.1593 Melem/s 4.1737 Melem/s 4.1819 Melem/s]
+                 change:
+                        time:   [−16.826% −10.884% −4.9684%] (p = 0.00 < 0.05)
+                        thrpt:  [+5.2281% +12.213% +20.230%]
+                        Performance has improved.
+Found 3 outliers among 20 measurements (15.00%)
+  2 (10.00%) high mild
+  1 (5.00%) high severe
+TP006 latency case=ticket_cancel/queue=128/ratio=10%/replicas=5/seed=0x5eedcafe phase=criterion_warmup_plus_measurement sample_count=2768832 p50_ns=236 p95_ns=252 p99_ns=319 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24
+Benchmarking thread_pool_ticket_cancellation/queue=128/cancel=50%/dynamic
+Benchmarking thread_pool_ticket_cancellation/queue=128/cancel=50%/dynamic: Warming up for 500.00 ms
+Benchmarking thread_pool_ticket_cancellation/queue=128/cancel=50%/dynamic: Collecting 20 samples in estimated 1.0076 s (28k iterations)
+Benchmarking thread_pool_ticket_cancellation/queue=128/cancel=50%/dynamic: Analyzing
+thread_pool_ticket_cancellation/queue=128/cancel=50%/dynamic
+                        time:   [14.110 µs 14.230 µs 14.427 µs]
+                        thrpt:  [4.4362 Melem/s 4.4975 Melem/s 4.5357 Melem/s]
+                 change:
+                        time:   [+0.7477% +1.8208% +3.3344%] (p = 0.00 < 0.05)
+                        thrpt:  [−3.2268% −1.7882% −0.7421%]
+                        Change within noise threshold.
+Found 2 outliers among 20 measurements (10.00%)
+  2 (10.00%) high severe
+TP006 latency case=ticket_cancel/queue=128/ratio=50%/replicas=1/seed=0x5eedcafe phase=criterion_warmup_plus_measurement sample_count=2822592 p50_ns=216 p95_ns=237 p99_ns=339 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24
+Benchmarking thread_pool_ticket_cancellation/queue=128/cancel=100%/dynamic
+Benchmarking thread_pool_ticket_cancellation/queue=128/cancel=100%/dynamic: Warming up for 500.00 ms
+Benchmarking thread_pool_ticket_cancellation/queue=128/cancel=100%/dynamic: Collecting 20 samples in estimated 1.0012 s (15k iterations)
+Benchmarking thread_pool_ticket_cancellation/queue=128/cancel=100%/dynamic: Analyzing
+thread_pool_ticket_cancellation/queue=128/cancel=100%/dynamic
+                        time:   [22.383 µs 22.428 µs 22.510 µs]
+                        thrpt:  [5.6863 Melem/s 5.7072 Melem/s 5.7187 Melem/s]
+                 change:
+                        time:   [−40.026% −34.144% −28.431%] (p = 0.00 < 0.05)
+                        thrpt:  [+39.726% +51.847% +66.738%]
+                        Performance has improved.
+Found 2 outliers among 20 measurements (10.00%)
+  2 (10.00%) high severe
+TP006 latency case=ticket_cancel/queue=128/ratio=100%/replicas=1/seed=0x5eedcafe phase=criterion_warmup_plus_measurement sample_count=2983808 p50_ns=174 p95_ns=181 p99_ns=196 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24
+Benchmarking thread_pool_ticket_cancellation/queue=4096/cancel=10%/dynamic
+Benchmarking thread_pool_ticket_cancellation/queue=4096/cancel=10%/dynamic: Warming up for 500.00 ms
+Benchmarking thread_pool_ticket_cancellation/queue=4096/cancel=10%/dynamic: Collecting 20 samples in estimated 1.9282 s (420 iterations)
+Benchmarking thread_pool_ticket_cancellation/queue=4096/cancel=10%/dynamic: Analyzing
+thread_pool_ticket_cancellation/queue=4096/cancel=10%/dynamic
+                        time:   [3.8730 ms 4.3886 ms 5.1301 ms]
+                        thrpt:  [399.22 Kelem/s 466.66 Kelem/s 528.79 Kelem/s]
+                 change:
+                        time:   [−46.338% −37.932% −27.601%] (p = 0.00 < 0.05)
+                        thrpt:  [+38.124% +61.113% +86.352%]
+                        Performance has improved.
+TP006 latency case=ticket_cancel/queue=4096/ratio=10%/replicas=5/seed=0x5eedcafe phase=criterion_warmup_plus_measurement sample_count=1120256 p50_ns=1722 p95_ns=3216 p99_ns=4111 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24
+Benchmarking thread_pool_ticket_cancellation/queue=4096/cancel=50%/dynamic
+Benchmarking thread_pool_ticket_cancellation/queue=4096/cancel=50%/dynamic: Warming up for 500.00 ms
+Benchmarking thread_pool_ticket_cancellation/queue=4096/cancel=50%/dynamic: Collecting 20 samples in estimated 1.2905 s (420 iterations)
+Benchmarking thread_pool_ticket_cancellation/queue=4096/cancel=50%/dynamic: Analyzing
+thread_pool_ticket_cancellation/queue=4096/cancel=50%/dynamic
+                        time:   [2.2795 ms 2.2845 ms 2.2909 ms]
+                        thrpt:  [893.97 Kelem/s 896.48 Kelem/s 898.46 Kelem/s]
+                 change:
+                        time:   [−47.140% −46.039% −44.864%] (p = 0.00 < 0.05)
+                        thrpt:  [+81.370% +85.320% +89.180%]
+                        Performance has improved.
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high severe
+TP006 latency case=ticket_cancel/queue=4096/ratio=50%/replicas=1/seed=0x5eedcafe phase=criterion_warmup_plus_measurement sample_count=1382400 p50_ns=1101 p95_ns=1283 p99_ns=1622 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24
+Benchmarking thread_pool_ticket_cancellation/queue=4096/cancel=100%/dynamic
+Benchmarking thread_pool_ticket_cancellation/queue=4096/cancel=100%/dynamic: Warming up for 500.00 ms
+Benchmarking thread_pool_ticket_cancellation/queue=4096/cancel=100%/dynamic: Collecting 20 samples in estimated 1.0081 s (420 iterations)
+Benchmarking thread_pool_ticket_cancellation/queue=4096/cancel=100%/dynamic: Analyzing
+thread_pool_ticket_cancellation/queue=4096/cancel=100%/dynamic
+                        time:   [831.98 µs 837.28 µs 845.55 µs]
+                        thrpt:  [4.8442 Melem/s 4.8920 Melem/s 4.9232 Melem/s]
+                 change:
+                        time:   [−16.440% −6.8688% +1.8042%] (p = 0.22 > 0.05)
+                        thrpt:  [−1.7722% +7.3754% +19.674%]
+                        No change in performance detected.
+Found 4 outliers among 20 measurements (20.00%)
+  2 (10.00%) high mild
+  2 (10.00%) high severe
+TP006 latency case=ticket_cancel/queue=4096/ratio=100%/replicas=1/seed=0x5eedcafe phase=criterion_warmup_plus_measurement sample_count=2764800 p50_ns=202 p95_ns=257 p99_ns=296 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24
+
+Benchmarking thread_pool_ticket_cancellation_contended/producers=4/workers=4/jobs=256
+Benchmarking thread_pool_ticket_cancellation_contended/producers=4/workers=4/jobs=256: Warming up for 500.00 ms
+Benchmarking thread_pool_ticket_cancellation_contended/producers=4/workers=4/jobs=256: Collecting 20 samples in estimated 1.0297 s (2100 iterations)
+Benchmarking thread_pool_ticket_cancellation_contended/producers=4/workers=4/jobs=256: Analyzing
+thread_pool_ticket_cancellation_contended/producers=4/workers=4/jobs=256
+                        time:   [391.18 µs 425.13 µs 464.07 µs]
+                        thrpt:  [551.64 Kelem/s 602.17 Kelem/s 654.43 Kelem/s]
+                 change:
+                        time:   [−6.4547% −1.0709% +4.8262%] (p = 0.73 > 0.05)
+                        thrpt:  [−4.6040% +1.0825% +6.9000%]
+                        No change in performance detected.
+Found 2 outliers among 20 measurements (10.00%)
+  1 (5.00%) high mild
+  1 (5.00%) high severe
+TP006 latency case=ticket_cancel/contended_submit_consume/producers=4/workers=4 phase=criterion_warmup_plus_measurement sample_count=1061632 p50_ns=25476 p95_ns=64249 p99_ns=80780 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24

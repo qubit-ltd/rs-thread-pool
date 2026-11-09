@@ -1,0 +1,61 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Finished `bench` profile [optimized] target(s) in 0.42s
+     Running benches/thread_pool_bench.rs (target/release/deps/thread_pool_bench-a903293a2fda5db4)
+Gnuplot not found, using plotters backend
+Benchmarking thread_pool_sparse_multiworker/all_workers_idle/1
+Benchmarking thread_pool_sparse_multiworker/all_workers_idle/1: Warming up for 500.00 ms
+Benchmarking thread_pool_sparse_multiworker/all_workers_idle/1: Collecting 20 samples in estimated 1.0019 s (56k iterations)
+Benchmarking thread_pool_sparse_multiworker/all_workers_idle/1: Analyzing
+thread_pool_sparse_multiworker/all_workers_idle/1
+                        time:   [11.338 µs 11.729 µs 12.077 µs]
+                        thrpt:  [82.801 Kelem/s 85.257 Kelem/s 88.199 Kelem/s]
+                 change:
+                        time:   [−18.652% −11.686% −3.9666%] (p = 0.01 < 0.05)
+                        thrpt:  [+4.1304% +13.232% +22.929%]
+                        Performance has improved.
+TP006 latency case=sparse/workers=1 phase=criterion_warmup_plus_measurement sample_count=89257 p50_ns=11845 p95_ns=15996 p99_ns=23301 timer_overhead_sample_count=10000 timer_overhead_p50_ns=33 timer_overhead_p95_ns=124
+Benchmarking thread_pool_sparse_multiworker/all_workers_idle/4
+Benchmarking thread_pool_sparse_multiworker/all_workers_idle/4: Warming up for 500.00 ms
+Benchmarking thread_pool_sparse_multiworker/all_workers_idle/4: Collecting 20 samples in estimated 1.0009 s (147k iterations)
+Benchmarking thread_pool_sparse_multiworker/all_workers_idle/4: Analyzing
+thread_pool_sparse_multiworker/all_workers_idle/4
+                        time:   [5.5140 µs 5.9973 µs 6.4330 µs]
+                        thrpt:  [155.45 Kelem/s 166.74 Kelem/s 181.36 Kelem/s]
+                 change:
+                        time:   [−18.267% −10.569% −3.8084%] (p = 0.01 < 0.05)
+                        thrpt:  [+3.9592% +11.818% +22.350%]
+                        Performance has improved.
+TP006 latency case=sparse/workers=4 phase=criterion_warmup_plus_measurement sample_count=278491 p50_ns=4682 p95_ns=12236 p99_ns=19126 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24
+Benchmarking thread_pool_sparse_multiworker/all_workers_idle/8
+Benchmarking thread_pool_sparse_multiworker/all_workers_idle/8: Warming up for 500.00 ms
+Benchmarking thread_pool_sparse_multiworker/all_workers_idle/8: Collecting 20 samples in estimated 1.0005 s (98k iterations)
+Benchmarking thread_pool_sparse_multiworker/all_workers_idle/8: Analyzing
+thread_pool_sparse_multiworker/all_workers_idle/8
+                        time:   [9.1553 µs 10.097 µs 11.195 µs]
+                        thrpt:  [89.324 Kelem/s 99.042 Kelem/s 109.23 Kelem/s]
+                 change:
+                        time:   [−13.045% −5.0038% +4.0074%] (p = 0.29 > 0.05)
+                        thrpt:  [−3.8530% +5.2674% +15.002%]
+                        No change in performance detected.
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+TP006 latency case=sparse/workers=8 phase=criterion_warmup_plus_measurement sample_count=163395 p50_ns=8721 p95_ns=15156 p99_ns=23998 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24
+Benchmarking thread_pool_sparse_multiworker/all_workers_idle/16
+Benchmarking thread_pool_sparse_multiworker/all_workers_idle/16: Warming up for 500.00 ms
+Benchmarking thread_pool_sparse_multiworker/all_workers_idle/16: Collecting 20 samples in estimated 1.0024 s (30k iterations)
+Benchmarking thread_pool_sparse_multiworker/all_workers_idle/16: Analyzing
+thread_pool_sparse_multiworker/all_workers_idle/16
+                        time:   [19.788 µs 20.348 µs 21.018 µs]
+                        thrpt:  [47.578 Kelem/s 49.146 Kelem/s 50.536 Kelem/s]
+                 change:
+                        time:   [−19.601% −17.180% −14.407%] (p = 0.00 < 0.05)
+                        thrpt:  [+16.832% +20.744% +24.379%]
+                        Performance has improved.
+Found 6 outliers among 20 measurements (30.00%)
+  2 (10.00%) low severe
+  1 (5.00%) high mild
+  3 (15.00%) high severe
+TP006 latency case=sparse/workers=16 phase=criterion_warmup_plus_measurement sample_count=46413 p50_ns=20648 p95_ns=36031 p99_ns=111310 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24

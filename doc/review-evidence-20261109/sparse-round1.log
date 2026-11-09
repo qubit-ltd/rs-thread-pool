@@ -1,0 +1,126 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+   Compiling proc-macro2 v1.0.107
+   Compiling unicode-ident v1.0.27
+   Compiling quote v1.0.47
+   Compiling libc v0.2.191
+   Compiling cfg-if v1.0.5
+   Compiling crossbeam-utils v0.8.23
+   Compiling thiserror v2.0.21
+   Compiling serde_core v1.0.229
+   Compiling crossbeam-epoch v0.9.21
+   Compiling rustversion v1.0.23
+   Compiling parking_lot_core v0.9.12
+   Compiling zerocopy v0.8.63
+   Compiling crossbeam-deque v0.8.8
+   Compiling portable-atomic v1.15.0
+   Compiling serde v1.0.229
+   Compiling autocfg v1.5.1
+   Compiling scopeguard v1.2.0
+   Compiling smallvec v1.16.5
+   Compiling find-msvc-tools v0.1.15
+   Compiling zmij v1.0.23
+   Compiling shlex v2.0.1
+   Compiling hashbrown v0.17.1
+   Compiling serde_json v1.0.154
+   Compiling rayon-core v1.13.0
+   Compiling either v1.19.0
+   Compiling itoa v1.0.19
+   Compiling regex-syntax v0.8.11
+   Compiling ciborium-io v0.2.2
+   Compiling plotters-backend v0.3.7
+   Compiling memchr v2.8.3
+   Compiling clap_lex v1.1.1
+   Compiling anstyle v1.0.14
+   Compiling qubit-fast-cas v0.3.3
+   Compiling same-file v1.0.6
+   Compiling log v0.4.35
+   Compiling oneshot v0.2.1
+   Compiling cast v0.3.0
+   Compiling qubit-function v0.18.4
+   Compiling anes v0.1.6
+   Compiling pin-project-lite v0.2.17
+   Compiling qubit-argument v0.4.10
+   Compiling oorandom v11.1.5
+   Compiling lock_api v0.4.14
+   Compiling walkdir v2.5.0
+   Compiling cc v1.11.1
+   Compiling num-traits v0.2.19
+   Compiling clap_builder v4.6.7
+   Compiling plotters-svg v0.3.7
+   Compiling itertools v0.13.0
+   Compiling arc-swap v1.9.4
+   Compiling qubit-atomic v0.17.7
+   Compiling syn v3.0.9
+   Compiling syn v2.0.119
+   Compiling qubit-collections v0.2.4
+   Compiling plotters v0.3.7
+   Compiling num_cpus v1.17.0
+   Compiling page_size v0.6.0
+   Compiling regex-automata v0.4.18
+   Compiling alloca v0.4.0
+   Compiling threadpool v1.8.1
+   Compiling parking_lot v0.12.5
+   Compiling rayon v1.12.0
+   Compiling criterion-plot v0.8.2
+   Compiling clap v4.6.7
+   Compiling regex v1.13.1
+   Compiling zerocopy-derive v0.8.63
+   Compiling thiserror-impl v2.0.21
+   Compiling serde_derive v1.0.229
+   Compiling tokio-macros v2.7.2
+   Compiling tokio v1.54.1
+   Compiling qubit-clock v0.13.5
+   Compiling qubit-state-machine v0.11.3
+   Compiling qubit-lock v0.14.5
+   Compiling qubit-executor v0.9.0
+   Compiling qubit-thread-pool v0.12.1 (/data/working/qubit/.worktrees/rs-thread-pool/implement-20261109)
+   Compiling tinytemplate v1.2.1
+   Compiling half v2.7.1
+   Compiling ciborium-ll v0.2.2
+   Compiling ciborium v0.2.2
+   Compiling criterion v0.8.2
+    Finished `bench` profile [optimized] target(s) in 23.56s
+     Running benches/thread_pool_bench.rs (target/release/deps/thread_pool_bench-a903293a2fda5db4)
+Gnuplot not found, using plotters backend
+Benchmarking thread_pool_sparse_multiworker/all_workers_idle/1
+Benchmarking thread_pool_sparse_multiworker/all_workers_idle/1: Warming up for 500.00 ms
+Benchmarking thread_pool_sparse_multiworker/all_workers_idle/1: Collecting 20 samples in estimated 1.0020 s (81k iterations)
+Benchmarking thread_pool_sparse_multiworker/all_workers_idle/1: Analyzing
+thread_pool_sparse_multiworker/all_workers_idle/1
+                        time:   [12.905 µs 14.602 µs 15.775 µs]
+                        thrpt:  [63.392 Kelem/s 68.485 Kelem/s 77.491 Kelem/s]
+TP006 latency case=sparse/workers=1 phase=criterion_warmup_plus_measurement sample_count=146595 p50_ns=12267 p95_ns=19240 p99_ns=22152 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24
+Benchmarking thread_pool_sparse_multiworker/all_workers_idle/4
+Benchmarking thread_pool_sparse_multiworker/all_workers_idle/4: Warming up for 500.00 ms
+Benchmarking thread_pool_sparse_multiworker/all_workers_idle/4: Collecting 20 samples in estimated 1.0013 s (127k iterations)
+Benchmarking thread_pool_sparse_multiworker/all_workers_idle/4: Analyzing
+thread_pool_sparse_multiworker/all_workers_idle/4
+                        time:   [6.4114 µs 6.7303 µs 7.1045 µs]
+                        thrpt:  [140.76 Kelem/s 148.58 Kelem/s 155.97 Kelem/s]
+Found 3 outliers among 20 measurements (15.00%)
+  1 (5.00%) low mild
+  2 (10.00%) high severe
+TP006 latency case=sparse/workers=4 phase=criterion_warmup_plus_measurement sample_count=257911 p50_ns=5209 p95_ns=12397 p99_ns=15433 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24
+Benchmarking thread_pool_sparse_multiworker/all_workers_idle/8
+Benchmarking thread_pool_sparse_multiworker/all_workers_idle/8: Warming up for 500.00 ms
+Benchmarking thread_pool_sparse_multiworker/all_workers_idle/8: Collecting 20 samples in estimated 1.0004 s (90k iterations)
+Benchmarking thread_pool_sparse_multiworker/all_workers_idle/8: Analyzing
+thread_pool_sparse_multiworker/all_workers_idle/8
+                        time:   [9.7311 µs 10.614 µs 11.262 µs]
+                        thrpt:  [88.790 Kelem/s 94.212 Kelem/s 102.76 Kelem/s]
+Found 2 outliers among 20 measurements (10.00%)
+  2 (10.00%) high mild
+TP006 latency case=sparse/workers=8 phase=criterion_warmup_plus_measurement sample_count=155415 p50_ns=9134 p95_ns=15804 p99_ns=20295 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24
+Benchmarking thread_pool_sparse_multiworker/all_workers_idle/16
+Benchmarking thread_pool_sparse_multiworker/all_workers_idle/16: Warming up for 500.00 ms
+Benchmarking thread_pool_sparse_multiworker/all_workers_idle/16: Collecting 20 samples in estimated 1.0012 s (31k iterations)
+Benchmarking thread_pool_sparse_multiworker/all_workers_idle/16: Analyzing
+thread_pool_sparse_multiworker/all_workers_idle/16
+                        time:   [24.111 µs 24.783 µs 25.293 µs]
+                        thrpt:  [39.536 Kelem/s 40.351 Kelem/s 41.475 Kelem/s]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+TP006 latency case=sparse/workers=16 phase=criterion_warmup_plus_measurement sample_count=63427 p50_ns=24391 p95_ns=32641 p99_ns=41999 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24

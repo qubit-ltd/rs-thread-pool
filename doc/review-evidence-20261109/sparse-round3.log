@@ -1,0 +1,55 @@
+    Finished `bench` profile [optimized] target(s) in 0.08s
+     Running benches/thread_pool_bench.rs (target/release/deps/thread_pool_bench-a903293a2fda5db4)
+Gnuplot not found, using plotters backend
+Benchmarking thread_pool_sparse_multiworker/all_workers_idle/1
+Benchmarking thread_pool_sparse_multiworker/all_workers_idle/1: Warming up for 500.00 ms
+Benchmarking thread_pool_sparse_multiworker/all_workers_idle/1: Collecting 20 samples in estimated 1.0013 s (65k iterations)
+Benchmarking thread_pool_sparse_multiworker/all_workers_idle/1: Analyzing
+thread_pool_sparse_multiworker/all_workers_idle/1
+                        time:   [9.7284 µs 10.114 µs 10.574 µs]
+                        thrpt:  [94.572 Kelem/s 98.871 Kelem/s 102.79 Kelem/s]
+                 change:
+                        time:   [−27.199% −20.682% −13.541%] (p = 0.00 < 0.05)
+                        thrpt:  [+15.662% +26.075% +37.360%]
+                        Performance has improved.
+TP006 latency case=sparse/workers=1 phase=criterion_warmup_plus_measurement sample_count=98077 p50_ns=10625 p95_ns=16918 p99_ns=20024 timer_overhead_sample_count=10000 timer_overhead_p50_ns=28 timer_overhead_p95_ns=32
+Benchmarking thread_pool_sparse_multiworker/all_workers_idle/4
+Benchmarking thread_pool_sparse_multiworker/all_workers_idle/4: Warming up for 500.00 ms
+Benchmarking thread_pool_sparse_multiworker/all_workers_idle/4: Collecting 20 samples in estimated 1.0007 s (132k iterations)
+Benchmarking thread_pool_sparse_multiworker/all_workers_idle/4: Analyzing
+thread_pool_sparse_multiworker/all_workers_idle/4
+                        time:   [4.7073 µs 4.7682 µs 4.8660 µs]
+                        thrpt:  [205.51 Kelem/s 209.72 Kelem/s 212.43 Kelem/s]
+                 change:
+                        time:   [−27.334% −24.343% −21.621%] (p = 0.00 < 0.05)
+                        thrpt:  [+27.585% +32.176% +37.617%]
+                        Performance has improved.
+TP006 latency case=sparse/workers=4 phase=criterion_warmup_plus_measurement sample_count=262741 p50_ns=4625 p95_ns=11061 p99_ns=15309 timer_overhead_sample_count=10000 timer_overhead_p50_ns=32 timer_overhead_p95_ns=142
+Benchmarking thread_pool_sparse_multiworker/all_workers_idle/8
+Benchmarking thread_pool_sparse_multiworker/all_workers_idle/8: Warming up for 500.00 ms
+Benchmarking thread_pool_sparse_multiworker/all_workers_idle/8: Collecting 20 samples in estimated 1.0011 s (35k iterations)
+Benchmarking thread_pool_sparse_multiworker/all_workers_idle/8: Analyzing
+thread_pool_sparse_multiworker/all_workers_idle/8
+                        time:   [20.026 µs 25.427 µs 30.614 µs]
+                        thrpt:  [32.665 Kelem/s 39.329 Kelem/s 49.935 Kelem/s]
+                 change:
+                        time:   [+82.486% +139.85% +209.79%] (p = 0.00 < 0.05)
+                        thrpt:  [−67.720% −58.307% −45.201%]
+                        Performance has regressed.
+TP006 latency case=sparse/workers=8 phase=criterion_warmup_plus_measurement sample_count=68257 p50_ns=13044 p95_ns=73634 p99_ns=97983 timer_overhead_sample_count=10000 timer_overhead_p50_ns=30 timer_overhead_p95_ns=39
+Benchmarking thread_pool_sparse_multiworker/all_workers_idle/16
+Benchmarking thread_pool_sparse_multiworker/all_workers_idle/16: Warming up for 500.00 ms
+Benchmarking thread_pool_sparse_multiworker/all_workers_idle/16: Collecting 20 samples in estimated 1.0010 s (20k iterations)
+Benchmarking thread_pool_sparse_multiworker/all_workers_idle/16: Analyzing
+thread_pool_sparse_multiworker/all_workers_idle/16
+                        time:   [27.218 µs 28.122 µs 28.852 µs]
+                        thrpt:  [34.660 Kelem/s 35.560 Kelem/s 36.741 Kelem/s]
+                 change:
+                        time:   [+8.2349% +14.964% +20.515%] (p = 0.00 < 0.05)
+                        thrpt:  [−17.023% −13.016% −7.6083%]
+                        Performance has regressed.
+Found 3 outliers among 20 measurements (15.00%)
+  1 (5.00%) low severe
+  1 (5.00%) low mild
+  1 (5.00%) high mild
+TP006 latency case=sparse/workers=16 phase=criterion_warmup_plus_measurement sample_count=35913 p50_ns=25503 p95_ns=76825 p99_ns=123959 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24

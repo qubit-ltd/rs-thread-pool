@@ -137,8 +137,31 @@ physical cores / 56 logical CPUs, two NUMA nodes), Ubuntu
 `f02d5fd9f685193c9f605e52964931de67561d26`. The shared working tree was dirty
 with TP-001 through TP-005 source, test, Rustdoc, README, guide and design
 changes, as well as the TP-006 benchmark and these bilingual performance
-reports. The measurements used synthetic benchmark tasks only. Raw round logs
-were `/tmp/rs-thread-pool-tp006-{sparse,cancel}-round{1,2,3}.log`.
+reports. The measurements used synthetic benchmark tasks only. Those historical raw logs are unavailable in the current environment, and the exact dirty source snapshot cannot be reconstructed from the recorded base commit. The historical tables are retained as unverified historical observations; they are not claimed to be reproducible.
+
+
+## Reproducible measurements: 2026-11-09
+
+The two TP-006 groups were rerun for three rounds from implementation commit
+`0a46d1802605d0f8812246870ba51d1c19e70082` (tree
+`d15304c8cdf25d253bf70cfdd6540ffba375a1b9`), with no source changes during
+measurement. Each run used sample size 20, 0.5 s warm-up, 1 s target measurement,
+and the default feature set. R1 saved Criterion baseline
+`rtp-20261109-round1`; R2 and R3 compared against that same baseline. These are
+repeatability runs on one implementation, not a before/after comparison.
+
+The raw outputs, exact command lines, exit results, environment, lockfile digest,
+and SHA-256 values are in [the evidence manifest](review-evidence-20261109/manifest.json)
+and [archived logs](review-evidence-20261109/). Sparse Criterion midpoints were
+10.114–14.602 µs (1 worker), 5.997–6.730 µs (4), 10.097–25.427 µs (8), and
+20.348–28.122 µs (16). Ticket-cancellation and contended measurements show
+material run-to-run variation; consult each raw round rather than treating one
+round as representative. Gnuplot was unavailable, so Criterion used plotters.
+The host and toolchain are recorded in the manifest.
+
+The old TP-006 tables above remain for historical context, but their original
+logs were absent and their exact dirty source snapshot is unrecoverable. They
+are not reproducibility evidence.
 
 ## Interpretation and reproduction
 

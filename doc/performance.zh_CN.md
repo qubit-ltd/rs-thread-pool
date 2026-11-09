@@ -84,7 +84,26 @@ cargo bench --bench thread_pool_bench --locked -- thread_pool_ticket_cancellatio
 cargo bench --bench thread_pool_bench --locked -- thread_pool_sparse_multiworker --sample-size 20 --warm-up-time 0.5 --measurement-time 1 --baseline tp006-round1 --save-baseline tp006-round2
 ```
 
-修正后的 R2 命令和全部 R3 命令均以退出码 0 完成。系统未安装 Gnuplot，Criterion 使用 plotters 后端。测量机器为 Intel Xeon E5-2680 v4（28 个物理核心 / 56 个逻辑 CPU，两个 NUMA 节点）、Ubuntu 6.8.0-147-generic x86_64、Rust 1.94.0。源代码基线 commit 为 `f02d5fd9f685193c9f605e52964931de67561d26`。共享脏工作树包含 TP-001 至 TP-005 的源码、测试、Rustdoc、README、指南和设计文档改动，以及 TP-006 基准与这两份性能报告。测量只使用合成基准任务。原始日志位于 `/tmp/rs-thread-pool-tp006-{sparse,cancel}-round{1,2,3}.log`。
+修正后的 R2 命令和全部 R3 命令均以退出码 0 完成。系统未安装 Gnuplot，Criterion 使用 plotters 后端。测量机器为 Intel Xeon E5-2680 v4（28 个物理核心 / 56 个逻辑 CPU，两个 NUMA 节点）、Ubuntu 6.8.0-147-generic x86_64、Rust 1.94.0。源代码基线 commit 为 `f02d5fd9f685193c9f605e52964931de67561d26`。共享脏工作树包含 TP-001 至 TP-005 的源码、测试、Rustdoc、README、指南和设计文档改动，以及 TP-006 基准与这两份性能报告。测量只使用合成基准任务。目前无法找到这些历史原始日志，也无法从记录的基线 commit 重建当时的完整脏源码快照。因此保留旧表作为未经复现的历史观测，不将其称为可复现结果。
+
+
+## 可复现测量：2026-11-09
+
+从实现 commit `0a46d1802605d0f8812246870ba51d1c19e70082`（tree
+`d15304c8cdf25d253bf70cfdd6540ffba375a1b9`）对 TP-006 两组进行了三轮
+测量；测量期间源码未变。每轮样本数 20、预热 0.5 秒、目标测量 1 秒，
+使用默认 feature。R1 保存 Criterion 基线 `rtp-20261109-round1`；R2、R3
+均与该基线比较。这些是同一实现的重复性测量，不是改动前后对比。
+
+[证据清单](review-evidence-20261109/manifest.json)和[归档日志](review-evidence-20261109/)
+记录了原始输出、完整命令、退出结果、环境、lockfile 摘要及 SHA-256。
+稀疏到达组 Criterion 中心估计范围为：1 worker 10.114–14.602 µs、4 个
+5.997–6.730 µs、8 个 10.097–25.427 µs、16 个 20.348–28.122 µs。取消和
+并发测量存在明显轮间波动，应查看各轮原始结果，不把单轮当作代表值。
+系统未安装 Gnuplot，Criterion 使用 plotters 后端；机器与工具链信息见清单。
+
+上方旧 TP-006 表格保留作历史参考，但其原始日志缺失，精确的历史脏源码
+快照也无法恢复，因此不作为可复现证据。
 
 ## 解读与复现
 
