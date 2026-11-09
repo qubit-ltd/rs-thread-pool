@@ -43,10 +43,10 @@ loom = { version = "^0.7", optional = true }
 thiserror = "^2.0"
 tokio = { version = "^1.54", features = ["sync"], optional = true }
 
-qubit-argument = "0.4.6"
-qubit-executor = "0.9"
-qubit-function = "0.18"
-qubit-lock = { default-features = false, features = ["monitor", "parking-lot"], version = "0.14" }
+qubit-argument = "^0.4"
+qubit-executor = "^0.9"
+qubit-function = "^0.18"
+qubit-lock = { default-features = false, features = ["monitor", "parking-lot"], version = "^0.14" }
 
 [dev-dependencies]
 criterion = "^0.8"
