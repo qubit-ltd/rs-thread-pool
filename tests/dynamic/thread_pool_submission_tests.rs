@@ -584,14 +584,22 @@ fn test_ticket_cancel_reservation_and_capture_drop_hold_capacity_and_termination
         .recv_timeout(Duration::from_secs(2))
         .expect("worker blocker finishes");
 
-    let saturated = || {
+    let result = cancel_pool.submit_job(PoolJob::new(Box::new(|| {}), Box::new(|| {})));
+    assert!(
         matches!(
-            cancel_pool.submit_job(PoolJob::new(Box::new(|| {}), Box::new(|| {}))),
+            &result,
             Err(qubit_thread_pool::PoolJobSubmissionError::Rejected(
                 qubit_executor::service::SubmissionError::Saturated
             ))
-        )
-    };
+        ),
+        "capacity stays held during the cancel callback: {result:?}"
+    );
+    pool.shutdown();
+    assert!(
+        !pool.wait_termination_timeout(Duration::from_millis(50)),
+        "termination waits while the cancel callback is gated"
+    );
+
     let (join_started_tx, join_started_rx) = mpsc::channel();
     let (join_done_tx, join_done_rx) = mpsc::channel();
     let join_pool = Arc::clone(&pool);
@@ -603,7 +611,6 @@ fn test_ticket_cancel_reservation_and_capture_drop_hold_capacity_and_termination
     join_started_rx
         .recv_timeout(Duration::from_secs(2))
         .expect("join waiter starts");
-    assert!(saturated(), "capacity stays held during the cancel callback");
     assert!(
         matches!(
             join_done_rx.recv_timeout(Duration::from_millis(50)),
@@ -616,7 +623,12 @@ fn test_ticket_cancel_reservation_and_capture_drop_hold_capacity_and_termination
     drop_started_rx
         .recv_timeout(Duration::from_secs(2))
         .expect("captured run value enters its Drop gate");
-    assert!(saturated(), "capacity stays held while the run capture is dropped");
+    assert!(matches!(
+        cancel_pool.submit_job(PoolJob::new(Box::new(|| {}), Box::new(|| {}))),
+        Err(qubit_thread_pool::PoolJobSubmissionError::Rejected(
+            qubit_executor::service::SubmissionError::Shutdown
+        ))
+    ));
     assert!(
         matches!(
             join_done_rx.recv_timeout(Duration::from_millis(50)),
@@ -627,6 +639,10 @@ fn test_ticket_cancel_reservation_and_capture_drop_hold_capacity_and_termination
     assert!(
         matches!(cancel_result_rx.try_recv(), Err(mpsc::TryRecvError::Empty)),
         "ticket cancellation is not published before captured-value Drop ends"
+    );
+    assert!(
+        !pool.wait_termination_timeout(Duration::from_millis(50)),
+        "termination waits while captured-value Drop is gated"
     );
 
     release_drop.release();
@@ -640,7 +656,6 @@ fn test_ticket_cancel_reservation_and_capture_drop_hold_capacity_and_termination
         .recv_timeout(Duration::from_secs(2))
         .expect("join completes after both gates release");
     join.join().expect("join waiter thread joins");
-    pool.shutdown();
     assert!(pool.wait_termination_timeout(Duration::from_secs(2)));
     let stats = pool.stats();
     assert_eq!(stats.submitted_tasks, 2);
