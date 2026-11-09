@@ -76,7 +76,7 @@ shutdown 关闭接纳入口，持 monitor 切换生命周期并唤醒 worker，�
 
 ## panic 隔离
 
-接纳、用户 run/cancel 回调、普通任务执行和 hook 都在各自边界捕获展开式 panic。接纳失败属于提交错误，不触发取消回调。hook 在 worker 线程执行，接收稳定的 worker index，panic 会被忽略。这些机制无法从进程 abort 中恢复，也不能强制中断阻塞任务。回调和 hook 应避免等待依赖自身才能推进的工作。
+接纳、用户 run/cancel 回调、普通任务执行和 hook 都在各自边界捕获展开式 panic。接纳失败属于提交错误，不触发取消回调。hook 在 worker 线程执行，接收稳定的 worker index，panic 会被忽略。hook 的 panic payload 会在第二个展开边界内销毁；如果其析构再次 panic，会刻意遗留这个嵌套 payload，以便 worker 继续运行。该机制无法从进程 abort 或阻塞的析构函数中恢复，也不能强制中断阻塞任务。回调和 hook 应避免等待依赖自身才能推进的工作。
 
 ## 监控快照
 

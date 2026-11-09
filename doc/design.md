@@ -166,9 +166,11 @@ Acceptance, custom run/cancel callbacks, ordinary task execution and hooks
 contain unwinding panics at their respective boundaries. Acceptance failure
 is a submission error; it does not execute the cancellation callback.
 Hooks run on worker threads with stable worker indices and their panics are
-ignored. Neither containment nor cancellation can recover from process abort
-or forcibly interrupt a blocked task. Callbacks and hooks must avoid waiting
-on work whose progress depends on themselves.
+ignored. The panic payload is dropped inside a second unwind boundary; if its
+destructor also panics, that nested payload is intentionally forgotten so the
+worker can continue. This does not recover from process abort or a destructor
+that blocks, and it cannot forcibly interrupt a blocked task. Callbacks and
+hooks must avoid waiting on work whose progress depends on themselves.
 
 ## Monitoring snapshots
 

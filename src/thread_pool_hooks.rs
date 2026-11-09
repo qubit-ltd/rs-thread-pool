@@ -212,12 +212,11 @@ impl ThreadPoolHooks {
     /// * `worker_index` - Stable worker index passed to the callback.
     #[inline]
     fn run_hook(hook: &Option<HookCallback>, worker_index: usize) {
-        if let Some(hook) = hook {
-            if let Err(payload) = catch_unwind(AssertUnwindSafe(|| hook(worker_index))) {
-                if let Err(nested) = catch_unwind(AssertUnwindSafe(|| drop(payload))) {
-                    std::mem::forget(nested);
-                }
-            }
+        if let Some(hook) = hook
+            && let Err(payload) = catch_unwind(AssertUnwindSafe(|| hook(worker_index)))
+            && let Err(nested) = catch_unwind(AssertUnwindSafe(|| drop(payload)))
+        {
+            std::mem::forget(nested);
         }
     }
 }

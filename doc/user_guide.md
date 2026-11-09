@@ -113,7 +113,10 @@ workers. Configure `prestart_core_threads()` on the builder, or call
 `prestart_all_core_threads()` on an existing dynamic pool, when startup latency is
 more important than lazy worker creation. Both builders accept worker and task
 hooks. Hooks run on worker threads, receive a stable worker index, and ignore
-their own panics; keep them short because task hooks are on the execution path.
+their own panics; a panicking hook's payload is dropped safely, while a payload
+whose destructor panics is intentionally leaked. This only contains unwinding:
+it cannot recover from process abort or a blocking destructor. Keep hooks short
+because task hooks are on the execution path.
 
 An unbounded queue keeps accepting tasks after the dynamic pool reaches its core
 size, so a larger maximum alone does not create burst workers. Choose an

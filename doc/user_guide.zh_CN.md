@@ -123,7 +123,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 克隆得到的 `PoolJobTicket` 共享同一次取消机会。只有赢得取消竞争的调用才返回 `true`；任务尚未接纳、接纳失败、已取消或已被 worker 领取时，返回 `false`。成功取消会等到 cancel 回调执行完、回调捕获的值释放，再释放排队槽位并更新线程池计数后返回。回调在池锁和队列锁之外执行。若取消请求遇到接纳进行中，接纳成功后由提交线程完成取消；若在接纳回调中调用 ticket，则立即返回 `false`，不会等待自身。该 ticket API 只适用于动态 `ThreadPool`，不改变 `FixedThreadPool`；它也无法中断已由 worker 领取的任务。
 
-worker hook（`before_worker_start`、`after_worker_stop`、`before_task`、`after_task`）用于观测，不宜承担阻塞协调。线程名称与栈配置作用于新创建的线程；处理任务结果时应与监控计数分开。
+worker hook（`before_worker_start`、`after_worker_stop`、`before_task`、`after_task`）用于观测，不宜承担阻塞协调。hook panic 的 payload 会安全销毁；若 payload 析构再次 panic，嵌套 payload 会被刻意遗留。该隔离只处理展开式 panic，无法恢复进程 abort 或阻塞的析构函数。线程名称与栈配置作用于新创建的线程；处理任务结果时应与监控计数分开。
 
 <a id="async-shutdown-and-capacity-retries"></a>
 
