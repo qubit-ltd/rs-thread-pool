@@ -1158,6 +1158,7 @@ mod tests {
     use super::ThreadPoolInner;
     use crate::PoolJob;
     use crate::PoolJobSubmissionError;
+    use crate::pool_job::QueuedJobState;
 
     struct DynamicWakeCleanup {
         inner: Arc<ThreadPoolInner>,
@@ -1301,6 +1302,128 @@ mod tests {
         assert!(cancel_thread.join().expect("ticket cancellation should finish"));
         release_worker_tx.send(()).expect("worker should be released");
         assert!(inner.wait_for_termination_timeout(Duration::from_secs(2)));
+    }
+
+    fn wait_for_cancel_reservation(entry: &crate::pool_job::QueuedJob) {
+        let deadline = Instant::now() + Duration::from_secs(2);
+        loop {
+            let requested = matches!(
+                &*entry.lock(),
+                QueuedJobState::Accepting {
+                    cancel_requested: true,
+                    ..
+                }
+            );
+            if requested {
+                return;
+            }
+            assert!(Instant::now() < deadline, "cancellation reservation was not observed");
+            thread::yield_now();
+        }
+    }
+
+    #[test]
+    fn test_ticket_cancel_reservation_precedes_accept_success_and_duplicate() {
+        let inner = Arc::new(ThreadPoolInner::new(
+            ThreadPoolConfig {
+                core_pool_size: 1,
+                maximum_pool_size: 1,
+                queue_capacity: Some(1),
+                thread_name_prefix: String::from("accept-cancel-success"),
+                stack_size: None,
+                keep_alive: Duration::from_secs(1),
+                allow_core_thread_timeout: false,
+            },
+            ThreadPoolHooks::default(),
+        ));
+        let (accept_started_tx, accept_started_rx) = mpsc::channel();
+        let (release_accept_tx, release_accept_rx) = mpsc::channel();
+        let (run_tx, run_rx) = mpsc::channel();
+        let (cancel_tx, cancel_rx) = mpsc::channel();
+        let (job, ticket) = PoolJob::prepare_cancellable(
+            &inner,
+            Box::new(move || {
+                accept_started_tx.send(()).expect("accept starts");
+                release_accept_rx.recv().expect("accept released");
+            }),
+            Box::new(move || run_tx.send(()).expect("run observed")),
+            Box::new(move || cancel_tx.send(()).expect("cancel observed")),
+        );
+        let entry = Arc::clone(&ticket.entry);
+        let submit_inner = Arc::clone(&inner);
+        let (submit_tx, submit_rx) = mpsc::channel();
+        let submit = thread::spawn(move || submit_tx.send(submit_inner.submit(job)).expect("submit result"));
+        accept_started_rx.recv_timeout(Duration::from_secs(2)).expect("accept entered");
+        let first_ticket = ticket.clone();
+        let (first_tx, first_rx) = mpsc::channel();
+        let first = thread::spawn(move || first_tx.send(first_ticket.cancel_queued()).expect("first result"));
+        wait_for_cancel_reservation(&entry);
+        assert!(!ticket.cancel_queued(), "duplicate cancellation must lose immediately");
+        release_accept_tx.send(()).expect("release accept");
+        assert!(first_rx.recv_timeout(Duration::from_secs(2)).expect("first cancellation result"));
+        submit_rx.recv_timeout(Duration::from_secs(2)).expect("submit finishes").expect("submit accepted");
+        submit.join().expect("submit thread joins");
+        first.join().expect("cancel thread joins");
+        cancel_rx.recv_timeout(Duration::from_secs(2)).expect("cancel runs once");
+        assert!(run_rx.try_recv().is_err());
+        inner.shutdown();
+        assert!(inner.wait_for_termination_timeout(Duration::from_secs(2)));
+        let stats = inner.stats();
+        assert_eq!(stats.completed_tasks, 0);
+        assert_eq!(stats.cancelled_tasks, 1);
+        assert_eq!(stats.submitted_tasks, 1);
+    }
+
+    #[test]
+    fn test_ticket_cancel_reservation_precedes_accept_panic() {
+        let inner = Arc::new(ThreadPoolInner::new(
+            ThreadPoolConfig {
+                core_pool_size: 1,
+                maximum_pool_size: 1,
+                queue_capacity: Some(1),
+                thread_name_prefix: String::from("accept-cancel-panic"),
+                stack_size: None,
+                keep_alive: Duration::from_secs(1),
+                allow_core_thread_timeout: false,
+            },
+            ThreadPoolHooks::default(),
+        ));
+        let (accept_started_tx, accept_started_rx) = mpsc::channel();
+        let (release_accept_tx, release_accept_rx) = mpsc::channel();
+        let (job, ticket) = PoolJob::prepare_cancellable(
+            &inner,
+            Box::new(move || {
+                accept_started_tx.send(()).expect("accept starts");
+                release_accept_rx.recv().expect("accept released");
+                panic!("acceptance fails after release");
+            }),
+            Box::new(|| panic!("rejected job must not run")),
+            Box::new(|| panic!("rejected job must not cancel")),
+        );
+        let entry = Arc::clone(&ticket.entry);
+        let submit_inner = Arc::clone(&inner);
+        let (submit_tx, submit_rx) = mpsc::channel();
+        let submit = thread::spawn(move || submit_tx.send(submit_inner.submit(job)).expect("submit result"));
+        accept_started_rx.recv_timeout(Duration::from_secs(2)).expect("accept entered");
+        let (cancel_tx, cancel_rx) = mpsc::channel();
+        let cancel_ticket = ticket.clone();
+        let cancel = thread::spawn(move || cancel_tx.send(cancel_ticket.cancel_queued()).expect("cancel result"));
+        wait_for_cancel_reservation(&entry);
+        assert!(!ticket.cancel_queued(), "duplicate cancellation must lose immediately");
+        release_accept_tx.send(()).expect("release accept");
+        assert!(!cancel_rx.recv_timeout(Duration::from_secs(2)).expect("cancellation result"));
+        assert_eq!(
+            submit_rx.recv_timeout(Duration::from_secs(2)).expect("submit finishes"),
+            Err(PoolJobSubmissionError::AcceptancePanicked)
+        );
+        submit.join().expect("submit thread joins");
+        cancel.join().expect("cancel thread joins");
+        inner.shutdown();
+        assert!(inner.wait_for_termination_timeout(Duration::from_secs(2)));
+        let stats = inner.stats();
+        assert_eq!(stats.completed_tasks, 0);
+        assert_eq!(stats.cancelled_tasks, 0);
+        assert_eq!(stats.submitted_tasks, 0);
     }
 
     #[test]

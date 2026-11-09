@@ -10,11 +10,50 @@
 use std::io;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
 use std::sync::mpsc;
 use std::time::Duration;
 
 use qubit_executor::service::ExecutorService;
 use qubit_thread_pool::ThreadPool;
+
+struct PanickingPayload;
+
+impl Drop for PanickingPayload {
+    fn drop(&mut self) {
+        panic!("payload destructor panic");
+    }
+}
+
+struct NestedPanickingPayload(Arc<AtomicUsize>);
+
+impl Drop for NestedPanickingPayload {
+    fn drop(&mut self) {
+        self.0.fetch_add(1, Ordering::Relaxed);
+        panic!("nested payload destructor panic");
+    }
+}
+
+struct OuterPanickingPayload {
+    drops: Arc<AtomicUsize>,
+    nested_drops: Arc<AtomicUsize>,
+}
+
+struct CountedPayload(Arc<AtomicUsize>);
+
+impl Drop for CountedPayload {
+    fn drop(&mut self) {
+        self.0.fetch_add(1, Ordering::Relaxed);
+    }
+}
+
+impl Drop for OuterPanickingPayload {
+    fn drop(&mut self) {
+        self.drops.fetch_add(1, Ordering::Relaxed);
+        std::panic::panic_any(NestedPanickingPayload(Arc::clone(&self.nested_drops)));
+    }
+}
 
 use super::mod_tests::wait_started;
 
@@ -65,6 +104,85 @@ fn test_thread_pool_runs_configured_hooks() {
     assert!(events.contains(&"before"));
     assert!(events.contains(&"after"));
     assert!(events.contains(&"stop"));
+}
+
+#[test]
+fn test_thread_pool_hook_payload_destructor_panic_is_contained() {
+    for hook_kind in 0..4 {
+        let builder = ThreadPool::builder().pool_size(1);
+        let builder = match hook_kind {
+            0 => builder.before_worker_start(|_| std::panic::panic_any(PanickingPayload)),
+            1 => builder.before_task(|_| std::panic::panic_any(PanickingPayload)),
+            2 => builder.after_task(|_| std::panic::panic_any(PanickingPayload)),
+            _ => builder.after_worker_stop(|_| std::panic::panic_any(PanickingPayload)),
+        };
+        let pool = builder.build().expect("pool builds");
+        let (done_tx, done_rx) = mpsc::channel();
+        pool.submit(move || {
+            done_tx.send(()).expect("task progress observed");
+            Ok::<(), io::Error>(())
+        })
+        .expect("task accepted");
+        assert!(
+            done_rx.recv_timeout(Duration::from_secs(2)).is_ok(),
+            "task progress failed for hook {hook_kind}"
+        );
+        pool.shutdown();
+        assert!(
+            pool.wait_termination_timeout(Duration::from_secs(2)),
+            "termination failed for hook {hook_kind}"
+        );
+    }
+}
+
+#[test]
+fn test_thread_pool_nested_hook_payload_destructor_panic_is_contained() {
+    let outer_drops = Arc::new(AtomicUsize::new(0));
+    let nested_drops = Arc::new(AtomicUsize::new(0));
+    let hook_outer_drops = Arc::clone(&outer_drops);
+    let hook_nested_drops = Arc::clone(&nested_drops);
+    let pool = ThreadPool::builder()
+        .pool_size(1)
+        .before_task(move |_| {
+            std::panic::panic_any(OuterPanickingPayload {
+                drops: Arc::clone(&hook_outer_drops),
+                nested_drops: Arc::clone(&hook_nested_drops),
+            })
+        })
+        .build()
+        .expect("pool builds");
+    let (done_tx, done_rx) = mpsc::channel();
+    pool.submit(move || {
+        done_tx.send(()).expect("task progress observed");
+        Ok::<(), io::Error>(())
+    })
+    .expect("task accepted");
+    done_rx.recv_timeout(Duration::from_secs(2)).expect("task progresses");
+    pool.shutdown();
+    assert!(pool.wait_termination_timeout(Duration::from_secs(2)));
+    assert_eq!(outer_drops.load(Ordering::Relaxed), 1);
+    assert_eq!(nested_drops.load(Ordering::Relaxed), 0);
+}
+
+#[test]
+fn test_thread_pool_ordinary_hook_panic_payload_is_dropped() {
+    let payload_drops = Arc::new(AtomicUsize::new(0));
+    let hook_payload_drops = Arc::clone(&payload_drops);
+    let pool = ThreadPool::builder()
+        .pool_size(1)
+        .before_task(move |_| std::panic::panic_any(CountedPayload(Arc::clone(&hook_payload_drops))))
+        .build()
+        .expect("pool builds");
+    let (done_tx, done_rx) = mpsc::channel();
+    pool.submit(move || {
+        done_tx.send(()).expect("task progress observed");
+        Ok::<(), io::Error>(())
+    })
+    .expect("task accepted");
+    done_rx.recv_timeout(Duration::from_secs(2)).expect("task progresses");
+    pool.shutdown();
+    assert!(pool.wait_termination_timeout(Duration::from_secs(2)));
+    assert_eq!(payload_drops.load(Ordering::Relaxed), 1);
 }
 
 #[test]

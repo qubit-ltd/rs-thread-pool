@@ -1,6 +1,6 @@
 # Qubit Thread Pool 性能说明
 
-[English](performance.md) · 本文说明 0.10.0 版本的测量边界。
+[English](performance.md) · 当前基准操作说明适用于 0.12.1；已有测量结果保留各自的原始源码基线。
 
 ## 当前 benchmark 分组
 
@@ -92,7 +92,7 @@ cargo bench --bench thread_pool_bench --locked -- thread_pool_sparse_multiworker
 
 ## 历史观测：2026-05-11
 
-以下表格从 README 保留迁入，属于**历史观测，不是 0.10.0 的性能承诺**。记录环境为 Apple M3 Max、16 个硬件线程、Rust 1.94.1，历史执行命令为
+以下表格从 README 保留迁入，属于**历史观测，不是 0.10.0 的性能承诺，也不构成当前 0.12.1 版本的性能保证**。记录环境为 Apple M3 Max、16 个硬件线程、Rust 1.94.1，历史执行命令为
 `cargo bench --bench thread_pool_bench -- thread_pool_submit_modes`。
 当前 benchmark 已不再注册这个分组。
 

@@ -1,6 +1,6 @@
 # Qubit Thread Pool Performance
 
-[中文版](performance.zh_CN.md) · Measurement boundaries for version 0.10.0.
+[中文版](performance.zh_CN.md) · Current benchmark instructions apply to version 0.12.1; recorded measurements retain their original source baselines.
 
 ## Current benchmark groups
 
@@ -152,7 +152,8 @@ historical `test-data` datasets.
 ## Historical observations: 2026-05-11
 
 The tables below were preserved from the README: **historical observations,
-not a performance promise for 0.10.0**. The recorded environment was an Apple
+not a performance promise for 0.10.0 or a performance guarantee for current
+version 0.12.1**. The recorded environment was an Apple
 M3 Max with 16 hardware threads and Rust 1.94.1. The historical command was
 `cargo bench --bench thread_pool_bench -- thread_pool_submit_modes`.
 That group is no longer registered by the current benchmark.

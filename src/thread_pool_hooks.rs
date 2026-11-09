@@ -200,6 +200,12 @@ impl ThreadPoolHooks {
 
     /// Runs one hook callback while isolating hook panics.
     ///
+    /// A panicking hook payload is explicitly dropped inside a second unwind
+    /// boundary. If that destructor panics, its nested payload is forgotten so
+    /// the panic cannot escape into the worker; only that exceptional payload
+    /// is intentionally leaked. This cannot recover from aborts, blocking
+    /// destructors, or process termination.
+    ///
     /// # Parameters
     ///
     /// * `hook` - Optional callback to invoke.
@@ -207,7 +213,11 @@ impl ThreadPoolHooks {
     #[inline]
     fn run_hook(hook: &Option<HookCallback>, worker_index: usize) {
         if let Some(hook) = hook {
-            let _ = catch_unwind(AssertUnwindSafe(|| hook(worker_index)));
+            if let Err(payload) = catch_unwind(AssertUnwindSafe(|| hook(worker_index))) {
+                if let Err(nested) = catch_unwind(AssertUnwindSafe(|| drop(payload))) {
+                    std::mem::forget(nested);
+                }
+            }
         }
     }
 }

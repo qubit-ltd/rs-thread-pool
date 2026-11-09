@@ -22,6 +22,14 @@ use qubit_executor::service::ExecutorService;
 use qubit_executor::service::SubmissionError;
 use qubit_thread_pool::FixedThreadPool;
 
+struct PanickingPayload;
+
+impl Drop for PanickingPayload {
+    fn drop(&mut self) {
+        panic!("payload destructor panic");
+    }
+}
+
 use super::mod_tests::wait_started;
 use super::mod_tests::wait_until;
 
@@ -81,6 +89,35 @@ fn test_fixed_thread_pool_runs_configured_hooks() {
     assert!(events.contains(&"before"));
     assert!(events.contains(&"after"));
     assert!(events.contains(&"stop"));
+}
+
+#[test]
+fn test_fixed_thread_pool_hook_payload_destructor_panic_is_contained() {
+    for hook_kind in 0..4 {
+        let builder = FixedThreadPool::builder().pool_size(1);
+        let builder = match hook_kind {
+            0 => builder.before_worker_start(|_| std::panic::panic_any(PanickingPayload)),
+            1 => builder.before_task(|_| std::panic::panic_any(PanickingPayload)),
+            2 => builder.after_task(|_| std::panic::panic_any(PanickingPayload)),
+            _ => builder.after_worker_stop(|_| std::panic::panic_any(PanickingPayload)),
+        };
+        let pool = builder.build().expect("pool builds");
+        let (done_tx, done_rx) = mpsc::channel();
+        pool.submit(move || {
+            done_tx.send(()).expect("task progress observed");
+            Ok::<(), io::Error>(())
+        })
+        .expect("task accepted");
+        assert!(
+            done_rx.recv_timeout(Duration::from_secs(2)).is_ok(),
+            "task progress failed for hook {hook_kind}"
+        );
+        pool.shutdown();
+        assert!(
+            pool.wait_termination_timeout(Duration::from_secs(2)),
+            "termination failed for hook {hook_kind}"
+        );
+    }
 }
 
 #[test]

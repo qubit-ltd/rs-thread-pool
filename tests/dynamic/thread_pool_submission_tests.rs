@@ -579,6 +579,56 @@ fn test_ticket_cancel_races_worker_claim_and_stop_once() {
 }
 
 #[test]
+fn test_ticket_worker_claim_wins_before_cancellation() {
+    let pool = Arc::new(ThreadPool::new(1).expect("pool builds"));
+    let (run_tx, run_rx) = mpsc::channel();
+    let (release_run_tx, release_run_rx) = mpsc::channel();
+    let (job, ticket) = pool.prepare_cancellable_job(
+        Box::new(|| {}),
+        Box::new(move || {
+            run_tx.send(()).expect("run started");
+            release_run_rx.recv().expect("run released");
+        }),
+        Box::new(|| panic!("claimed job must not be cancelled")),
+    );
+    pool.submit_job(job).expect("job accepted");
+    run_rx.recv_timeout(Duration::from_secs(2)).expect("run starts before cancellation");
+    assert!(!ticket.cancel_queued());
+    release_run_tx.send(()).expect("release run");
+    pool.shutdown();
+    assert!(pool.wait_termination_timeout(Duration::from_secs(2)));
+    assert_eq!(pool.stats().completed_tasks, 1);
+    assert_eq!(pool.stats().cancelled_tasks, 0);
+}
+
+#[test]
+fn test_ticket_stop_claim_wins_before_ticket_cancellation() {
+    let pool = Arc::new(ThreadPool::new(1).expect("pool builds"));
+    let release_worker = block_ticket_worker(&pool);
+    let (cancel_started_tx, cancel_started_rx) = mpsc::channel();
+    let (release_cancel_tx, release_cancel_rx) = mpsc::channel();
+    let (job, ticket) = pool.prepare_cancellable_job(
+        Box::new(|| {}),
+        Box::new(|| panic!("stopped job must not run")),
+        Box::new(move || {
+            cancel_started_tx.send(()).expect("stop cancellation starts");
+            release_cancel_rx.recv().expect("stop cancellation released");
+        }),
+    );
+    pool.submit_job(job).expect("job accepted");
+    let stop_pool = Arc::clone(&pool);
+    let stop = std::thread::spawn(move || stop_pool.stop());
+    cancel_started_rx.recv_timeout(Duration::from_secs(2)).expect("stop owns cancellation");
+    assert!(!ticket.cancel_queued(), "ticket must lose after stop claims the entry");
+    release_cancel_tx.send(()).expect("release stop cancellation");
+    let report = stop.join().expect("stop joins");
+    assert_eq!(report.cancelled, 1);
+    release_worker.send(()).expect("release worker");
+    assert!(pool.wait_termination_timeout(Duration::from_secs(2)));
+    assert_eq!(pool.stats().completed_tasks + pool.stats().cancelled_tasks, pool.stats().submitted_tasks);
+}
+
+#[test]
 fn test_ticket_cancel_during_accept_waits_and_releases_captures() {
     let pool = Arc::new(ThreadPool::new(1).expect("pool builds"));
     let release_worker = block_ticket_worker(&pool);
