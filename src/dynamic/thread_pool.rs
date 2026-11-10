@@ -39,6 +39,13 @@ use crate::ThreadPoolStats;
 /// `shutdown` is graceful: already accepted queued tasks are allowed to run.
 /// `stop` is abrupt: queued tasks that have not started are completed
 /// with [`TaskExecutionError::Cancelled`](qubit_executor::TaskExecutionError::Cancelled).
+/// Dropping the pool requests graceful shutdown, but does not wait for accepted
+/// work, cancellation callbacks, or workers to finish. When completion is
+/// required, call [`ExecutorService::shutdown`] and
+/// [`ExecutorService::wait_termination`] before dropping the pool, from outside
+/// the pool. With the `async-wait` feature, `await_termination()` can be
+/// awaited instead. A task or callback on this pool must not wait for
+/// termination that depends on its own progress.
 ///
 /// # Examples
 ///

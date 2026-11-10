@@ -71,6 +71,10 @@ Ok(())
 非阻塞观测是安全的。
 不能在池内任务中等待同一个池的 `join()` 或 `wait_termination()`，因为等待范围包含任务自身。取消回调也不能进行这些等待。取消回调可能在 stop 调用线程执行，也可能与 worker 侧取消并发。空闲和终止等待都会等待取消回调结束；stop 之后若还需要等待运行中的任务完成，应在池外调用 `wait_termination()`。
 
+丢弃任一线程池会请求平滑关闭，但不会等待已接纳任务、取消回调或 worker
+结束。若需要完成保证，应在丢弃线程池前从池外调用 `shutdown()` 和
+`wait_termination()`。不要在其自身进度影响终止的池内任务或回调中等待。
+
 ## 进阶用法
 
 worker 数量长期稳定时选择 `FixedThreadPool`；它会预启动配置数量的 worker。若动态线程池更看重启动延迟，可在 builder 中配置 `prestart_core_threads()`，或对已创建的池调用 `prestart_all_core_threads()`。两个 builder 都支持 worker 和 task hook：hook 在 worker 线程中运行，收到稳定的 worker index；其自身 panic 会被忽略。task hook 位于执行路径上，应保持短小。

@@ -34,6 +34,12 @@ use crate::ThreadPoolStats;
 /// support runtime pool-size changes. Use [`crate::ThreadPool`] when dynamic
 /// core/maximum sizes or keep-alive policies are required.
 ///
+/// Dropping the pool requests graceful shutdown, but does not wait for accepted
+/// work, cancellation callbacks, or workers to finish. When completion is
+/// required, call [`ExecutorService::shutdown`] and
+/// [`ExecutorService::wait_termination`] before dropping the pool, from outside
+/// the pool.
+///
 /// # Examples
 ///
 /// ```

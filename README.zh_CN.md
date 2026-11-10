@@ -77,7 +77,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ## shutdown 与 stop
 
-`shutdown()` 关闭接纳入口后返回，不等待提交或已接纳任务结束；随后调用 `wait_termination()` 才能完成平滑关闭。`stop()` 会等待正在接纳的提交，并取消尚未跨过 worker 领取边界的任务，无法强制终止运行中的工作，也不是终止屏障。`join()` 等待任务处理完毕，但不关闭接纳入口。这些等待包含取消回调，不能从同一个池的任务中调用。统计信息和 `StopReport` 用于监控，不是同步屏障。
+`shutdown()` 关闭接纳入口后返回，不等待提交或已接纳任务结束；随后调用 `wait_termination()` 才能完成平滑关闭。丢弃任一线程池会请求平滑关闭，但不会等待已接纳任务、取消回调或 worker 结束。若需要完成保证，应在丢弃线程池前从池外调用 `shutdown()` 和 `wait_termination()`。动态池 `ThreadPool` 仅在启用 `async-wait` feature 时提供异步等待方法 `await_termination()`；固定池 `FixedThreadPool` 使用同步的 `wait_termination()`。不要在其自身进度影响终止的池内任务或回调中等待。`stop()` 会等待正在接纳的提交，并取消尚未跨过 worker 领取边界的任务，无法强制终止运行中的工作，也不是终止屏障。`join()` 等待任务处理完毕，但不关闭接纳入口。这些等待包含取消回调。统计信息和 `StopReport` 用于监控，不是同步屏障。
 
 ## 延伸阅读
 

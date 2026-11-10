@@ -84,6 +84,11 @@ does not request shutdown, so later submissions are still possible.
 `shutdown()` closes admission, changes the lifecycle, wakes workers, and returns
 without waiting for in-flight submissions or accepted work. Call
 `wait_termination()` when a completion barrier is required.
+Dropping either pool requests graceful shutdown, but does not wait for accepted
+work, cancellation callbacks, or workers to finish. Call `shutdown()` and
+`wait_termination()` before dropping the pool when completion is required, and
+make those calls from outside the pool. Do not wait for termination from a task
+or callback whose own progress it depends on.
 `stop()` waits for in-flight admission and cancels work that has not crossed
 the worker claim boundary. All accepted jobs use the global queue; a job may
 finish acceptance while stop is waiting, then be cancelled. A job already

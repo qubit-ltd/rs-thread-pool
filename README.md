@@ -102,7 +102,15 @@ callback and cancellation semantics.
 
 `shutdown()` closes admission and returns without waiting for submissions
 or accepted work. Follow it with `wait_termination()` to finish graceful
-shutdown. `stop()` waits for in-flight admission and cancels jobs that have
+shutdown. Dropping either pool requests graceful shutdown but does not wait for
+accepted work, cancellation callbacks, or workers to finish. If completion is
+required, call `shutdown()` and `wait_termination()` before dropping the pool,
+from outside the pool. Do not wait for termination from a task or callback whose
+own progress it depends on. The dynamic `ThreadPool` also provides
+`await_termination()` when the `async-wait` feature is enabled; the
+`FixedThreadPool` provides the synchronous `wait_termination()` API.
+`stop()` waits for
+in-flight admission and cancels jobs that have
 not crossed the worker claim boundary; running work cannot be forcibly
 killed. It is not a termination barrier. `join()` waits for work to drain
 without closing admission. These waits include cancellation callbacks;
