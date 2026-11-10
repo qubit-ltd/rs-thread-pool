@@ -1,0 +1,77 @@
+{
+  "task": "T2: cancellation race benchmark and long queue position checks",
+  "status": "final short checks only; performance rounds pending independent review approval",
+  "worktree": "/data/working/qubit/rust-common/rs-thread-pool-worktree",
+  "branch": "codex/rtp-r2-notification-evidence-20261110",
+  "head_commit": "c134aade03c42945a3783df8f25b33c22a6a65e8",
+  "head_tree": "5b66f8bb9ddd90c992c307d7775c70cb9bfbb111",
+  "benchmark_source_sha256": "d4fd5384fc1202e3ab8247aa5199fb616ae53c161d4f6be1459163102bd8d2f1",
+  "cargo_lock_sha256": "f0ce0a6b6f3a034c09d6c4b657328ce6022f7a6fbf0b14707f556e65522754db",
+  "toolchain": {
+    "rustc": "rustc 1.94.0 (4a4ef493e 2026-03-02)",
+    "cargo": "cargo 1.94.0 (85eff7c80 2026-01-15)"
+  },
+  "host": {
+    "uname": "Linux mas-server 6.8.0-147-generic #147-Ubuntu SMP PREEMPT_DYNAMIC Thu Sep 24 11:33:16 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux",
+    "logical_cpus": "56"
+  },
+  "features": "default (no optional features; --locked)",
+  "matched_control": {
+    "arm": "natural race with target cancel rate 0%; same race_case harness, pool, idle prestarted workers, actors, 256 jobs, barrier, immediate ticket handoff, callbacks, timestamp arrays and accounting as 10/50/100% arms",
+    "historical_control": "existing contended submit/consume group retained; unmatched harness and not used as the R2-003 comparator"
+  },
+  "short_checks": [
+    {
+      "command": "cargo bench --locked --bench thread_pool_bench --no-run",
+      "exit_code": 0
+    },
+    {
+      "command": "timeout 120s cargo bench --locked --bench thread_pool_bench -- thread_pool_ticket_cancel_race --test",
+      "exit_code": 0,
+      "cases": 44,
+      "natural_cases": 32,
+      "gated_cases": 12,
+      "batch_jobs": 256,
+      "targets_per_batch": {
+        "0%": 0,
+        "10%": 26,
+        "50%": 128,
+        "100%": 256
+      },
+      "log": "race-matrix.log",
+      "sha256": "2147c7b90577bb53c4afac6ef02e49fba655f0568cadf039146bc2323ac0429e"
+    },
+    {
+      "command": "timeout 120s cargo bench --locked --bench thread_pool_bench -- thread_pool_ticket_cancellation_scale_position --test",
+      "exit_code": 0,
+      "cases": 6,
+      "queue_depths": [
+        16384,
+        65536
+      ],
+      "positions": [
+        "front",
+        "middle",
+        "back"
+      ],
+      "log": "scale-position.log",
+      "sha256": "f773c1f6a9ccbb17fbb4fb0584ad0239d035f22c7d235dd3b78d79899eda2175"
+    }
+  ],
+  "terminal_instrumentation_calibration": {
+    "tag": "TP008",
+    "samples_per_route": 5000,
+    "run_ns": {
+      "p50": 86,
+      "p95": 104,
+      "p99": 156
+    },
+    "cancel_ns": {
+      "p50": 85,
+      "p95": 90,
+      "p99": 149
+    },
+    "scope": "Standalone single-thread terminal helper plus channel send. Not a full causal subtraction; excludes worker/canceller scheduling, queue lock and submit/cancel API cost."
+  },
+  "readme_sha256": "9e110248cbceb39078dcdcc2d391c5d2d269fdadce152fd67c783d9a7c4dd4c8"
+}

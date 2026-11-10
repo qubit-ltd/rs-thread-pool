@@ -1,0 +1,59 @@
+   Compiling qubit-thread-pool v0.12.1 (/data/working/qubit/rust-common/rs-thread-pool-worktree)
+    Finished `bench` profile [optimized] target(s) in 3.84s
+     Running benches/thread_pool_bench.rs (target/release/deps/thread_pool_bench-07304301fb52c04f)
+Gnuplot not found, using plotters backend
+Testing thread_pool_ticket_cancellation_scale_position/queue=16384/position=front/dynamic
+Success
+TP006 latency case=ticket_cancel_scale/queue=16384/position=front phase=criterion_warmup_plus_measurement sample_count=1 p50_ns=1945 p95_ns=1945 p99_ns=1945 timer_overhead_sample_count=10000 timer_overhead_p50_ns=30 timer_overhead_p95_ns=32
+Testing thread_pool_ticket_cancellation_scale_position/queue=16384/position=middle/dynamic
+Success
+TP006 latency case=ticket_cancel_scale/queue=16384/position=middle phase=criterion_warmup_plus_measurement sample_count=1 p50_ns=10267 p95_ns=10267 p99_ns=10267 timer_overhead_sample_count=10000 timer_overhead_p50_ns=27 timer_overhead_p95_ns=29
+Testing thread_pool_ticket_cancellation_scale_position/queue=16384/position=back/dynamic
+Success
+TP006 latency case=ticket_cancel_scale/queue=16384/position=back phase=criterion_warmup_plus_measurement sample_count=1 p50_ns=14580 p95_ns=14580 p99_ns=14580 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24
+Testing thread_pool_ticket_cancellation_scale_position/queue=65536/position=front/dynamic
+Success
+TP006 latency case=ticket_cancel_scale/queue=65536/position=front phase=criterion_warmup_plus_measurement sample_count=1 p50_ns=1728 p95_ns=1728 p99_ns=1728 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24
+Testing thread_pool_ticket_cancellation_scale_position/queue=65536/position=middle/dynamic
+Success
+TP006 latency case=ticket_cancel_scale/queue=65536/position=middle phase=criterion_warmup_plus_measurement sample_count=1 p50_ns=70192 p95_ns=70192 p99_ns=70192 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24
+Testing thread_pool_ticket_cancellation_scale_position/queue=65536/position=back/dynamic
+Success
+TP006 latency case=ticket_cancel_scale/queue=65536/position=back phase=criterion_warmup_plus_measurement sample_count=1 p50_ns=62343 p95_ns=62343 p99_ns=62343 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24
+
+TP007 race case=ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=10%/gated=false accepted=0 run=0 cancel_callback=0 cancel_attempts=0 cancel_true=0 cancel_false=0 target_rounding=id_mod_100_below_percent jobs_per_batch=64 handoff_batch=4
+TP007 race case=ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=50%/gated=false accepted=0 run=0 cancel_callback=0 cancel_attempts=0 cancel_true=0 cancel_false=0 target_rounding=id_mod_100_below_percent jobs_per_batch=64 handoff_batch=4
+TP007 race case=ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=100%/gated=false accepted=0 run=0 cancel_callback=0 cancel_attempts=0 cancel_true=0 cancel_false=0 target_rounding=id_mod_100_below_percent jobs_per_batch=64 handoff_batch=4
+TP007 race case=ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=10%/gated=false accepted=0 run=0 cancel_callback=0 cancel_attempts=0 cancel_true=0 cancel_false=0 target_rounding=id_mod_100_below_percent jobs_per_batch=64 handoff_batch=4
+TP007 race case=ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=50%/gated=false accepted=0 run=0 cancel_callback=0 cancel_attempts=0 cancel_true=0 cancel_false=0 target_rounding=id_mod_100_below_percent jobs_per_batch=64 handoff_batch=4
+TP007 race case=ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=100%/gated=false accepted=0 run=0 cancel_callback=0 cancel_attempts=0 cancel_true=0 cancel_false=0 target_rounding=id_mod_100_below_percent jobs_per_batch=64 handoff_batch=4
+TP007 race case=ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=10%/gated=false accepted=0 run=0 cancel_callback=0 cancel_attempts=0 cancel_true=0 cancel_false=0 target_rounding=id_mod_100_below_percent jobs_per_batch=64 handoff_batch=4
+TP007 race case=ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=50%/gated=false accepted=0 run=0 cancel_callback=0 cancel_attempts=0 cancel_true=0 cancel_false=0 target_rounding=id_mod_100_below_percent jobs_per_batch=64 handoff_batch=4
+TP007 race case=ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=100%/gated=false accepted=0 run=0 cancel_callback=0 cancel_attempts=0 cancel_true=0 cancel_false=0 target_rounding=id_mod_100_below_percent jobs_per_batch=64 handoff_batch=4
+TP007 race case=ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=10%/gated=false accepted=0 run=0 cancel_callback=0 cancel_attempts=0 cancel_true=0 cancel_false=0 target_rounding=id_mod_100_below_percent jobs_per_batch=64 handoff_batch=4
+TP007 race case=ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=50%/gated=false accepted=0 run=0 cancel_callback=0 cancel_attempts=0 cancel_true=0 cancel_false=0 target_rounding=id_mod_100_below_percent jobs_per_batch=64 handoff_batch=4
+TP007 race case=ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=100%/gated=false accepted=0 run=0 cancel_callback=0 cancel_attempts=0 cancel_true=0 cancel_false=0 target_rounding=id_mod_100_below_percent jobs_per_batch=64 handoff_batch=4
+TP007 race case=ticket_cancel_race/workers=4/producers=1/cancellers=1/cancel=10%/gated=false accepted=0 run=0 cancel_callback=0 cancel_attempts=0 cancel_true=0 cancel_false=0 target_rounding=id_mod_100_below_percent jobs_per_batch=64 handoff_batch=4
+TP007 race case=ticket_cancel_race/workers=4/producers=1/cancellers=1/cancel=50%/gated=false accepted=0 run=0 cancel_callback=0 cancel_attempts=0 cancel_true=0 cancel_false=0 target_rounding=id_mod_100_below_percent jobs_per_batch=64 handoff_batch=4
+TP007 race case=ticket_cancel_race/workers=4/producers=1/cancellers=1/cancel=100%/gated=false accepted=0 run=0 cancel_callback=0 cancel_attempts=0 cancel_true=0 cancel_false=0 target_rounding=id_mod_100_below_percent jobs_per_batch=64 handoff_batch=4
+TP007 race case=ticket_cancel_race/workers=4/producers=1/cancellers=2/cancel=10%/gated=false accepted=0 run=0 cancel_callback=0 cancel_attempts=0 cancel_true=0 cancel_false=0 target_rounding=id_mod_100_below_percent jobs_per_batch=64 handoff_batch=4
+TP007 race case=ticket_cancel_race/workers=4/producers=1/cancellers=2/cancel=50%/gated=false accepted=0 run=0 cancel_callback=0 cancel_attempts=0 cancel_true=0 cancel_false=0 target_rounding=id_mod_100_below_percent jobs_per_batch=64 handoff_batch=4
+TP007 race case=ticket_cancel_race/workers=4/producers=1/cancellers=2/cancel=100%/gated=false accepted=0 run=0 cancel_callback=0 cancel_attempts=0 cancel_true=0 cancel_false=0 target_rounding=id_mod_100_below_percent jobs_per_batch=64 handoff_batch=4
+TP007 race case=ticket_cancel_race/workers=4/producers=4/cancellers=1/cancel=10%/gated=false accepted=0 run=0 cancel_callback=0 cancel_attempts=0 cancel_true=0 cancel_false=0 target_rounding=id_mod_100_below_percent jobs_per_batch=64 handoff_batch=4
+TP007 race case=ticket_cancel_race/workers=4/producers=4/cancellers=1/cancel=50%/gated=false accepted=0 run=0 cancel_callback=0 cancel_attempts=0 cancel_true=0 cancel_false=0 target_rounding=id_mod_100_below_percent jobs_per_batch=64 handoff_batch=4
+TP007 race case=ticket_cancel_race/workers=4/producers=4/cancellers=1/cancel=100%/gated=false accepted=0 run=0 cancel_callback=0 cancel_attempts=0 cancel_true=0 cancel_false=0 target_rounding=id_mod_100_below_percent jobs_per_batch=64 handoff_batch=4
+TP007 race case=ticket_cancel_race/workers=4/producers=4/cancellers=2/cancel=10%/gated=false accepted=0 run=0 cancel_callback=0 cancel_attempts=0 cancel_true=0 cancel_false=0 target_rounding=id_mod_100_below_percent jobs_per_batch=64 handoff_batch=4
+TP007 race case=ticket_cancel_race/workers=4/producers=4/cancellers=2/cancel=50%/gated=false accepted=0 run=0 cancel_callback=0 cancel_attempts=0 cancel_true=0 cancel_false=0 target_rounding=id_mod_100_below_percent jobs_per_batch=64 handoff_batch=4
+TP007 race case=ticket_cancel_race/workers=4/producers=4/cancellers=2/cancel=100%/gated=false accepted=0 run=0 cancel_callback=0 cancel_attempts=0 cancel_true=0 cancel_false=0 target_rounding=id_mod_100_below_percent jobs_per_batch=64 handoff_batch=4
+TP007 race case=ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=10%/gated=true accepted=0 run=0 cancel_callback=0 cancel_attempts=0 cancel_true=0 cancel_false=0 target_rounding=id_mod_100_below_percent jobs_per_batch=64 handoff_batch=4
+TP007 race case=ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=50%/gated=true accepted=0 run=0 cancel_callback=0 cancel_attempts=0 cancel_true=0 cancel_false=0 target_rounding=id_mod_100_below_percent jobs_per_batch=64 handoff_batch=4
+TP007 race case=ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=100%/gated=true accepted=0 run=0 cancel_callback=0 cancel_attempts=0 cancel_true=0 cancel_false=0 target_rounding=id_mod_100_below_percent jobs_per_batch=64 handoff_batch=4
+TP007 race case=ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=10%/gated=true accepted=0 run=0 cancel_callback=0 cancel_attempts=0 cancel_true=0 cancel_false=0 target_rounding=id_mod_100_below_percent jobs_per_batch=64 handoff_batch=4
+TP007 race case=ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=50%/gated=true accepted=0 run=0 cancel_callback=0 cancel_attempts=0 cancel_true=0 cancel_false=0 target_rounding=id_mod_100_below_percent jobs_per_batch=64 handoff_batch=4
+TP007 race case=ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=100%/gated=true accepted=0 run=0 cancel_callback=0 cancel_attempts=0 cancel_true=0 cancel_false=0 target_rounding=id_mod_100_below_percent jobs_per_batch=64 handoff_batch=4
+TP007 race case=ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=10%/gated=true accepted=0 run=0 cancel_callback=0 cancel_attempts=0 cancel_true=0 cancel_false=0 target_rounding=id_mod_100_below_percent jobs_per_batch=64 handoff_batch=4
+TP007 race case=ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=50%/gated=true accepted=0 run=0 cancel_callback=0 cancel_attempts=0 cancel_true=0 cancel_false=0 target_rounding=id_mod_100_below_percent jobs_per_batch=64 handoff_batch=4
+TP007 race case=ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=100%/gated=true accepted=0 run=0 cancel_callback=0 cancel_attempts=0 cancel_true=0 cancel_false=0 target_rounding=id_mod_100_below_percent jobs_per_batch=64 handoff_batch=4
+TP007 race case=ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=10%/gated=true accepted=0 run=0 cancel_callback=0 cancel_attempts=0 cancel_true=0 cancel_false=0 target_rounding=id_mod_100_below_percent jobs_per_batch=64 handoff_batch=4
+TP007 race case=ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=50%/gated=true accepted=0 run=0 cancel_callback=0 cancel_attempts=0 cancel_true=0 cancel_false=0 target_rounding=id_mod_100_below_percent jobs_per_batch=64 handoff_batch=4
+TP007 race case=ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=100%/gated=true accepted=0 run=0 cancel_callback=0 cancel_attempts=0 cancel_true=0 cancel_false=0 target_rounding=id_mod_100_below_percent jobs_per_batch=64 handoff_batch=4

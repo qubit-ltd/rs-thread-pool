@@ -1,0 +1,11 @@
+# Matched-control and callback-calibration short checks
+
+Natural race cases now include a 0%-cancel arm for every workers/producers/cancellers configuration. It uses the same persistent pool, actor threads, 256-task batches, immediate ticket handoff, barrier, terminal callbacks, timestamp arrays, and throughput measurement as the 10/50/100% cases. This is the matched no-cancellation baseline for R2-003. The original producer-submit/worker-consume Criterion group is retained and labeled as a historical, unmatched control; its different harness is not used as the R2-003 0%-cancel comparator.
+
+Callbacks use the same terminal helper. `TP008` separately calibrates that helper plus its channel event send outside the measured windows; the short run recorded run route p50/p95/p99 of 86/104/156 ns and cancellation route 85/90/149 ns. Submit/cancel durations use per-ID AtomicU64 slots, written after handoff/return; percentile vectors are built after timing. The separate `TP006` calibration reports timer-only and atomic clock/store overhead. TP008 is a standalone single-thread instrumentation micro-calibration, not a full causal subtraction: it excludes worker/canceller scheduling, queue-lock behavior, and the submit/cancel API. Its values describe the common terminal bookkeeping cost only; no overhead is subtracted from Criterion results.
+
+- `cargo bench --locked --bench thread_pool_bench --no-run` — exit 0.
+- `timeout 120s cargo bench --locked --bench thread_pool_bench -- thread_pool_ticket_cancel_race --test` — exit 0; 44/44 natural and gated cases (32 natural including the matched 0% control, 12 gated excluding 0%). Each batch has 256 accepted tasks and exact rounded cancellation targets: 0/26/128/256. All accounting, exact target, unique terminal ID and final queue/running checks passed. Natural run and failed-cancel cases and gated successful-cancel cases were observed. Race queue is unbounded; rejects=0.
+- `timeout 120s cargo bench --locked --bench thread_pool_bench -- thread_pool_ticket_cancellation_scale_position --test` — exit 0; six depth/position cases at 16384 and 65536, front/middle/back, exact restoration.
+
+Complete logs and SHA-256 values are adjacent. Smoke checks only; timed performance evidence is not included.
