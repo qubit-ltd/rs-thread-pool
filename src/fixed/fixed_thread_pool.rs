@@ -124,6 +124,36 @@ impl FixedThreadPool {
     /// Returns [`ExecutorServiceBuilderError`] when a worker thread cannot be
     /// spawned.
     pub(crate) fn new_with_builder(builder: FixedThreadPoolBuilder) -> Result<Self, ExecutorServiceBuilderError> {
+        Self::new_with_builder_and_spawn_check(builder, |_| Ok(()))
+    }
+
+    /// Constructs a pool while checking each worker immediately before spawning
+    /// it.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `F` - Per-worker spawn check type.
+    ///
+    /// # Parameters
+    ///
+    /// * `builder` - Configuration produced by [`FixedThreadPoolBuilder`].
+    /// * `before_spawn` - Check to run before spawning each worker.
+    ///
+    /// # Returns
+    ///
+    /// A fixed thread-pool handle with workers already started.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ExecutorServiceBuilderError`] when a check or worker spawn
+    /// fails.
+    fn new_with_builder_and_spawn_check<F>(
+        builder: FixedThreadPoolBuilder,
+        mut before_spawn: F,
+    ) -> Result<Self, ExecutorServiceBuilderError>
+    where
+        F: FnMut(usize) -> std::io::Result<()>,
+    {
         let FixedThreadPoolBuilder {
             pool_size,
             queue_capacity,
@@ -146,7 +176,9 @@ impl FixedThreadPool {
             if let Some(stack_size) = stack_size {
                 builder = builder.stack_size(stack_size);
             }
-            match builder.spawn(move || FixedWorker::run(worker_inner, worker_runtime)) {
+            match before_spawn(index)
+                .and_then(|()| builder.spawn(move || FixedWorker::run(worker_inner, worker_runtime)))
+            {
                 Ok(handle) => worker_handles.push(handle),
                 Err(source) => {
                     inner.rollback_worker_slot();
@@ -432,5 +464,117 @@ impl ExecutorService for FixedThreadPool {
 fn join_started_workers(worker_handles: Vec<JoinHandle<()>>) {
     for worker_handle in worker_handles {
         let _ignored = worker_handle.join();
+    }
+}
+
+#[cfg(test)]
+mod partial_build_tests {
+    use std::io;
+    use std::sync::Arc;
+    use std::sync::Mutex;
+    use std::sync::mpsc;
+    use std::thread;
+    use std::time::Duration;
+
+    use super::FixedThreadPool;
+    use crate::ExecutorServiceBuilderError;
+
+    #[test]
+    fn test_partial_build_failure_stops_only_workers_started_before_failure() {
+        for failure_index in [1, 2] {
+            let started = Arc::new(Mutex::new(Vec::new()));
+            let stopped = Arc::new(Mutex::new(Vec::new()));
+            let started_hook = Arc::clone(&started);
+            let stopped_hook = Arc::clone(&stopped);
+            let (result_tx, result_rx) = mpsc::channel();
+
+            let coordinator = thread::spawn(move || {
+                let builder = FixedThreadPool::builder()
+                    .pool_size(3)
+                    .before_worker_start(move |index| started_hook.lock().unwrap().push(index))
+                    .after_worker_stop(move |index| stopped_hook.lock().unwrap().push(index));
+                let result = FixedThreadPool::new_with_builder_and_spawn_check(builder, |index| {
+                    if index == failure_index {
+                        Err(io::Error::other(format!("injected spawn failure at {index}")))
+                    } else {
+                        Ok(())
+                    }
+                });
+                result_tx.send(result).unwrap();
+            });
+
+            let result = result_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+            coordinator.join().unwrap();
+            let error = match result {
+                Err(error) => error,
+                Ok(_) => panic!("build unexpectedly succeeded"),
+            };
+            match error {
+                ExecutorServiceBuilderError::SpawnWorker { index, source } => {
+                    assert_eq!(index, Some(failure_index));
+                    assert_eq!(source.kind(), io::ErrorKind::Other);
+                    assert_eq!(source.to_string(), format!("injected spawn failure at {failure_index}"));
+                }
+                other => panic!("unexpected build error: {other:?}"),
+            }
+            let expected = (0..failure_index).collect::<Vec<_>>();
+            let mut actual_started = started.lock().unwrap().clone();
+            let mut actual_stopped = stopped.lock().unwrap().clone();
+            actual_started.sort_unstable();
+            actual_stopped.sort_unstable();
+            assert_eq!(actual_started, expected);
+            assert_eq!(actual_stopped, expected);
+        }
+    }
+
+    #[test]
+    fn test_partial_build_waits_for_started_workers_to_stop_before_returning() {
+        struct ReleaseOnDrop(Option<mpsc::Sender<()>>);
+
+        impl Drop for ReleaseOnDrop {
+            fn drop(&mut self) {
+                if let Some(release) = self.0.take() {
+                    let _ = release.send(());
+                }
+            }
+        }
+
+        let (entered_tx, entered_rx) = mpsc::channel();
+        let (release_tx, release_rx) = mpsc::channel();
+        let release_rx = Arc::new(Mutex::new(release_rx));
+        let release = ReleaseOnDrop(Some(release_tx));
+        let (result_tx, result_rx) = mpsc::channel();
+
+        let coordinator = thread::spawn(move || {
+            let hook_release_rx = Arc::clone(&release_rx);
+            let builder = FixedThreadPool::builder().pool_size(3).after_worker_stop(move |index| {
+                if index == 0 {
+                    entered_tx.send(()).unwrap();
+                    hook_release_rx.lock().unwrap().recv().unwrap();
+                }
+            });
+            let result = FixedThreadPool::new_with_builder_and_spawn_check(builder, |index| {
+                if index == 1 {
+                    Err(io::Error::other("controlled spawn failure"))
+                } else {
+                    Ok(())
+                }
+            });
+            result_tx.send(result).unwrap();
+        });
+
+        entered_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+        assert!(matches!(result_rx.try_recv(), Err(mpsc::TryRecvError::Empty)));
+        drop(release);
+        let result = result_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+        coordinator.join().unwrap();
+        let error = match result {
+            Err(error) => error,
+            Ok(_) => panic!("build unexpectedly succeeded"),
+        };
+        assert!(matches!(
+            error,
+            ExecutorServiceBuilderError::SpawnWorker { index: Some(1), .. }
+        ));
     }
 }
