@@ -2,6 +2,8 @@
 //    Copyright (c) 2025 - 2026 Haixing Hu.
 //
 //    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 //! Deterministic production-path tests for pool notification interleavings.
 
@@ -134,11 +136,7 @@ fn idle_publish<P: ProtocolPool>() {
     );
     let submit_pool = Arc::clone(&pool);
     let (submitted_tx, submitted_rx) = mpsc::channel();
-    let submitter = thread::spawn(move || {
-        submitted_tx
-            .send(submit_pool.submit(task))
-            .expect("submit result")
-    });
+    let submitter = thread::spawn(move || submitted_tx.send(submit_pool.submit(task)).expect("submit result"));
     acceptance_gate.wait_arrived();
 
     let idle_gate = control.arm(Phase::IdleWorkerWaitBoundary);
@@ -172,11 +170,7 @@ fn shutdown_interleaving<P: ProtocolPool>(acceptance_panics: bool) {
     );
     let submit_pool = Arc::clone(&pool);
     let (submitted_tx, submitted_rx) = mpsc::channel();
-    let submitter = thread::spawn(move || {
-        submitted_tx
-            .send(submit_pool.submit(job))
-            .expect("submit result")
-    });
+    let submitter = thread::spawn(move || submitted_tx.send(submit_pool.submit(job)).expect("submit result"));
     acceptance_gate.wait_arrived();
 
     let shutdown_gate = control.arm(Phase::ShutdownWaitBoundary);
@@ -192,10 +186,7 @@ fn shutdown_interleaving<P: ProtocolPool>(acceptance_panics: bool) {
     submitter.join().expect("submitter joins");
     if acceptance_panics {
         assert_eq!(result, Err(PoolJobSubmissionError::AcceptancePanicked));
-        assert!(
-            ran_rx.try_recv().is_err(),
-            "rolled-back task is not published"
-        );
+        assert!(ran_rx.try_recv().is_err(), "rolled-back task is not published");
     } else {
         result.expect("already-admitted task remains accepted");
         receive(&ran_rx, "accepted task runs after shutdown");
@@ -218,11 +209,7 @@ fn join_rollback<P: ProtocolPool>() {
     );
     let submit_pool = Arc::clone(&pool);
     let (submitted_tx, submitted_rx) = mpsc::channel();
-    let submitter = thread::spawn(move || {
-        submitted_tx
-            .send(submit_pool.submit(job))
-            .expect("submit result")
-    });
+    let submitter = thread::spawn(move || submitted_tx.send(submit_pool.submit(job)).expect("submit result"));
     acceptance_gate.wait_arrived();
 
     let idle_wait_gate = control.arm(Phase::IdleWaitBoundary);
@@ -243,10 +230,7 @@ fn join_rollback<P: ProtocolPool>() {
         receive(&submitted_rx, "failed acceptance exits admission"),
         Err(PoolJobSubmissionError::AcceptancePanicked),
     );
-    receive(
-        &joined_rx,
-        "join wakes after rollback and final admission exit",
-    );
+    receive(&joined_rx, "join wakes after rollback and final admission exit");
     submitter.join().expect("submitter joins");
     joiner.join().expect("joiner joins");
     let (reused_tx, reused_rx) = mpsc::channel();
@@ -261,25 +245,25 @@ fn join_rollback<P: ProtocolPool>() {
 }
 
 #[test]
-fn notification_protocol_idle_publish() {
+fn test_notification_protocol_idle_publish() {
     idle_publish::<ThreadPool>();
     idle_publish::<FixedThreadPool>();
 }
 
 #[test]
-fn notification_protocol_shutdown_publish() {
+fn test_notification_protocol_shutdown_publish() {
     shutdown_interleaving::<ThreadPool>(false);
     shutdown_interleaving::<FixedThreadPool>(false);
 }
 
 #[test]
-fn notification_protocol_shutdown_rollback() {
+fn test_notification_protocol_shutdown_rollback() {
     shutdown_interleaving::<ThreadPool>(true);
     shutdown_interleaving::<FixedThreadPool>(true);
 }
 
 #[test]
-fn notification_protocol_join_rollback() {
+fn test_notification_protocol_join_rollback() {
     join_rollback::<ThreadPool>();
     join_rollback::<FixedThreadPool>();
 }

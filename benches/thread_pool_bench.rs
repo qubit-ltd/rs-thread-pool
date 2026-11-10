@@ -11,14 +11,14 @@
 
 use std::convert::Infallible;
 use std::hint::black_box;
-use std::sync::atomic::AtomicU64;
+use std::sync::Arc;
+use std::sync::Barrier;
 use std::sync::atomic::AtomicU8;
+use std::sync::atomic::AtomicU64;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::sync::mpsc;
 use std::sync::mpsc::SyncSender;
-use std::sync::Arc;
-use std::sync::Barrier;
 use std::thread;
 use std::time::Duration;
 use std::time::Instant;
@@ -660,9 +660,7 @@ fn bench_thread_pool_ticket_cancellation(c: &mut Criterion) {
 /// after each timed cancellation, restoring the queue to its exact depth.
 fn bench_thread_pool_ticket_cancellation_scale_positions(c: &mut Criterion) {
     let mut group = c.benchmark_group("thread_pool_ticket_cancellation_scale_position");
-    group
-        .sample_size(10)
-        .measurement_time(Duration::from_secs(2));
+    group.sample_size(10).measurement_time(Duration::from_secs(2));
     for queue_len in [16_384usize, 65_536] {
         for position in ["front", "middle", "back"] {
             let pool = ThreadPool::builder()
@@ -675,15 +673,10 @@ fn bench_thread_pool_ticket_cancellation_scale_positions(c: &mut Criterion) {
             let mut tickets = std::collections::VecDeque::with_capacity(queue_len);
             for _ in 0..queue_len {
                 let (job, ticket) = make_ticketed_noop(&pool);
-                pool.submit_job(job)
-                    .expect("scale ticket should be accepted");
+                pool.submit_job(job).expect("scale ticket should be accepted");
                 tickets.push_back(ticket);
             }
-            assert_eq!(
-                pool.queued_count(),
-                queue_len,
-                "actual pre-measurement queue depth"
-            );
+            assert_eq!(pool.queued_count(), queue_len, "actual pre-measurement queue depth");
             let mut samples = Vec::new();
             group.throughput(Throughput::Elements(1));
             group.bench_function(
@@ -708,14 +701,9 @@ fn bench_thread_pool_ticket_cancellation_scale_positions(c: &mut Criterion) {
                             samples.push(elapsed);
                             tickets.remove(index);
                             let (job, replacement) = make_ticketed_noop(&pool);
-                            pool.submit_job(job)
-                                .expect("replacement ticket should be accepted");
+                            pool.submit_job(job).expect("replacement ticket should be accepted");
                             tickets.push_back(replacement);
-                            assert_eq!(
-                                pool.queued_count(),
-                                queue_len,
-                                "replacement restores measured depth"
-                            );
+                            assert_eq!(pool.queued_count(), queue_len, "replacement restores measured depth");
                         }
                         measured
                     });
@@ -729,9 +717,7 @@ fn bench_thread_pool_ticket_cancellation_scale_positions(c: &mut Criterion) {
                 assert!(ticket.cancel_queued());
             }
             assert_eq!(pool.queued_count(), 0);
-            release_worker
-                .send(())
-                .expect("scale worker should be released");
+            release_worker.send(()).expect("scale worker should be released");
             pool.shutdown();
             wait_for_termination(&pool);
         }
@@ -821,27 +807,19 @@ fn report_terminal_instrumentation_overhead() {
         let terminal = if id % 2 == 0 { 1 } else { 2 };
         let started = Instant::now();
         record_race_terminal(&batch, id, terminal);
-        sender
-            .send(())
-            .expect("overhead sample receiver should be alive");
+        sender.send(()).expect("overhead sample receiver should be alive");
         let elapsed = started.elapsed();
         if terminal == 1 {
             run_samples.push(elapsed);
         } else {
             cancel_samples.push(elapsed);
         }
-        receiver
-            .try_recv()
-            .expect("terminal event should be available");
+        receiver.try_recv().expect("terminal event should be available");
     }
-    for (label, samples) in [
-        ("run", run_samples.as_slice()),
-        ("cancel", cancel_samples.as_slice()),
-    ] {
+    for (label, samples) in [("run", run_samples.as_slice()), ("cancel", cancel_samples.as_slice())] {
         let mut sorted = samples.to_vec();
         sorted.sort_unstable();
-        let percentile =
-            |percent: usize| sorted[(sorted.len() * percent).div_ceil(100).saturating_sub(1)];
+        let percentile = |percent: usize| sorted[(sorted.len() * percent).div_ceil(100).saturating_sub(1)];
         eprintln!(
             "TP008 terminal_instrumentation phase=standalone_calibration route={label} sample_count={} p50_ns={} p95_ns={} p99_ns={} included=batch_relative_clock_atomic_timestamp_status_cas_counter_channel_send",
             samples.len(),
@@ -876,27 +854,12 @@ fn bench_thread_pool_ticket_cancel_race(c: &mut Criterion) {
             "thread_pool_ticket_cancel_race"
         };
         let mut group = c.benchmark_group(group_name);
-        let cancel_targets: &[usize] = if is_gated {
-            &[10, 50, 100]
-        } else {
-            &[0, 10, 50, 100]
-        };
-        for workers in if is_gated {
-            vec![1usize]
-        } else {
-            vec![1usize, 4]
-        } {
+        let cancel_targets: &[usize] = if is_gated { &[10, 50, 100] } else { &[0, 10, 50, 100] };
+        for workers in if is_gated { vec![1usize] } else { vec![1usize, 4] } {
             for producers in [1usize, 4] {
                 for cancellers in [1usize, 2] {
                     for &cancel_percent in cancel_targets {
-                        let totals = race_case(
-                            &mut group,
-                            workers,
-                            producers,
-                            cancellers,
-                            cancel_percent,
-                            is_gated,
-                        );
+                        let totals = race_case(&mut group, workers, producers, cancellers, cancel_percent, is_gated);
                         if is_gated {
                             gated_totals_add(&mut gated_totals, totals);
                         } else {
@@ -944,12 +907,8 @@ fn race_case(
     let jobs = jobs_per_producer * producers;
     let target_count = jobs.saturating_mul(cancel_percent).div_ceil(100);
     let mut target_ids = vec![false; jobs];
-    let target_seed =
-        0x5eed_cafe_u64 ^ workers as u64 ^ ((producers as u64) << 8) ^ ((cancellers as u64) << 16);
-    for id in cancellation_order(jobs, target_seed)
-        .into_iter()
-        .take(target_count)
-    {
+    let target_seed = 0x5eed_cafe_u64 ^ workers as u64 ^ ((producers as u64) << 8) ^ ((cancellers as u64) << 16);
+    for id in cancellation_order(jobs, target_seed).into_iter().take(target_count) {
         target_ids[id] = true;
     }
     let target_ids = Arc::new(target_ids);
@@ -969,166 +928,232 @@ fn race_case(
     let mut gate_setup_latency = Vec::new();
     let mut gate_release_latency = Vec::new();
     let mut totals = RaceTotals::default();
-    group.bench_function(BenchmarkId::new(format!("workers={workers}/producers={producers}/cancellers={cancellers}/cancel={cancel_percent}%/jobs={jobs}"), if gated { "gated" } else { "natural" }), |b| {
-        b.iter_custom(|iterations| {
-            let barrier = Arc::new(Barrier::new(producers + cancellers + 1));
-            let mut producer_commands = Vec::new();
-            let mut producer_receivers = Vec::new();
-            for _ in 0..producers {
-                let (tx, rx) = mpsc::channel::<RaceCommand>();
-                producer_commands.push(tx); producer_receivers.push(rx);
-            }
-            let mut cancel_commands = Vec::new();
-            let mut cancel_receivers = Vec::new();
-            for _ in 0..cancellers {
-                let (tx, rx) = mpsc::channel::<RaceCommand>();
-                cancel_commands.push(tx); cancel_receivers.push(rx);
-            }
-            let (ticket_senders, ticket_receivers): (Vec<_>, Vec<_>) = (0..cancellers).map(|_| mpsc::channel()).unzip();
-            let (done_tx, done_rx) = mpsc::channel::<()>();
-            let (terminal_tx, terminal_rx) = mpsc::channel::<()>();
-            let mut elapsed = Duration::ZERO;
-            thread::scope(|scope| {
-                for (producer_index, rx) in producer_receivers.into_iter().enumerate() {
-                    let batch_barrier = Arc::clone(&barrier);
-                    let pool = &pool;
-                    let senders = ticket_senders.clone();
-                    let done = done_tx.clone();
-                    let terminal = terminal_tx.clone();
-                    scope.spawn(move || loop {
-                        let batch = match rx.recv().unwrap() { RaceCommand::Run(batch) => batch, RaceCommand::Stop => break };
-                        batch_barrier.wait();
-                        for offset in 0..jobs_per_producer {
-                            let id = producer_index * jobs_per_producer + offset;
-                            let run_state = Arc::clone(&batch);
-                            let cancel_state = Arc::clone(&batch);
-                            let run_terminal = terminal.clone();
-                            let cancel_terminal = terminal.clone();
-                            let (job, ticket) = pool.prepare_cancellable_job(
-                                Box::new(|| {}),
-                                Box::new(move || {
-                                    record_race_terminal(&run_state, id, 1);
-                                    run_terminal.send(()).unwrap();
-                                }),
-                                Box::new(move || {
-                                    record_race_terminal(&cancel_state, id, 2);
-                                    cancel_terminal.send(()).unwrap();
-                                }),
-                            );
-                            batch.submitted_at_ns[id].store(batch.now_ns(), Ordering::Release);
-                            let submitted = Instant::now();
-                            pool.submit_job(job).expect("race task should be accepted");
-                            let submit_duration = submitted.elapsed();
-                            senders[id % cancellers].send(RaceTicket::Ticket(id, ticket)).unwrap();
-                            batch.submit_call_ns[id].store(submit_duration.as_nanos().min(u64::MAX as u128) as u64, Ordering::Relaxed);
-                            batch.accepted.fetch_add(1, Ordering::Relaxed);
-                        }
-                        for sender in &senders { sender.send(RaceTicket::ProducerDone).unwrap(); }
-                        done.send(()).unwrap();
-                    });
+    group.bench_function(
+        BenchmarkId::new(
+            format!(
+                "workers={workers}/producers={producers}/cancellers={cancellers}/cancel={cancel_percent}%/jobs={jobs}"
+            ),
+            if gated { "gated" } else { "natural" },
+        ),
+        |b| {
+            b.iter_custom(|iterations| {
+                let barrier = Arc::new(Barrier::new(producers + cancellers + 1));
+                let mut producer_commands = Vec::new();
+                let mut producer_receivers = Vec::new();
+                for _ in 0..producers {
+                    let (tx, rx) = mpsc::channel::<RaceCommand>();
+                    producer_commands.push(tx);
+                    producer_receivers.push(rx);
                 }
-                for (rx, command_rx) in ticket_receivers.into_iter().zip(cancel_receivers) {
-                    let target_ids = Arc::clone(&target_ids);
-                    let batch_barrier = Arc::clone(&barrier);
-                    let done = done_tx.clone();
-                    scope.spawn(move || loop {
-                        let batch = match command_rx.recv().unwrap() { RaceCommand::Run(batch) => batch, RaceCommand::Stop => break };
-                        batch_barrier.wait();
-                        let mut ended = 0;
-                        while ended < producers {
-                            match rx.recv().unwrap() {
-                                RaceTicket::ProducerDone => ended += 1,
-                                RaceTicket::Ticket(id, ticket) => {
-                                    if target_ids[id] {
-                                        batch.cancel_attempts.fetch_add(1, Ordering::Relaxed);
-                                        let started = Instant::now();
-                                        let won = ticket.cancel_queued();
-                                        let cancel_duration = started.elapsed();
-                                        batch.cancel_call_ns[id].store(cancel_duration.as_nanos().min(u64::MAX as u128) as u64, Ordering::Relaxed);
-                                        if won {
-                                            batch.cancel_true.fetch_add(1, Ordering::Relaxed);
-                                        } else {
-                                            batch.cancel_false.fetch_add(1, Ordering::Relaxed);
+                let mut cancel_commands = Vec::new();
+                let mut cancel_receivers = Vec::new();
+                for _ in 0..cancellers {
+                    let (tx, rx) = mpsc::channel::<RaceCommand>();
+                    cancel_commands.push(tx);
+                    cancel_receivers.push(rx);
+                }
+                let (ticket_senders, ticket_receivers): (Vec<_>, Vec<_>) =
+                    (0..cancellers).map(|_| mpsc::channel()).unzip();
+                let (done_tx, done_rx) = mpsc::channel::<()>();
+                let (terminal_tx, terminal_rx) = mpsc::channel::<()>();
+                let mut elapsed = Duration::ZERO;
+                thread::scope(|scope| {
+                    for (producer_index, rx) in producer_receivers.into_iter().enumerate() {
+                        let batch_barrier = Arc::clone(&barrier);
+                        let pool = &pool;
+                        let senders = ticket_senders.clone();
+                        let done = done_tx.clone();
+                        let terminal = terminal_tx.clone();
+                        scope.spawn(move || {
+                            while let RaceCommand::Run(batch) = rx.recv().unwrap() {
+                                batch_barrier.wait();
+                                for offset in 0..jobs_per_producer {
+                                    let id = producer_index * jobs_per_producer + offset;
+                                    let run_state = Arc::clone(&batch);
+                                    let cancel_state = Arc::clone(&batch);
+                                    let run_terminal = terminal.clone();
+                                    let cancel_terminal = terminal.clone();
+                                    let (job, ticket) = pool.prepare_cancellable_job(
+                                        Box::new(|| {}),
+                                        Box::new(move || {
+                                            record_race_terminal(&run_state, id, 1);
+                                            run_terminal.send(()).unwrap();
+                                        }),
+                                        Box::new(move || {
+                                            record_race_terminal(&cancel_state, id, 2);
+                                            cancel_terminal.send(()).unwrap();
+                                        }),
+                                    );
+                                    batch.submitted_at_ns[id].store(batch.now_ns(), Ordering::Release);
+                                    let submitted = Instant::now();
+                                    pool.submit_job(job).expect("race task should be accepted");
+                                    let submit_duration = submitted.elapsed();
+                                    senders[id % cancellers].send(RaceTicket::Ticket(id, ticket)).unwrap();
+                                    batch.submit_call_ns[id].store(
+                                        submit_duration.as_nanos().min(u64::MAX as u128) as u64,
+                                        Ordering::Relaxed,
+                                    );
+                                    batch.accepted.fetch_add(1, Ordering::Relaxed);
+                                }
+                                for sender in &senders {
+                                    sender.send(RaceTicket::ProducerDone).unwrap();
+                                }
+                                done.send(()).unwrap();
+                            }
+                        });
+                    }
+                    for (rx, command_rx) in ticket_receivers.into_iter().zip(cancel_receivers) {
+                        let target_ids = Arc::clone(&target_ids);
+                        let batch_barrier = Arc::clone(&barrier);
+                        let done = done_tx.clone();
+                        scope.spawn(move || {
+                            while let RaceCommand::Run(batch) = command_rx.recv().unwrap() {
+                                batch_barrier.wait();
+                                let mut ended = 0;
+                                while ended < producers {
+                                    match rx.recv().unwrap() {
+                                        RaceTicket::ProducerDone => ended += 1,
+                                        RaceTicket::Ticket(id, ticket) => {
+                                            if target_ids[id] {
+                                                batch.cancel_attempts.fetch_add(1, Ordering::Relaxed);
+                                                let started = Instant::now();
+                                                let won = ticket.cancel_queued();
+                                                let cancel_duration = started.elapsed();
+                                                batch.cancel_call_ns[id].store(
+                                                    cancel_duration.as_nanos().min(u64::MAX as u128) as u64,
+                                                    Ordering::Relaxed,
+                                                );
+                                                if won {
+                                                    batch.cancel_true.fetch_add(1, Ordering::Relaxed);
+                                                } else {
+                                                    batch.cancel_false.fetch_add(1, Ordering::Relaxed);
+                                                }
+                                            }
                                         }
                                     }
                                 }
+                                done.send(()).unwrap();
+                            }
+                        });
+                    }
+                    drop(done_tx);
+                    drop(terminal_tx);
+                    for _ in 0..iterations {
+                        let batch = Arc::new(RaceBatch::new(jobs));
+                        wait_for_dynamic_idle_workers(&pool, workers);
+                        let release = if gated {
+                            let (started_tx, started_rx) = mpsc::channel();
+                            let (release_tx, release_rx) = mpsc::sync_channel(0);
+                            let gate_started = Instant::now();
+                            pool.submit(move || {
+                                started_tx.send(()).unwrap();
+                                release_rx.recv().unwrap();
+                                Ok::<(), Infallible>(())
+                            })
+                            .unwrap();
+                            started_rx.recv().unwrap();
+                            gate_setup_latency.push(gate_started.elapsed());
+                            Some(release_tx)
+                        } else {
+                            None
+                        };
+                        for command in &producer_commands {
+                            command.send(RaceCommand::Run(Arc::clone(&batch))).unwrap();
+                        }
+                        for command in &cancel_commands {
+                            command.send(RaceCommand::Run(Arc::clone(&batch))).unwrap();
+                        }
+                        let start = Instant::now();
+                        barrier.wait();
+                        for _ in 0..producers + cancellers {
+                            done_rx
+                                .recv_timeout(Duration::from_secs(30))
+                                .expect("persistent race actor should finish its batch");
+                        }
+                        if let Some(release) = release {
+                            let gate_started = Instant::now();
+                            release.send(()).unwrap();
+                            gate_release_latency.push(gate_started.elapsed());
+                        }
+                        let accepted = batch.accepted.load(Ordering::Acquire);
+                        for _ in 0..accepted {
+                            terminal_rx
+                                .recv_timeout(Duration::from_secs(30))
+                                .expect("accepted task should reach one terminal callback");
+                        }
+                        elapsed += start.elapsed();
+                        for id in 0..jobs {
+                            let status = batch.terminals[id].load(Ordering::Relaxed);
+                            submit_latency.push(Duration::from_nanos(batch.submit_call_ns[id].load(Ordering::Relaxed)));
+                            if target_ids[id] {
+                                let cancelled = Duration::from_nanos(batch.cancel_call_ns[id].load(Ordering::Relaxed));
+                                if status == 2 {
+                                    cancel_true_latency.push(cancelled);
+                                } else if status == 1 {
+                                    cancel_false_latency.push(cancelled);
+                                }
+                            }
+                            if status == 1 {
+                                let submitted = batch.submitted_at_ns[id].load(Ordering::Acquire);
+                                let terminal = batch.terminal_at_ns[id].load(Ordering::Relaxed);
+                                submit_to_run_latency.push(Duration::from_nanos(terminal.saturating_sub(submitted)));
                             }
                         }
-                        done.send(()).unwrap();
-                    });
-                }
-                drop(done_tx); drop(terminal_tx);
-                for _ in 0..iterations {
-                    let batch = Arc::new(RaceBatch::new(jobs));
-                    wait_for_dynamic_idle_workers(&pool, workers);
-                    let release = if gated {
-                        let (started_tx, started_rx) = mpsc::channel();
-                        let (release_tx, release_rx) = mpsc::sync_channel(0);
-                        let gate_started = Instant::now();
-                        pool.submit(move || { started_tx.send(()).unwrap(); release_rx.recv().unwrap(); Ok::<(), Infallible>(()) }).unwrap();
-                        started_rx.recv().unwrap();
-                        gate_setup_latency.push(gate_started.elapsed());
-                        Some(release_tx)
-                    } else { None };
-                    for command in &producer_commands { command.send(RaceCommand::Run(Arc::clone(&batch))).unwrap(); }
-                    for command in &cancel_commands { command.send(RaceCommand::Run(Arc::clone(&batch))).unwrap(); }
-                    let start = Instant::now(); barrier.wait();
-                    for _ in 0..producers + cancellers {
-                        done_rx.recv_timeout(Duration::from_secs(30)).expect("persistent race actor should finish its batch");
-                    }
-                    if let Some(release) = release {
-                        let gate_started = Instant::now();
-                        release.send(()).unwrap();
-                        gate_release_latency.push(gate_started.elapsed());
-                    }
-                    let accepted = batch.accepted.load(Ordering::Acquire);
-                    for _ in 0..accepted {
-                        terminal_rx.recv_timeout(Duration::from_secs(30)).expect("accepted task should reach one terminal callback");
-                    }
-                    elapsed += start.elapsed();
-                    for id in 0..jobs {
-                        let status = batch.terminals[id].load(Ordering::Relaxed);
-                        submit_latency.push(Duration::from_nanos(batch.submit_call_ns[id].load(Ordering::Relaxed)));
-                        if target_ids[id] {
-                            let cancelled = Duration::from_nanos(batch.cancel_call_ns[id].load(Ordering::Relaxed));
-                            if status == 2 { cancel_true_latency.push(cancelled); }
-                            else if status == 1 { cancel_false_latency.push(cancelled); }
+                        assert_eq!(
+                            accepted,
+                            batch.ran.load(Ordering::Relaxed) + batch.cancelled.load(Ordering::Relaxed),
+                            "accepted={accepted} run={} cancel={} true={} false={} attempts={} duplicate={}",
+                            batch.ran.load(Ordering::Relaxed),
+                            batch.cancelled.load(Ordering::Relaxed),
+                            batch.cancel_true.load(Ordering::Relaxed),
+                            batch.cancel_false.load(Ordering::Relaxed),
+                            batch.cancel_attempts.load(Ordering::Relaxed),
+                            batch.duplicate_terminal.load(Ordering::Relaxed)
+                        );
+                        assert_eq!(
+                            batch.cancel_true.load(Ordering::Relaxed),
+                            batch.cancelled.load(Ordering::Relaxed)
+                        );
+                        assert_eq!(
+                            batch.cancel_attempts.load(Ordering::Relaxed),
+                            batch.cancel_true.load(Ordering::Relaxed) + batch.cancel_false.load(Ordering::Relaxed)
+                        );
+                        assert_eq!(
+                            batch.cancel_attempts.load(Ordering::Relaxed),
+                            jobs.saturating_mul(cancel_percent).div_ceil(100)
+                        );
+                        assert_eq!(
+                            batch.duplicate_terminal.load(Ordering::Relaxed),
+                            0,
+                            "task ID received multiple terminal callbacks"
+                        );
+                        assert!(batch.terminals.iter().all(|id| id.load(Ordering::Relaxed) != 0));
+                        while pool.queued_count() != 0 || pool.running_count() != 0 {
+                            thread::yield_now();
                         }
-                        if status == 1 {
-                            let submitted = batch.submitted_at_ns[id].load(Ordering::Acquire);
-                            let terminal = batch.terminal_at_ns[id].load(Ordering::Relaxed);
-                            submit_to_run_latency.push(Duration::from_nanos(terminal.saturating_sub(submitted)));
-                        }
+                        let stats = pool.stats();
+                        assert_eq!(stats.queued_tasks, 0);
+                        assert_eq!(stats.running_tasks, 0);
+                        totals.accepted += accepted;
+                        totals.ran += batch.ran.load(Ordering::Relaxed);
+                        totals.cancelled += batch.cancelled.load(Ordering::Relaxed);
+                        totals.attempts += batch.cancel_attempts.load(Ordering::Relaxed);
+                        totals.cancel_true += batch.cancel_true.load(Ordering::Relaxed);
+                        totals.cancel_false += batch.cancel_false.load(Ordering::Relaxed);
                     }
-                    assert_eq!(accepted, batch.ran.load(Ordering::Relaxed) + batch.cancelled.load(Ordering::Relaxed),
-                        "accepted={accepted} run={} cancel={} true={} false={} attempts={} duplicate={}",
-                        batch.ran.load(Ordering::Relaxed), batch.cancelled.load(Ordering::Relaxed),
-                        batch.cancel_true.load(Ordering::Relaxed), batch.cancel_false.load(Ordering::Relaxed),
-                        batch.cancel_attempts.load(Ordering::Relaxed), batch.duplicate_terminal.load(Ordering::Relaxed));
-                    assert_eq!(batch.cancel_true.load(Ordering::Relaxed), batch.cancelled.load(Ordering::Relaxed));
-                    assert_eq!(batch.cancel_attempts.load(Ordering::Relaxed), batch.cancel_true.load(Ordering::Relaxed) + batch.cancel_false.load(Ordering::Relaxed));
-                    assert_eq!(batch.cancel_attempts.load(Ordering::Relaxed), jobs.saturating_mul(cancel_percent).div_ceil(100));
-                    assert_eq!(batch.duplicate_terminal.load(Ordering::Relaxed), 0, "task ID received multiple terminal callbacks");
-                    assert!(batch.terminals.iter().all(|id| id.load(Ordering::Relaxed) != 0));
-                    while pool.queued_count() != 0 || pool.running_count() != 0 { thread::yield_now(); }
-                    let stats = pool.stats();
-                    assert_eq!(stats.queued_tasks, 0);
-                    assert_eq!(stats.running_tasks, 0);
-                    totals.accepted += accepted;
-                    totals.ran += batch.ran.load(Ordering::Relaxed);
-                    totals.cancelled += batch.cancelled.load(Ordering::Relaxed);
-                    totals.attempts += batch.cancel_attempts.load(Ordering::Relaxed);
-                    totals.cancel_true += batch.cancel_true.load(Ordering::Relaxed);
-                    totals.cancel_false += batch.cancel_false.load(Ordering::Relaxed);
-                }
-                for command in &producer_commands { command.send(RaceCommand::Stop).unwrap(); }
-                for command in &cancel_commands { command.send(RaceCommand::Stop).unwrap(); }
-                drop(producer_commands);
-                drop(cancel_commands);
+                    for command in &producer_commands {
+                        command.send(RaceCommand::Stop).unwrap();
+                    }
+                    for command in &cancel_commands {
+                        command.send(RaceCommand::Stop).unwrap();
+                    }
+                    drop(producer_commands);
+                    drop(cancel_commands);
+                });
+                elapsed
             });
-            elapsed
-        });
-    });
+        },
+    );
     let label = format!(
         "ticket_cancel_race/workers={workers}/producers={producers}/cancellers={cancellers}/cancel={cancel_percent}%/gated={gated}"
     );

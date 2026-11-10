@@ -2,6 +2,8 @@
 //    Copyright (c) 2025 - 2026 Haixing Hu.
 //
 //    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 //! Test-only scheduling controls for notification protocol regressions.
 
@@ -19,13 +21,16 @@ pub(crate) enum Phase {
     IdleWaitBoundary,
     /// Idle worker observed an empty queue immediately before parking.
     IdleWorkerWaitBoundary,
-    /// Shutting-down worker observed in-flight admission immediately before parking.
+    /// Shutting-down worker observed in-flight admission immediately before
+    /// parking.
     ShutdownWaitBoundary,
     /// Submitter reserved queue capacity and reached its acceptance boundary.
     AcceptanceEntered,
-    /// Last submitter left admission immediately before its monitor notification.
+    /// Last submitter left admission immediately before its monitor
+    /// notification.
     SubmitterDeparture,
-    /// Job accounting and queue publication completed before worker notification.
+    /// Job accounting and queue publication completed before worker
+    /// notification.
     JobPublished,
 }
 
@@ -66,10 +71,7 @@ impl NotificationControl {
                 release: release_rx,
                 arrived: arrived_tx,
             });
-        assert!(
-            previous.is_none(),
-            "only one notification gate may be armed per pool"
-        );
+        assert!(previous.is_none(), "only one notification gate may be armed per pool");
         Gate {
             phase,
             arrival: arrived_rx,
@@ -96,10 +98,7 @@ impl NotificationControl {
     /// Pauses at the next matching point, reporting arrival before blocking.
     pub(crate) fn pause(&self, phase: Phase) {
         let release = {
-            let mut armed = self
-                .armed
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            let mut armed = self.armed.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
             if armed.as_ref().is_some_and(|gate| gate.phase == phase) {
                 armed.take().map(|gate| (gate.release, gate.arrived))
             } else {

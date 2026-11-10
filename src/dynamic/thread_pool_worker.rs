@@ -150,9 +150,9 @@ fn wait_for_job(inner: &ThreadPoolInner, worker_index: usize) -> Option<PoolJob>
                     mark_thread_pool_worker_idle(inner, &mut state);
                     if inner.queued_count() == 0 && inner.inflight_count() > 0 {
                         #[cfg(test)]
-                        inner.notification_control().pause(
-                            crate::tests::notification_control::Phase::ShutdownWaitBoundary,
-                        );
+                        inner
+                            .notification_control()
+                            .pause(crate::tests::notification_control::Phase::ShutdownWaitBoundary);
                         state.wait();
                     }
                     unmark_thread_pool_worker_idle(inner, &mut state);

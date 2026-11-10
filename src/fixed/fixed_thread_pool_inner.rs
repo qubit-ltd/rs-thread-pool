@@ -236,7 +236,8 @@ impl FixedThreadPoolInner {
         self.global_queue.push(job);
         transaction.commit();
         #[cfg(test)]
-        self.notification_control.signal(crate::tests::notification_control::Phase::JobPublished);
+        self.notification_control
+            .signal(crate::tests::notification_control::Phase::JobPublished);
         self.wake_one_idle_worker();
     }
 

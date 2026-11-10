@@ -58,6 +58,18 @@ pub struct FixedThreadPool {
 
 impl FixedThreadPool {
     /// Submits a custom job through the fixed pool's production path in tests.
+    ///
+    /// # Parameters
+    ///
+    /// * `job` - Cancellable job passed to the fixed pool's submission path.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when the job is submitted, or the rejection reason otherwise.
+    ///
+    /// # Errors
+    ///
+    /// Returns the submission error when the pool cannot accept the job.
     #[cfg(test)]
     pub(crate) fn submit_job(&self, job: PoolJob) -> Result<(), PoolJobSubmissionError> {
         self.inner.submit(job)
@@ -65,9 +77,7 @@ impl FixedThreadPool {
 
     /// Returns this pool's private deterministic test scheduler.
     #[cfg(test)]
-    pub(crate) fn notification_control(
-        &self,
-    ) -> Arc<crate::tests::notification_control::NotificationControl> {
+    pub(crate) fn notification_control(&self) -> Arc<crate::tests::notification_control::NotificationControl> {
         self.inner.notification_control()
     }
 

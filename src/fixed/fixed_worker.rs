@@ -123,9 +123,9 @@ fn wait_for_fixed_pool_work(inner: &FixedThreadPoolInner) -> bool {
                 mark_fixed_worker_idle(inner, &mut state);
                 if inner.queued_count() == 0 && inner.inflight_count() > 0 {
                     #[cfg(test)]
-                    inner.notification_control().pause(
-                        crate::tests::notification_control::Phase::ShutdownWaitBoundary,
-                    );
+                    inner
+                        .notification_control()
+                        .pause(crate::tests::notification_control::Phase::ShutdownWaitBoundary);
                     state.wait();
                 }
                 unmark_fixed_worker_idle(inner, &mut state);
