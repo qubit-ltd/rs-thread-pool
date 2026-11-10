@@ -1,0 +1,10 @@
+commit=245cc1a3999c9eb03feb5da2249920abf0ecef93
+tree=51abaa03d4769a337fd31a4b5c4f381d38479561
+bench_sha256=d4fd5384fc1202e3ab8247aa5199fb616ae53c161d4f6be1459163102bd8d2f1
+cargo_lock_sha256=f0ce0a6b6f3a034c09d6c4b657328ce6022f7a6fbf0b14707f556e65522754db
+rustc=rustc 1.94.0 (4a4ef493e 2026-03-02)
+cargo=cargo 1.94.0 (85eff7c80 2026-01-15)
+uname=Linux mas-server 6.8.0-147-generic #147-Ubuntu SMP PREEMPT_DYNAMIC Thu Sep 24 11:33:16 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
+logical_cpus=56
+features=default
+criterion_filter=thread_pool_ticket_cancel

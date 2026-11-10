@@ -1,0 +1,85 @@
+{
+  "task": "RTP-R2 cancellation race measurements and notification interleavings",
+  "started_at_utc": "2026-11-10",
+  "project": "/data/working/qubit/rust-common/rs-thread-pool",
+  "implementation_worktree": "/data/working/qubit/rust-common/rs-thread-pool-worktree",
+  "branch": "codex/rtp-r2-notification-evidence-20261110",
+  "baseline": {
+    "commit": "2d6cc7aac76e052066ccd918ee4b7ac7692179a2",
+    "tree": "4d36507e02a9659259060f32030e012ccb6f226c",
+    "cargo_lock_sha256": "f0ce0a6b6f3a034c09d6c4b657328ce6022f7a6fbf0b14707f556e65522754db",
+    "original_checkout_branch": "dev-starfish",
+    "original_checkout_status": "Only the two user-provided design/implementation-plan documents are untracked. Both are retained and excluded from commits."
+  },
+  "related_repository_baselines": [
+    {
+      "path": "/data/working/qubit/rust-common/rs-executor",
+      "branch": "dev-starfish",
+      "commit": "e08a667b2a14d2875c0eac78c730efee6cf6b17e",
+      "preexisting_status": "Untracked rs-executor path; preserved."
+    },
+    {
+      "path": "/data/working/qubit/rust-common/rs-execution-services",
+      "branch": "dev-starfish",
+      "commit": "0d599f04d9ca4acc8aa3b90a344b9eb14b9b17fe",
+      "preexisting_status": "Two untracked user design/implementation-plan documents; preserved."
+    }
+  ],
+  "toolchain": {
+    "rustc": "rustc 1.94.0 (4a4ef493e 2026-03-02)",
+    "cargo": "cargo 1.94.0 (85eff7c80 2026-01-15)",
+    "host": "x86_64-unknown-linux-gnu",
+    "os": "Linux mas-server 6.8.0-147-generic #147-Ubuntu SMP PREEMPT_DYNAMIC Thu Sep 24 11:33:16 UTC 2025 x86_64",
+    "features_for_baseline_list": "--all-features"
+  },
+  "baseline_test_inventory": {
+    "command": "cargo test --locked --all-features -- --list",
+    "exit_code": 0,
+    "summary": "143 unit tests, 1 hook integration test, 5 stats integration tests, and 10 doctests; full listing is in baseline/test-list.txt",
+    "output_sha256": "98c821637467d7b25a25683a26f55dafe849c0dd6ef41b600ca095303d4e8500"
+  },
+  "measurement_plan": {
+    "criterion": "cargo bench --locked --bench thread_pool_bench",
+    "required_rounds": 3,
+    "matrix": "workers 1/4; producers 1/4; cancellers 1/2; cancellation targets 10%/50%/100%; >=256 tasks per batch; queue depths 1/128/4096/16384/65536 subject to available memory; front/middle/back cancellation",
+    "controls": "existing contended submit/consume group paired with cancellation race; report success and failed cancellation separately",
+    "isolated_window": "Sequential exclusive runs after both implementers finish editing and before CPU-heavy protocol tests; exact commands, hardware, OS, features, raw logs, hashes, and summaries to be appended."
+  },
+  "planned_verification_commands": [
+    "./.infra/bin/align-ci.sh",
+    "./.infra/bin/ci-check.sh",
+    "RUSTFLAGS=\"--cfg loom\" cargo test --features loom-model --lib loom_ --locked",
+    "cargo test --locked --test contracts_tests (in rs-executor/tests/adapter_contracts)",
+    "CPU capacity wait filtered test (discover exact test name in rs-execution-services via --list)"
+  ],
+  "timed_measurements": {
+    "baseline_commit": "245cc1a3999c9eb03feb5da2249920abf0ecef93",
+    "baseline_tree": "51abaa03d4769a337fd31a4b5c4f381d38479561",
+    "bench_sha256": "d4fd5384fc1202e3ab8247aa5199fb616ae53c161d4f6be1459163102bd8d2f1",
+    "command": "timeout 3600s cargo bench --locked --bench thread_pool_bench -- thread_pool_ticket_cancel",
+    "features": "default",
+    "rounds": [
+      {
+        "directory": "benchmarks/t2-timed-round-1",
+        "exit_code": 0,
+        "criterion_log_sha256": "37700a9e2796c590d684419ed7159b64bd6f8a034e6fc5a2ba29f09b9d0736ee",
+        "race_summaries": 44
+      },
+      {
+        "directory": "benchmarks/t2-timed-round-2",
+        "exit_code": 0,
+        "criterion_log_sha256": "af9c1b0994591022a1f560eccc1a055a6590866d0faee296dd8734231d804be8",
+        "race_summaries": 44
+      },
+      {
+        "directory": "benchmarks/t2-timed-round-3",
+        "exit_code": 0,
+        "criterion_log_sha256": "f47996b1c241758dd7ce059339158dd8a80c068eec2fbb32856132ad726b8207",
+        "race_summaries": 44
+      }
+    ],
+    "result_summary": "Stable >20% increase in submit-call p95/p99 for 50% and 100% cancellation at 1 worker/4 producers/1 canceller, and middle-position cancellation grows about 4.5x from queue depth 16384 to 65536. This triggers candidate evaluation, not automatic retention.",
+    "summary_file": "benchmarks/t2-measurement-summary.md",
+    "tp008_limit": "Standalone callback/atomic/timestamp/channel instrumentation only; not a correction for shared-channel contention."
+  }
+}
