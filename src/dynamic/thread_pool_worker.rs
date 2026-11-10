@@ -5,8 +5,6 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-use std::panic::AssertUnwindSafe;
-use std::panic::catch_unwind;
 use std::sync::Arc;
 
 use qubit_executor::service::ExecutorServiceLifecycle;
@@ -16,6 +14,7 @@ use super::thread_pool_inner::ThreadPoolInner;
 use super::thread_pool_state::ThreadPoolState;
 use crate::PoolJob;
 use crate::ThreadPoolHooks;
+use crate::internal::contain_panic;
 
 /// Worker loop entry point for dynamic thread pools.
 pub(crate) struct ThreadPoolWorker;
@@ -60,9 +59,10 @@ impl ThreadPoolWorker {
 ///
 /// * `job` - Claimed job to execute.
 ///
-/// A panic from the job is caught and discarded so the worker can continue.
+/// A panic from the job or its captured-value destructors is contained and
+/// discarded so the worker can continue.
 fn run_without_hooks(job: PoolJob) {
-    let _ignored = catch_unwind(AssertUnwindSafe(|| job.run()));
+    let _ignored = contain_panic(|| job.run());
 }
 
 /// Runs one claimed job with configured task hooks.
@@ -73,11 +73,12 @@ fn run_without_hooks(job: PoolJob) {
 /// * `hooks` - Hook set configured for the pool.
 /// * `worker_index` - Stable index of the worker running the job.
 ///
-/// The before and after hooks surround the job, whose panic is caught and
-/// discarded so the worker can continue.
+/// The before and after hooks surround the job. A panic from the job or its
+/// captured-value destructors is contained and discarded so the worker can
+/// continue.
 fn run_with_task_hooks(job: PoolJob, hooks: &ThreadPoolHooks, worker_index: usize) {
     hooks.run_before_task(worker_index);
-    let _ignored = catch_unwind(AssertUnwindSafe(|| job.run()));
+    run_without_hooks(job);
     hooks.run_after_task(worker_index);
 }
 

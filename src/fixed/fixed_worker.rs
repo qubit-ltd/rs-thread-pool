@@ -6,8 +6,6 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 use std::hint::spin_loop;
-use std::panic::AssertUnwindSafe;
-use std::panic::catch_unwind;
 use std::sync::Arc;
 
 use qubit_executor::service::ExecutorServiceLifecycle;
@@ -17,6 +15,7 @@ use super::fixed_thread_pool_state::FixedThreadPoolState;
 use super::fixed_worker_runtime::FixedWorkerRuntime;
 use crate::PoolJob;
 use crate::ThreadPoolHooks;
+use crate::internal::contain_panic;
 
 /// Number of short queue probes before a fixed worker parks.
 const IDLE_SPIN_LIMIT: usize = 256;
@@ -60,7 +59,7 @@ impl FixedWorker {
 ///
 /// * `job` - Claimed job to execute.
 fn run_without_hooks(job: PoolJob) {
-    let _ignored = catch_unwind(AssertUnwindSafe(|| job.run()));
+    let _ignored = contain_panic(|| job.run());
 }
 
 /// Runs one claimed job with configured task hooks.
