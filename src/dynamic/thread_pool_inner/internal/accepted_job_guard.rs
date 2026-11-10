@@ -9,7 +9,6 @@ use std::sync::Arc;
 
 use super::super::ThreadPoolInner;
 use crate::pool_job::QueuedJob;
-use crate::pool_job::QueuedJobState;
 
 /// Rolls back an unpublished dynamic queue reservation on unwind.
 pub(crate) struct AcceptedJobGuard<'a> {
@@ -51,7 +50,7 @@ impl Drop for AcceptedJobGuard<'_> {
         }
         self.inner.release_queue_slot();
         if let Some(entry) = &self.entry {
-            *entry.lock() = QueuedJobState::Rejected;
+            crate::pool_job::reject_acceptance(&mut entry.lock());
             entry.changed.notify_all();
         }
         self.inner.notify_waiters_after_atomic_change();

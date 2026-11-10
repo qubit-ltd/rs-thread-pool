@@ -55,6 +55,15 @@ monitor 等待，避免 panic 和忙轮询，同时仍可由生命周期或配�
 
 stop 还会等待正在接纳的提交离开，再清空可见的排队任务。动态池的 `PoolJobTicket::cancel_queued` 与 worker、stop 竞争同一份排队所有权；若尚未被它们领取，ticket 会从队列中移除该任务。任务所有权只会被一个 run 或 cancel 路径消费。ticket 或 stop 的取消可能由取消调用者、提交线程、stop 调用线程或 worker 执行，具体取决于竞争结果。只有取消回调及其捕获值释放后才释放槽位；即使发生已捕获的展开式 panic，也会完成计数。
 
+接纳、ticket 预约、发布、回滚和取消完成的条目状态转换由生产调用方与
+`pool_job/internal/queued_job.rs` 中的 Loom 模型共用，转换 helper 位于
+`pool_job/internal/queued_job_state.rs`。普通构建使用标准 mutex、condition variable
+和线程身份；同时启用 `cfg(loom)` 与 `loom-model` 时，`internal/sync.rs` 切换为
+Loom 同步原语。这些模型覆盖条目所有权和部分 accounting 转换，不覆盖 FIFO 锁、
+外层接纳协议或完整线程池生命周期。每个模型最多使用五个 Loom 线程并探索至多
+10,000 个分支，不限制排列或抢占次数；分支见证记录发布结果，以及取消完成前后
+的容量状态。外层线程池行为仍由真实线程测试验证。
+
 ## 生命周期状态机
 
 ```text

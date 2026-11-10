@@ -109,6 +109,19 @@ run on the cancelling caller, submitting thread, stop caller or a worker,
 depending on the race. Cancellation retains its slot until the callback and
 captured-value destruction finish, including contained unwinding panics.
 
+Entry state transitions for acceptance, ticket reservation, publication,
+rollback and cancellation completion are shared by production callers and the
+Loom models in `pool_job/internal/queued_job.rs`, with transition helpers in
+`pool_job/internal/queued_job_state.rs`. `internal/sync.rs` selects standard
+mutexes, condition variables and thread identities in ordinary builds and Loom
+primitives when `cfg(loom)` and `loom-model` are enabled. These models cover
+entry ownership and selected accounting transitions, not the FIFO lock, outer
+admission protocol or full pool lifecycle. They allow at most five Loom threads
+and 10,000 branches, without a permutation or preemption bound; branch witnesses
+record both publication outcomes and capacity availability before and after
+cancellation completion. Real-thread tests continue to cover the outer pool
+behavior.
+
 ## Lifecycle state machine
 
 ```text

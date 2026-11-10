@@ -9,6 +9,7 @@ use std::sync::Arc;
 use std::sync::Weak;
 
 use crate::dynamic::thread_pool_inner::ThreadPoolInner;
+use crate::internal::sync;
 use crate::pool_job::QueuedJob;
 use crate::pool_job::QueuedJobState;
 
@@ -68,26 +69,13 @@ impl PoolJobTicket {
             return false;
         };
         {
-            let mut state = self.entry.lock();
-            if let QueuedJobState::Accepting {
-                owner,
-                cancel_requested,
-            } = &mut *state
+            if let Some(cancelled) = self
+                .entry
+                .reserve_and_wait_for_acceptance_cancel(sync::current_thread_id())
             {
-                if *owner == std::thread::current().id() || *cancel_requested {
-                    return false;
-                }
-                *cancel_requested = true;
-                while matches!(*state, QueuedJobState::Accepting { .. } | QueuedJobState::Cancelling) {
-                    state = self
-                        .entry
-                        .changed
-                        .wait(state)
-                        .unwrap_or_else(std::sync::PoisonError::into_inner);
-                }
-                return matches!(*state, QueuedJobState::Cancelled);
+                return cancelled;
             }
-            if !matches!(*state, QueuedJobState::Queued(_)) {
+            if !matches!(*self.entry.lock(), QueuedJobState::Queued(_)) {
                 return false;
             }
         }

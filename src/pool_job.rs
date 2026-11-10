@@ -22,6 +22,13 @@ use internal::CustomPoolTask;
 use internal::PoolJobInner;
 pub(crate) use internal::QueuedJob;
 pub(crate) use internal::QueuedJobState;
+pub(crate) use internal::acceptance_transition_active;
+pub(crate) use internal::begin_acceptance;
+pub(crate) use internal::cancellation_won;
+pub(crate) use internal::finish_cancellation;
+pub(crate) use internal::publish_accepted_job;
+pub(crate) use internal::reject_acceptance;
+pub(crate) use internal::reserve_accepting_cancel;
 
 /// Type-erased pool job with separate detached and cancellable forms.
 ///

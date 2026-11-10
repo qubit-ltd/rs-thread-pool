@@ -41,7 +41,6 @@ use crate::ThreadPoolHooks;
 use crate::ThreadPoolStats;
 use crate::internal::PoolAccounting;
 use crate::pool_job::QueuedJob;
-use crate::pool_job::QueuedJobState;
 
 /// Shared state for a thread pool.
 pub(crate) struct ThreadPoolInner {
@@ -366,10 +365,7 @@ impl ThreadPoolInner {
     ) -> Result<(), PoolJobSubmissionError> {
         let entry = job.take_queue_entry();
         if let Some(entry) = &entry {
-            *entry.lock() = QueuedJobState::Accepting {
-                owner: thread::current().id(),
-                cancel_requested: false,
-            };
+            crate::pool_job::begin_acceptance(&mut entry.lock(), crate::internal::sync::current_thread_id());
         }
         let mut transaction = reserved_transaction.unwrap_or_else(|| AcceptedJobGuard::new(self, entry.clone()));
         if job.accept().is_err() {
@@ -384,25 +380,17 @@ impl ThreadPoolInner {
         self.accounting.publish_accepted_job();
         if let Some(entry) = entry {
             let mut state = entry.lock();
-            if matches!(
-                *state,
-                QueuedJobState::Accepting {
-                    cancel_requested: true,
-                    ..
-                }
-            ) {
-                *state = QueuedJobState::Cancelling;
+            if let Err(cancelled_job) = crate::pool_job::publish_accepted_job(&mut state, job) {
                 self.begin_cancel_queued_job();
                 transaction.commit();
                 drop(state);
                 drop(queue);
-                job.cancel();
+                cancelled_job.cancel();
                 self.finish_cancelled_job();
-                *entry.lock() = QueuedJobState::Cancelled;
+                crate::pool_job::finish_cancellation(&mut entry.lock());
                 entry.changed.notify_all();
                 return Ok(());
             }
-            *state = QueuedJobState::Queued(job);
             drop(state);
             queue.push_back(entry);
         } else {
@@ -1253,10 +1241,7 @@ mod tests {
         ));
         assert!(inner.reserve_queue_slot());
         let entry = Arc::new(crate::pool_job::QueuedJob::prepared(&inner));
-        *entry.lock() = QueuedJobState::Accepting {
-            owner: thread::current().id(),
-            cancel_requested: false,
-        };
+        crate::pool_job::begin_acceptance(&mut entry.lock(), crate::internal::sync::current_thread_id());
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe({
             let inner = Arc::clone(&inner);
             let entry = Arc::clone(&entry);
