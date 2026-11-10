@@ -7,4 +7,5 @@
 // =============================================================================
 
 mod admission_gate_tests;
+mod panic_boundary_tests;
 mod pool_accounting_tests;
