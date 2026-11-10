@@ -5,6 +5,7 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+use std::collections::VecDeque;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::atomic::AtomicBool;
@@ -30,7 +31,6 @@ use tokio::sync::watch;
 pub(super) use self::internal::AcceptedJobGuard;
 pub(super) use self::internal::ReservedWorker;
 pub(super) use self::internal::ThreadPoolSubmitGuard;
-use super::removable_job_queue::RemovableJobQueue;
 use super::thread_pool_config::ThreadPoolConfig;
 use super::thread_pool_state::ThreadPoolState;
 use super::thread_pool_worker::ThreadPoolWorker;
@@ -70,7 +70,7 @@ pub(crate) struct ThreadPoolInner {
     /// Number of callers waiting for accepted work to become idle.
     idle_waiter_count: AtomicUsize,
     /// Removable FIFO; always lock this before an entry ownership mutex.
-    global_queue: Mutex<RemovableJobQueue>,
+    global_queue: Mutex<VecDeque<Arc<QueuedJob>>>,
     /// Prefix used for naming newly spawned workers.
     thread_name_prefix: String,
     /// Optional stack size in bytes for newly spawned workers.
@@ -115,7 +115,7 @@ impl ThreadPoolInner {
             pending_worker_wakes: AtomicUsize::new(0),
             submit_waiter_count: AtomicUsize::new(0),
             idle_waiter_count: AtomicUsize::new(0),
-            global_queue: Mutex::new(RemovableJobQueue::new()),
+            global_queue: Mutex::new(VecDeque::new()),
             thread_name_prefix,
             stack_size,
             hooks,
@@ -440,14 +440,13 @@ impl ThreadPoolInner {
                 .global_queue
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner);
-            let Some(index) = queue.index_of(entry) else {
+            let Some(index) = queue.iter().position(|queued| Arc::ptr_eq(queued, entry)) else {
                 return false;
             };
             let Some(job) = entry.take_queued() else {
                 return false;
             };
-            let removed = queue.remove(index);
-            debug_assert!(Arc::ptr_eq(&removed, entry));
+            queue.remove(index);
             self.begin_cancel_queued_job();
             job
         };

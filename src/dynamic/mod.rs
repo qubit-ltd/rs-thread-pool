@@ -7,7 +7,6 @@
 // =============================================================================
 //! Dynamic thread pool implementation.
 
-mod removable_job_queue;
 mod thread_pool;
 mod thread_pool_builder;
 pub(crate) mod thread_pool_config;
