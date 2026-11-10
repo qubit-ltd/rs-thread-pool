@@ -151,8 +151,8 @@ and the default feature set. R1 saved Criterion baseline
 repeatability runs on one implementation, not a before/after comparison.
 
 The raw outputs, exact command lines, exit results, environment, lockfile digest,
-and SHA-256 values are in [the evidence manifest](review-evidence-20261109/manifest.json)
-and [archived logs](review-evidence-20261109/). Sparse Criterion midpoints were
+and SHA-256 values are in [the evidence manifest](https://github.com/qubit-ltd/rs-thread-pool/blob/d24a860a8fbc91f8a127f0bde633189c43c78000/doc/review-evidence-20261109/manifest.json)
+and [archived logs](https://github.com/qubit-ltd/rs-thread-pool/tree/d24a860a8fbc91f8a127f0bde633189c43c78000/doc/review-evidence-20261109/). Sparse Criterion midpoints were
 10.114–14.602 µs (1 worker), 5.997–6.730 µs (4), 10.097–25.427 µs (8), and
 20.348–28.122 µs (16). Ticket-cancellation and contended measurements show
 material run-to-run variation; consult each raw round rather than treating one

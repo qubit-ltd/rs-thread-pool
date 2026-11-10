@@ -95,7 +95,7 @@ cargo bench --bench thread_pool_bench --locked -- thread_pool_sparse_multiworker
 使用默认 feature。R1 保存 Criterion 基线 `rtp-20261109-round1`；R2、R3
 均与该基线比较。这些是同一实现的重复性测量，不是改动前后对比。
 
-[证据清单](review-evidence-20261109/manifest.json)和[归档日志](review-evidence-20261109/)
+[证据清单](https://github.com/qubit-ltd/rs-thread-pool/blob/d24a860a8fbc91f8a127f0bde633189c43c78000/doc/review-evidence-20261109/manifest.json)和[归档日志](https://github.com/qubit-ltd/rs-thread-pool/tree/d24a860a8fbc91f8a127f0bde633189c43c78000/doc/review-evidence-20261109/)
 记录了原始输出、完整命令、退出结果、环境、lockfile 摘要及 SHA-256。
 稀疏到达组 Criterion 中心估计范围为：1 worker 10.114–14.602 µs、4 个
 5.997–6.730 µs、8 个 10.097–25.427 µs、16 个 20.348–28.122 µs。取消和
