@@ -68,6 +68,14 @@ pub struct ThreadPool {
 }
 
 impl ThreadPool {
+    /// Returns this pool's private deterministic test scheduler.
+    #[cfg(test)]
+    pub(crate) fn notification_control(
+        &self,
+    ) -> Arc<crate::tests::notification_control::NotificationControl> {
+        self.inner.notification_control()
+    }
+
     /// Creates a thread pool with equal core and maximum pool sizes.
     ///
     /// # Parameters

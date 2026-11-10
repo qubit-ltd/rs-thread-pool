@@ -58,6 +58,9 @@ pub(crate) struct ThreadPoolInner {
     /// Test-only switch for deterministic worker-spawn rejection coverage.
     #[cfg(test)]
     fail_next_worker_spawn: AtomicBool,
+    /// One-pool deterministic notification scheduling control.
+    #[cfg(test)]
+    notification_control: Arc<crate::tests::notification_control::NotificationControl>,
     /// Number of workers currently blocked or about to block waiting for work.
     idle_worker_count: AtomicUsize,
     /// Number of idle-worker wakeups already requested but not yet consumed.
@@ -106,6 +109,8 @@ impl ThreadPoolInner {
             panic_after_worker_reservation: AtomicBool::new(false),
             #[cfg(test)]
             fail_next_worker_spawn: AtomicBool::new(false),
+            #[cfg(test)]
+            notification_control: Arc::new(crate::tests::notification_control::NotificationControl::new()),
             idle_worker_count: AtomicUsize::new(0),
             pending_worker_wakes: AtomicUsize::new(0),
             submit_waiter_count: AtomicUsize::new(0),
@@ -208,6 +213,14 @@ impl ThreadPoolInner {
         self.accounting.inflight_count()
     }
 
+    #[cfg(test)]
+    /// Returns this inner pool's deterministic notification controller.
+    pub(crate) fn notification_control(
+        &self,
+    ) -> Arc<crate::tests::notification_control::NotificationControl> {
+        Arc::clone(&self.notification_control)
+    }
+
     /// Acquires the pool state monitor while tolerating poisoned locks.
     ///
     /// # Returns
@@ -290,6 +303,9 @@ impl ThreadPoolInner {
 
     /// Wakes monitor waiters after the last submitter leaves admission.
     fn notify_submitter_departure(&self) {
+        #[cfg(test)]
+        self.notification_control
+            .pause(crate::tests::notification_control::Phase::SubmitterDeparture);
         if !self.accounting.is_admission_open() || self.has_idle_waiters() {
             self.notify_waiters_after_atomic_change();
         }
@@ -368,6 +384,9 @@ impl ThreadPoolInner {
             crate::pool_job::begin_acceptance(&mut entry.lock(), crate::internal::sync::current_thread_id());
         }
         let mut transaction = reserved_transaction.unwrap_or_else(|| AcceptedJobGuard::new(self, entry.clone()));
+        #[cfg(test)]
+        self.notification_control
+            .pause(crate::tests::notification_control::Phase::AcceptanceEntered);
         if job.accept().is_err() {
             drop(transaction);
             job.discard();
@@ -398,6 +417,8 @@ impl ThreadPoolInner {
         }
         drop(queue);
         transaction.commit();
+        #[cfg(test)]
+        self.notification_control.signal(crate::tests::notification_control::Phase::JobPublished);
         self.wake_one_idle_worker();
         Ok(())
     }
@@ -961,6 +982,9 @@ impl ThreadPoolInner {
         self.idle_waiter_count.fetch_add(1, Ordering::AcqRel);
         let mut state = self.lock_state();
         while !self.is_idle_snapshot() {
+            #[cfg(test)]
+            self.notification_control
+                .pause(crate::tests::notification_control::Phase::IdleWaitBoundary);
             state.wait();
         }
         let previous = self.idle_waiter_count.fetch_sub(1, Ordering::AcqRel);

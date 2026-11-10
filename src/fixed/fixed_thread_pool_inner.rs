@@ -47,6 +47,9 @@ pub(crate) struct FixedThreadPoolInner {
     submit_waiter_count: AtomicUsize,
     /// Number of callers waiting for accepted work to become idle.
     idle_waiter_count: AtomicUsize,
+    /// One-pool deterministic notification scheduling control.
+    #[cfg(test)]
+    notification_control: std::sync::Arc<crate::tests::notification_control::NotificationControl>,
     /// Lock-free queue for externally submitted jobs.
     global_queue: Injector<PoolJob>,
     /// Worker and task lifecycle hooks.
@@ -76,6 +79,8 @@ impl FixedThreadPoolInner {
             pending_worker_wakes: AtomicUsize::new(0),
             submit_waiter_count: AtomicUsize::new(0),
             idle_waiter_count: AtomicUsize::new(0),
+            #[cfg(test)]
+            notification_control: std::sync::Arc::new(crate::tests::notification_control::NotificationControl::new()),
             global_queue: Injector::new(),
             hooks,
         }
@@ -134,6 +139,14 @@ impl FixedThreadPoolInner {
     #[inline]
     pub(crate) fn inflight_count(&self) -> usize {
         self.accounting.inflight_count()
+    }
+
+    #[cfg(test)]
+    /// Returns this inner pool's deterministic notification controller.
+    pub(crate) fn notification_control(
+        &self,
+    ) -> std::sync::Arc<crate::tests::notification_control::NotificationControl> {
+        std::sync::Arc::clone(&self.notification_control)
     }
 
     /// Attempts to enter submit admission.
@@ -200,6 +213,9 @@ impl FixedThreadPoolInner {
             return Err(PoolJobSubmissionError::Rejected(SubmissionError::Saturated));
         }
         let mut transaction = AcceptedSlotGuard::new(self);
+        #[cfg(test)]
+        self.notification_control
+            .pause(crate::tests::notification_control::Phase::AcceptanceEntered);
         if job.accept().is_err() {
             drop(transaction);
             self.notify_waiters_after_atomic_change();
@@ -219,6 +235,8 @@ impl FixedThreadPoolInner {
         self.accounting.publish_accepted_job();
         self.global_queue.push(job);
         transaction.commit();
+        #[cfg(test)]
+        self.notification_control.signal(crate::tests::notification_control::Phase::JobPublished);
         self.wake_one_idle_worker();
     }
 
@@ -278,6 +296,9 @@ impl FixedThreadPoolInner {
 
     /// Wakes monitor waiters after the last submitter leaves admission.
     fn notify_submitter_departure(&self) {
+        #[cfg(test)]
+        self.notification_control
+            .pause(crate::tests::notification_control::Phase::SubmitterDeparture);
         if !self.accounting.is_admission_open() || self.has_idle_waiters() {
             self.notify_waiters_after_atomic_change();
         }
@@ -469,6 +490,9 @@ impl FixedThreadPoolInner {
         self.idle_waiter_count.fetch_add(1, Ordering::AcqRel);
         let mut state = self.state.lock();
         while !self.is_idle_locked() {
+            #[cfg(test)]
+            self.notification_control
+                .pause(crate::tests::notification_control::Phase::IdleWaitBoundary);
             state.wait();
         }
         let previous = self.idle_waiter_count.fetch_sub(1, Ordering::AcqRel);

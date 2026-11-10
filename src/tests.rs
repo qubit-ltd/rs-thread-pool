@@ -7,4 +7,6 @@
 // =============================================================================
 
 mod internal;
+pub(crate) mod notification_control;
+mod notification_protocol_tests;
 mod pool_job_tests;

@@ -57,6 +57,20 @@ pub struct FixedThreadPool {
 }
 
 impl FixedThreadPool {
+    /// Submits a custom job through the fixed pool's production path in tests.
+    #[cfg(test)]
+    pub(crate) fn submit_job(&self, job: PoolJob) -> Result<(), PoolJobSubmissionError> {
+        self.inner.submit(job)
+    }
+
+    /// Returns this pool's private deterministic test scheduler.
+    #[cfg(test)]
+    pub(crate) fn notification_control(
+        &self,
+    ) -> Arc<crate::tests::notification_control::NotificationControl> {
+        self.inner.notification_control()
+    }
+
     /// Creates a fixed thread pool with `pool_size` prestarted workers.
     ///
     /// # Parameters
