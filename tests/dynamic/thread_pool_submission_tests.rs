@@ -16,9 +16,9 @@ use std::time::Duration;
 
 use qubit_executor::TaskExecutionError;
 use qubit_executor::service::ExecutorService;
+use qubit_executor::service::ExecutorServiceBuilderError;
 use qubit_executor::service::RecoverableExecutorService;
 use qubit_executor::service::SubmissionError;
-use qubit_executor::service::ExecutorServiceBuilderError;
 use qubit_thread_pool::PoolJob;
 use qubit_thread_pool::ThreadPool;
 
@@ -67,14 +67,19 @@ fn test_thread_pool_recoverable_callable_returns_original_after_saturation() {
         }
     }
 
-    let pool = ThreadPool::builder().pool_size(1).queue_capacity(1).build().expect("pool should build");
+    let pool = ThreadPool::builder()
+        .pool_size(1)
+        .queue_capacity(1)
+        .build()
+        .expect("pool should build");
     let (started_tx, started_rx) = mpsc::channel();
     let (release_tx, release_rx) = mpsc::channel();
     pool.submit_callable(move || {
         started_tx.send(()).unwrap();
         release_rx.recv().unwrap();
         Ok::<(), io::Error>(())
-    }).unwrap();
+    })
+    .unwrap();
     wait_started(started_rx);
     let queued = pool.submit_callable(|| Ok::<(), io::Error>(())).unwrap();
 
@@ -92,14 +97,19 @@ fn test_thread_pool_recoverable_callable_returns_original_after_saturation() {
     let (_, retry) = rejected.into_parts();
     release_tx.send(()).unwrap();
     queued.get().expect("queued task should drain before retry");
-    let handle = pool.try_submit_callable(retry).expect("returned callable should be retryable");
+    let handle = pool
+        .try_submit_callable(retry)
+        .expect("returned callable should be retryable");
     handle.get().expect("retried callable should complete");
     assert_eq!(1, drops.load(Ordering::SeqCst));
     pool.shutdown();
     pool.wait_termination();
 }
 
-fn submit_recoverable_generic<S, C>(service: &S, callable: C) -> Result<S::ResultHandle<(), io::Error>, qubit_executor::service::RejectedTask<C>>
+fn submit_recoverable_generic<S, C>(
+    service: &S,
+    callable: C,
+) -> Result<S::ResultHandle<(), io::Error>, qubit_executor::service::RejectedTask<C>>
 where
     S: RecoverableExecutorService,
     C: qubit_function::Callable<(), io::Error> + Send + 'static,
@@ -137,17 +147,89 @@ fn test_thread_pool_recoverable_callable_returns_original_after_shutdown() {
 }
 
 #[test]
+fn test_thread_pool_recoverable_submit_races_shutdown() {
+    use std::sync::atomic::AtomicUsize;
+    use std::sync::atomic::Ordering;
+
+    struct Capture(Arc<AtomicUsize>);
+    impl Drop for Capture {
+        fn drop(&mut self) {
+            self.0.fetch_add(1, Ordering::SeqCst);
+        }
+    }
+
+    for _ in 0..32 {
+        let pool = Arc::new(ThreadPool::new(1).expect("pool should build"));
+        let barrier = Arc::new(Barrier::new(3));
+        let executions = Arc::new(AtomicUsize::new(0));
+        let drops = Arc::new(AtomicUsize::new(0));
+        let (result_tx, result_rx) = mpsc::channel();
+
+        let submit_pool = Arc::clone(&pool);
+        let submit_barrier = Arc::clone(&barrier);
+        let task_executions = Arc::clone(&executions);
+        let task_drops = Arc::clone(&drops);
+        let submitter = std::thread::spawn(move || {
+            let capture = Capture(task_drops);
+            let task = move || {
+                let _capture = &capture;
+                task_executions.fetch_add(1, Ordering::SeqCst);
+                Ok::<(), io::Error>(())
+            };
+            submit_barrier.wait();
+            result_tx
+                .send(submit_pool.try_submit_callable(task))
+                .expect("main thread should receive submission result");
+        });
+
+        let shutdown_pool = Arc::clone(&pool);
+        let shutdown_barrier = Arc::clone(&barrier);
+        let shutdown = std::thread::spawn(move || {
+            shutdown_barrier.wait();
+            shutdown_pool.shutdown();
+        });
+
+        barrier.wait();
+        let result = result_rx
+            .recv_timeout(Duration::from_secs(2))
+            .expect("recoverable submit should finish");
+        submitter.join().expect("submitter should exit");
+        shutdown.join().expect("shutdown caller should exit");
+
+        match result {
+            Err(rejected) => {
+                assert_eq!(SubmissionError::Shutdown, *rejected.reason());
+                assert_eq!(0, executions.load(Ordering::SeqCst));
+                assert_eq!(0, drops.load(Ordering::SeqCst));
+                let (_, task) = rejected.into_parts();
+                drop(task);
+                assert_eq!(1, drops.load(Ordering::SeqCst));
+            }
+            Ok(handle) => {
+                handle.get().expect("accepted task should finish during shutdown");
+                assert_eq!(1, executions.load(Ordering::SeqCst));
+                assert_eq!(1, drops.load(Ordering::SeqCst));
+            }
+        }
+        assert!(pool.wait_termination_timeout(Duration::from_secs(5)));
+    }
+}
+
+#[test]
 fn test_thread_pool_stop_cancels_accepted_recoverable_callable() {
     let pool = ThreadPool::new(1).expect("pool should build");
     let (started_tx, started_rx) = mpsc::channel();
     let (release_tx, release_rx) = mpsc::channel();
-    let running = pool.submit_callable(move || {
-        started_tx.send(()).unwrap();
-        release_rx.recv().unwrap();
-        Ok::<(), io::Error>(())
-    }).unwrap();
+    let running = pool
+        .submit_callable(move || {
+            started_tx.send(()).unwrap();
+            release_rx.recv().unwrap();
+            Ok::<(), io::Error>(())
+        })
+        .unwrap();
     wait_started(started_rx);
-    let queued = pool.try_submit_callable(|| Ok::<usize, io::Error>(17))
+    let queued = pool
+        .try_submit_callable(|| Ok::<usize, io::Error>(17))
         .expect("recoverable submission should be accepted");
     assert_eq!(1, pool.stop().cancelled);
     assert!(matches!(queued.get(), Err(TaskExecutionError::Cancelled)));
