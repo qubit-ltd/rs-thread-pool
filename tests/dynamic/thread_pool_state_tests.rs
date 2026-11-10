@@ -77,7 +77,7 @@ fn test_termination_waits_for_stop_exit_hook() {
         .build()
         .expect("pool should build");
 
-    pool.stop();
+    let _report = pool.stop();
     entered_rx
         .recv_timeout(Duration::from_secs(2))
         .expect("worker exit hook should start");

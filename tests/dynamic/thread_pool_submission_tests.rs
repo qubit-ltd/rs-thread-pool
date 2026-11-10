@@ -406,7 +406,7 @@ fn test_lazy_pool_keeps_worker_alive_during_acceptance() {
     ))
     .expect("job should be accepted");
     let run_result = ran_rx.recv_timeout(Duration::from_secs(1));
-    pool.stop();
+    let _report = pool.stop();
     pool.wait_termination();
     run_result.expect("accepted job must retain a worker while acceptance is in flight");
 }
@@ -718,7 +718,7 @@ fn test_ticket_cancel_races_worker_claim_and_stop_once() {
             std::thread::spawn(move || {
                 action_barrier.wait();
                 if stop {
-                    action_pool.stop();
+                    let _report = action_pool.stop();
                 } else {
                     action_release.send(()).expect("release worker");
                 }
