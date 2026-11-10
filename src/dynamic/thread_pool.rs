@@ -12,6 +12,8 @@ use qubit_executor::TaskHandle;
 use qubit_executor::TrackedTask;
 use qubit_executor::service::ExecutorService;
 use qubit_executor::service::ExecutorServiceLifecycle;
+use qubit_executor::service::RecoverableExecutorService;
+use qubit_executor::service::RejectedTask;
 use qubit_executor::service::StopReport;
 use qubit_executor::service::SubmissionError;
 use qubit_executor::task::spi::TaskEndpointPair;
@@ -192,6 +194,20 @@ impl ThreadPool {
     #[inline]
     pub fn stats(&self) -> ThreadPoolStats {
         self.inner.stats()
+    }
+
+    /// Attempts to submit a callable and returns it unchanged if admission fails.
+    ///
+    /// A rejected callable was not called, cloned, or retained by the pool, so
+    /// callers may retry it or choose another disposition. Success means the
+    /// task was accepted; it does not guarantee execution or task success.
+    pub fn try_submit_callable<C, R, E>(&self, task: C) -> Result<TaskHandle<R, E>, RejectedTask<C>>
+    where
+        C: Callable<R, E> + Send + 'static,
+        R: Send + 'static,
+        E: Send + 'static,
+    {
+        self.inner.try_submit_callable(task)
     }
 
     /// Subscribes to queue capacity and lifecycle changes, including successful
@@ -390,6 +406,10 @@ impl ThreadPool {
     /// # Parameters
     ///
     /// * `keep_alive` - New idle timeout for workers above the core size.
+    ///
+    /// Long timeouts are waited in bounded timer slices. If a timer wait fails,
+    /// the worker waits for a monitor notification instead; idle retirement may
+    /// be delayed until the next notification.
     ///
     /// # Returns
     ///
@@ -604,5 +624,16 @@ impl ExecutorService for ThreadPool {
     /// timeout elapsed first.
     fn wait_termination_timeout(&self, timeout: Duration) -> bool {
         self.inner.wait_for_termination_timeout(timeout)
+    }
+}
+
+impl RecoverableExecutorService for ThreadPool {
+    fn try_submit_callable<C, R, E>(&self, task: C) -> Result<Self::ResultHandle<R, E>, RejectedTask<C>>
+    where
+        C: Callable<R, E> + Send + 'static,
+        R: Send + 'static,
+        E: Send + 'static,
+    {
+        ThreadPool::try_submit_callable(self, task)
     }
 }

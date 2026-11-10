@@ -51,6 +51,21 @@ observes shutdown under the monitor before reserving resources.
 
 ## Queue capacity and worker growth
 
+Dynamic `ThreadPool::try_submit_callable` keeps the typed callable until
+admission succeeds. Shutdown, saturation and worker-spawn failure return the
+same callable in `RejectedTask<C>`; the pool does not invoke or destroy it.
+After reservation, the task follows the existing acceptance and FIFO
+publication path. An unexpected acceptance failure unwinds and rolls back the
+reservation; it is not a recoverable rejection. The original
+`submit_callable` contract remains consuming.
+
+Idle timeouts use timer slices of at most one hour. A slice timeout recomputes
+the remaining keep-alive duration; only expiry of the full duration retires a
+worker. Timer registration or completion errors fall back to one unbounded
+monitor wait, avoiding panic and busy polling while allowing lifecycle and
+configuration notifications to wake the worker. Retirement can be delayed
+during such an error.
+
 Dynamic admission follows this order: grow toward core size (or ensure one
 worker when none remain), otherwise reserve a bounded queue slot, otherwise
 grow toward maximum size, otherwise return `Saturated`. Worker creation

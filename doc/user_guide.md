@@ -113,6 +113,13 @@ waits include unfinished cancellation callbacks. After stop, use
 
 ## Advanced Usage
 
+Dynamic workers use keep-alive to retire excess idle workers. Long durations
+are waited in timer slices of at most one hour; each slice timeout recomputes
+the remaining duration, so it does not retire a worker early. If timer setup or
+completion fails, the worker waits once for a monitor notification. Shutdown,
+stop and configuration changes can wake it, though idle retirement can be
+delayed during this fallback.
+
 Choose `FixedThreadPool` when capacity is stable; it prestarts its configured
 workers. Configure `prestart_core_threads()` on the builder, or call
 `prestart_all_core_threads()` on an existing dynamic pool, when startup latency is
@@ -214,21 +221,29 @@ saturation as usual.
 use std::error::Error;
 use std::io;
 
-use qubit_executor::service::{ExecutorService, SubmissionError};
+use qubit_executor::service::{RecoverableExecutorService, SubmissionError};
 use qubit_thread_pool::ThreadPool;
 
 async fn submit_light_task(pool: &ThreadPool) -> Result<(), Box<dyn Error>> {
     let mut changes = pool.capacity_changes();
+    let payload = String::from("non-Clone payload");
+    let mut task = Some(move || {
+        let _ = &payload;
+        Ok::<(), io::Error>(())
+    });
     loop {
-        match pool.submit(|| Ok::<(), io::Error>(())) {
-            Ok(()) => return Ok(()),
-            Err(SubmissionError::Saturated) => {
-                changes.changed().await?;
+        let callable = task.take().expect("rejected callable is restored");
+        match RecoverableExecutorService::try_submit_callable(pool, callable) {
+            Ok(_) => return Ok(()),
+            Err(rejected) => {
+                let (reason, callable) = rejected.into_parts();
+                task = Some(callable);
+                match reason {
+                    SubmissionError::Saturated => changes.changed().await?,
+                    SubmissionError::Shutdown => return Err(SubmissionError::Shutdown.into()),
+                    error => return Err(error.into()),
+                }
             }
-            Err(SubmissionError::Shutdown) => {
-                return Err(SubmissionError::Shutdown.into());
-            }
-            Err(error) => return Err(error.into()),
         }
     }
 }
@@ -248,11 +263,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
 }
 ```
 
-Each call constructs a new, cheap `FnOnce` closure. A closure consumed by a
-failed submission cannot be reused. For business work, keep ownership of the
-payload in the application and build a fresh task from that owned state on
-each attempt; account for any cloning cost and do not perform business side
-effects while constructing a retry. A wake notification can race with another
+The example retains the same non-`Clone` callable after rejection and retries
+it after a capacity notification. `submit_callable` keeps its original
+consuming behavior; with that method, keep the payload separately and build a
+fresh callable for each attempt. A wake notification can race with another
 submitter, so the retry may receive `Saturated` again. Cancelling the future
 while it is waiting cancels only that wait. It does not cancel work already
 accepted by the pool; use a tracked task handle or the dynamic-pool ticket API

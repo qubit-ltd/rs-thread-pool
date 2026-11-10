@@ -30,6 +30,17 @@
 
 ## 队列容量与 worker 扩缩
 
+动态 `ThreadPool::try_submit_callable` 在接纳成功前保留 typed callable。
+Shutdown、Saturated 和 WorkerSpawnFailed 会在 `RejectedTask<C>` 中返还同一个
+callable；池不会调用或销毁它。资源预留后，任务沿用现有接纳及 FIFO 发布路径。
+意外的接纳失败会展开并回滚预留，不会伪装成可恢复拒绝。原
+`submit_callable` 仍消费被拒绝任务。
+
+空闲超时最多按一小时的定时片段等待。片段超时会重新计算剩余 keep-alive，
+只有完整时长届满才退休 worker。定时器注册或完成错误会降级为一次无期限
+monitor 等待，避免 panic 和忙轮询，同时仍可由生命周期或配置通知唤醒；发生
+此错误时空闲回收可能延迟。
+
 动态池按以下顺序接纳：先向 core size 增长（没有 worker 时至少创建一个），否则尝试预留有界队列槽位；槽位不足时向 maximum size 增长；仍无法接收时返回 `Saturated`。创建 worker 失败会在调用接纳回调前返回 `WorkerSpawnFailed`，并回滚 worker 名额。无界队列不会触发超出 core size 的压力扩容；core size 为零时仍会创建一个 worker，确保任务可执行。
 
 配置的容量约束普通排队槽位接纳，不是已接纳任务总数或内存的硬上限。成功扩容的路径可以额外预留一个交接槽位，再把任务发布到动态 FIFO；任务不绑定新 worker。槽位覆盖已接纳或尚在接纳的排队工作，以及尚未完成的取消回调。任务转入运行时释放槽位，因此 `queued_count()` 不一定等于已预留槽位数。

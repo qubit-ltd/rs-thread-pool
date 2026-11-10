@@ -6,6 +6,8 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 use std::sync::Arc;
+use std::time::Duration;
+use std::time::Instant;
 
 use qubit_executor::service::ExecutorServiceLifecycle;
 use qubit_lock::WaitTimeoutStatus;
@@ -93,10 +95,9 @@ fn run_with_task_hooks(job: PoolJob, hooks: &ThreadPoolHooks, worker_index: usiz
 ///
 /// `Some(job)` when work is available, or `None` when the worker should exit.
 ///
-/// # Panics
-///
-/// Panics if the timed monitor wait cannot register its timer, which indicates
-/// a violation of the standard monitor timer invariant.
+/// A failed timed wait falls back to one unbounded notification wait. This
+/// avoids a panic or busy loop; worker retirement may be delayed until the
+/// next notification.
 fn wait_for_job(inner: &ThreadPoolInner, worker_index: usize) -> Option<PoolJob> {
     loop {
         if let Some(job) = inner.try_take_queued_job() {
@@ -114,7 +115,7 @@ fn wait_for_job(inner: &ThreadPoolInner, worker_index: usize) -> Option<PoolJob>
                     mark_thread_pool_worker_idle(inner, &mut state);
                     let mut timed_out = false;
                     if inner.queued_count() == 0 && !inner.has_pending_worker_wake() {
-                        let status = state.wait_for(keep_alive).expect("standard Timer should register");
+                        let status = wait_for_keep_alive(&mut state, keep_alive);
                         timed_out = status == WaitTimeoutStatus::TimedOut;
                     }
                     let should_retire = timed_out
@@ -154,6 +155,91 @@ fn wait_for_job(inner: &ThreadPoolInner, worker_index: usize) -> Option<PoolJob>
                 return None;
             }
         }
+    }
+}
+
+/// Waits for the full keep-alive duration using bounded timer registrations.
+/// Individual slice timeouts do not retire the worker before the total duration
+/// has elapsed. A timer registration/completion error falls back to one
+/// unbounded wait so lifecycle notifications can still wake this worker.
+fn wait_for_keep_alive(state: &mut qubit_lock::ParkingLotMonitorGuard<'_, ThreadPoolState>, keep_alive: Duration) -> WaitTimeoutStatus {
+    wait_for_keep_alive_with(keep_alive, Duration::from_secs(3600), |timeout| match timeout {
+        Some(timeout) => state.wait_for(timeout).map_err(|_| ()),
+        None => {
+            state.wait();
+            Ok(WaitTimeoutStatus::Woken)
+        }
+    })
+}
+
+fn wait_for_keep_alive_with<F>(
+    keep_alive: Duration,
+    maximum_slice: Duration,
+    mut wait: F,
+) -> WaitTimeoutStatus
+where
+    F: FnMut(Option<Duration>) -> Result<WaitTimeoutStatus, ()>,
+{
+    let started = Instant::now();
+    loop {
+        let remaining = remaining_keep_alive(keep_alive, started.elapsed());
+        if remaining.is_zero() {
+            return WaitTimeoutStatus::TimedOut;
+        }
+        match wait(Some(remaining.min(maximum_slice))) {
+            Ok(WaitTimeoutStatus::Woken) => return WaitTimeoutStatus::Woken,
+            Ok(WaitTimeoutStatus::TimedOut) => {}
+            Err(_) => {
+                let _ = wait(None);
+                return WaitTimeoutStatus::Woken;
+            }
+        }
+    }
+}
+
+fn remaining_keep_alive(keep_alive: Duration, elapsed: Duration) -> Duration {
+    keep_alive.saturating_sub(elapsed)
+}
+
+#[cfg(test)]
+mod keep_alive_tests {
+    use super::wait_for_keep_alive_with;
+    use super::remaining_keep_alive;
+    use qubit_lock::WaitTimeoutStatus;
+    use std::cell::Cell;
+    use std::time::Duration;
+
+    #[test]
+    fn remaining_duration_saturates_at_zero_and_handles_maximum() {
+        assert_eq!(Duration::from_secs(3), remaining_keep_alive(Duration::from_secs(5), Duration::from_secs(2)));
+        assert_eq!(Duration::ZERO, remaining_keep_alive(Duration::from_secs(5), Duration::from_secs(5)));
+        assert_eq!(Duration::ZERO, remaining_keep_alive(Duration::from_secs(5), Duration::from_secs(6)));
+        assert_eq!(Duration::MAX, remaining_keep_alive(Duration::MAX, Duration::ZERO));
+    }
+
+    #[test]
+    fn large_keep_alive_slices_are_bounded_and_retried() {
+        let slices = Cell::new(0);
+        let status = wait_for_keep_alive_with(Duration::MAX, Duration::from_millis(1), |timeout| {
+            let Some(timeout) = timeout else { panic!("no error expected") };
+            assert!(timeout <= Duration::from_millis(1));
+            let count = slices.get() + 1;
+            slices.set(count);
+            Ok(if count == 3 { WaitTimeoutStatus::Woken } else { WaitTimeoutStatus::TimedOut })
+        });
+        assert_eq!(WaitTimeoutStatus::Woken, status);
+        assert_eq!(3, slices.get());
+    }
+
+    #[test]
+    fn wait_error_falls_back_once_to_unbounded_wait() {
+        let calls = Cell::new(0);
+        let status = wait_for_keep_alive_with(Duration::MAX, Duration::from_secs(3600), |timeout| {
+            calls.set(calls.get() + 1);
+            if timeout.is_some() { Err(()) } else { Ok(WaitTimeoutStatus::Woken) }
+        });
+        assert_eq!(WaitTimeoutStatus::Woken, status);
+        assert_eq!(2, calls.get());
     }
 }
 

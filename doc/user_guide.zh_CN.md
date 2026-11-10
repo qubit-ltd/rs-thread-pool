@@ -77,6 +77,11 @@ Ok(())
 
 ## 进阶用法
 
+动态池用 keep-alive 回收多余的空闲 worker。超长时长最多按一小时的定时片段
+等待；每个片段超时都会重新计算剩余时长，不会提前退休。定时器创建或完成
+失败时，worker 会退化为一次 monitor 通知等待。Shutdown、stop 和配置变更仍能
+唤醒它，但此时空闲回收可能延迟。
+
 worker 数量长期稳定时选择 `FixedThreadPool`；它会预启动配置数量的 worker。若动态线程池更看重启动延迟，可在 builder 中配置 `prestart_core_threads()`，或对已创建的池调用 `prestart_all_core_threads()`。两个 builder 都支持 worker 和 task hook：hook 在 worker 线程中运行，收到稳定的 worker index；其自身 panic 会被忽略。task hook 位于执行路径上，应保持短小。
 
 动态线程池使用无界队列时，达到 core size 后仍会排队；仅把 maximum size 调大不会带来突发扩容。只有在可以接受队列内存持续增长时，才应选择无界队列。
@@ -147,21 +152,29 @@ OS 线程。先订阅容量变化，再尝试首次提交；这样提交失败�
 use std::error::Error;
 use std::io;
 
-use qubit_executor::service::{ExecutorService, SubmissionError};
+use qubit_executor::service::{RecoverableExecutorService, SubmissionError};
 use qubit_thread_pool::ThreadPool;
 
 async fn submit_light_task(pool: &ThreadPool) -> Result<(), Box<dyn Error>> {
     let mut changes = pool.capacity_changes();
+    let payload = String::from("不可 Clone 的数据");
+    let mut task = Some(move || {
+        let _ = &payload;
+        Ok::<(), io::Error>(())
+    });
     loop {
-        match pool.submit(|| Ok::<(), io::Error>(())) {
-            Ok(()) => return Ok(()),
-            Err(SubmissionError::Saturated) => {
-                changes.changed().await?;
+        let callable = task.take().expect("拒绝后会放回原 callable");
+        match RecoverableExecutorService::try_submit_callable(pool, callable) {
+            Ok(_) => return Ok(()),
+            Err(rejected) => {
+                let (reason, callable) = rejected.into_parts();
+                task = Some(callable);
+                match reason {
+                    SubmissionError::Saturated => changes.changed().await?,
+                    SubmissionError::Shutdown => return Err(SubmissionError::Shutdown.into()),
+                    error => return Err(error.into()),
+                }
             }
-            Err(SubmissionError::Shutdown) => {
-                return Err(SubmissionError::Shutdown.into());
-            }
-            Err(error) => return Err(error.into()),
         }
     }
 }
@@ -181,10 +194,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
 }
 ```
 
-每次提交都会新建一个轻量 `FnOnce` 闭包。提交失败后，闭包已被消费，
-不能再次使用。业务代码应由应用继续持有任务数据，并在每次尝试时从
-自有状态重建任务；需要考虑复制成本，也不要在构造重试任务时执行业务
-副作用。通知可能与其他提交者竞争，因此再次提交仍可能得到
+示例在拒绝后保留同一个非 `Clone` callable 并等待容量提示后重试。
+`submit_callable` 仍保持原有消费语义；使用它时，应用需单独持有业务数据，
+并在每次尝试时重建 callable。通知可能与其他提交者竞争，因此再次提交仍可能得到
 `Saturated`。若等待 future 被取消，只会取消这次等待，不会撤销线程池
 已经接纳的任务。若需在执行前取消任务，可使用 tracked task handle，或
 动态池的 ticket API。

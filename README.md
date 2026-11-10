@@ -92,6 +92,11 @@ is excluded, and dynamic worker growth can reserve an additional job slot.
 
 `submit` accepts fire-and-forget work. Use `submit_callable` for a result,
 or tracked submission for state and cancellation before execution.
+`submit_callable` consumes a rejected callable. `ThreadPool::try_submit_callable`
+implements `RecoverableExecutorService` and returns the original callable with
+the rejection reason, so a non-`Clone` task can be retried.
+Excess workers wait for their full keep-alive duration in bounded timer slices;
+a timer error falls back to a notification wait and can delay idle retirement.
 Low-level `ThreadPool::submit_job` returns `PoolJobSubmissionError`,
 including `AcceptancePanicked`; acceptance failure invokes neither run nor
 cancel. Downstream registries can use `prepare_cancellable_job` to obtain a

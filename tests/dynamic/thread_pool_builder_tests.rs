@@ -306,6 +306,30 @@ fn test_thread_pool_core_threads_can_timeout() {
 }
 
 #[test]
+fn test_thread_pool_keep_alive_duration_max_does_not_kill_worker() {
+    let (ran_tx, ran_rx) = mpsc::channel();
+    let pool = ThreadPool::builder()
+        .pool_size(1)
+        .keep_alive(Duration::MAX)
+        .allow_core_thread_timeout(true)
+        .prestart_core_threads()
+        .build()
+        .expect("thread pool should accept a large keep-alive");
+    wait_until(|| pool.stats().idle_workers == 1);
+    pool
+        .submit_callable(move || {
+            ran_tx.send(()).expect("test should receive task notification");
+            Ok::<(), io::Error>(())
+        })
+        .expect("idle worker should remain available");
+    ran_rx
+        .recv_timeout(Duration::from_secs(2))
+        .expect("idle worker should run a second task");
+    pool.shutdown();
+    assert!(pool.wait_termination_timeout(Duration::from_secs(5)));
+}
+
+#[test]
 fn test_thread_pool_builder_sets_unbounded_queue_and_thread_options() {
     let pool = ThreadPool::builder()
         .core_pool_size(0)

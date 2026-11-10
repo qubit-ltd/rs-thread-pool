@@ -19,9 +19,12 @@ mod internal;
 
 use qubit_executor::service::ExecutorServiceLifecycle;
 use qubit_executor::service::StopReport;
+use qubit_executor::service::RejectedTask;
 use qubit_executor::service::SubmissionError;
 use qubit_lock::ParkingLotMonitor;
 use qubit_lock::ParkingLotMonitorGuard;
+use qubit_function::Callable;
+use qubit_executor::task::spi::TaskEndpointPair;
 #[cfg(feature = "async-wait")]
 use tokio::sync::watch;
 
@@ -53,6 +56,9 @@ pub(crate) struct ThreadPoolInner {
     /// Test-only switch used to exercise reservation unwind cleanup.
     #[cfg(test)]
     panic_after_worker_reservation: AtomicBool,
+    /// Test-only switch for deterministic worker-spawn rejection coverage.
+    #[cfg(test)]
+    fail_next_worker_spawn: AtomicBool,
     /// Number of workers currently blocked or about to block waiting for work.
     idle_worker_count: AtomicUsize,
     /// Number of idle-worker wakeups already requested but not yet consumed.
@@ -99,6 +105,8 @@ impl ThreadPoolInner {
             live_worker_count: AtomicUsize::new(0),
             #[cfg(test)]
             panic_after_worker_reservation: AtomicBool::new(false),
+            #[cfg(test)]
+            fail_next_worker_spawn: AtomicBool::new(false),
             idle_worker_count: AtomicUsize::new(0),
             pending_worker_wakes: AtomicUsize::new(0),
             submit_waiter_count: AtomicUsize::new(0),
@@ -331,7 +339,15 @@ impl ThreadPoolInner {
     ///
     /// Returns [`PoolJobSubmissionError::AcceptancePanicked`] if the acceptance
     /// callback panics, releasing the reserved slot without publishing the job.
-    fn accept_and_enqueue_reserved_job(&self, mut job: PoolJob) -> Result<(), PoolJobSubmissionError> {
+    fn accept_and_enqueue_reserved_job(&self, job: PoolJob) -> Result<(), PoolJobSubmissionError> {
+        self.accept_and_enqueue_reserved_job_with_guard(job, None)
+    }
+
+    fn accept_and_enqueue_reserved_job_with_guard(
+        &self,
+        mut job: PoolJob,
+        reserved_transaction: Option<AcceptedJobGuard<'_>>,
+    ) -> Result<(), PoolJobSubmissionError> {
         let entry = job.take_queue_entry();
         if let Some(entry) = &entry {
             *entry.lock() = QueuedJobState::Accepting {
@@ -339,7 +355,7 @@ impl ThreadPoolInner {
                 cancel_requested: false,
             };
         }
-        let mut transaction = AcceptedJobGuard::new(self, entry.clone());
+        let mut transaction = reserved_transaction.unwrap_or_else(|| AcceptedJobGuard::new(self, entry.clone()));
         if job.accept().is_err() {
             drop(transaction);
             job.discard();
@@ -415,6 +431,32 @@ impl ThreadPoolInner {
         true
     }
 
+    /// Submits a typed callable while retaining it until admission succeeds.
+    pub(crate) fn try_submit_callable<C, R, E>(
+        self: &Arc<Self>,
+        task: C,
+    ) -> Result<qubit_executor::TaskHandle<R, E>, RejectedTask<C>>
+    where
+        C: Callable<R, E> + Send + 'static,
+        R: Send + 'static,
+        E: Send + 'static,
+    {
+        let _guard = match self.begin_submit() {
+            Ok(guard) => guard,
+            Err(reason) => return Err(RejectedTask::new(reason, task)),
+        };
+        if let Err(error) = self.reserve_submission_with_state_lock() {
+            return Err(RejectedTask::new(error, task));
+        }
+        let transaction = AcceptedJobGuard::new(self, None);
+        let (handle, completion) = TaskEndpointPair::new().into_parts();
+        let job = PoolJob::from_task(task, completion);
+        if let Err(error) = self.accept_and_enqueue_reserved_job_with_guard(job, Some(transaction)) {
+            panic!("typed callable acceptance unexpectedly failed: {error}");
+        }
+        Ok(handle)
+    }
+
     /// Submits a job into the queue.
     ///
     /// # Overall logic
@@ -487,7 +529,7 @@ impl ThreadPoolInner {
         if let Err(error) = self.reserve_submission_with_state_lock() {
             // Destructors are user code too: release the state monitor first.
             job.discard();
-            return Err(error);
+            return Err(error.into());
         }
         self.accept_and_enqueue_reserved_job(job)
     }
@@ -495,10 +537,10 @@ impl ThreadPoolInner {
     /// Reserves admission capacity under the state monitor without taking job
     /// ownership, so rejected captures are always destroyed outside the lock.
     /// Returns Shutdown, Saturated, or WorkerSpawnFailed if reservation fails.
-    fn reserve_submission_with_state_lock(self: &Arc<Self>) -> Result<(), PoolJobSubmissionError> {
+    fn reserve_submission_with_state_lock(self: &Arc<Self>) -> Result<(), SubmissionError> {
         let mut state = self.lock_state();
         if state.lifecycle != ExecutorServiceLifecycle::Running {
-            return Err(PoolJobSubmissionError::Rejected(SubmissionError::Shutdown));
+            return Err(SubmissionError::Shutdown);
         }
         if state.live_workers < state.core_pool_size {
             let worker = self.reserve_worker_locked(&mut state);
@@ -521,7 +563,7 @@ impl ThreadPoolInner {
             self.reserve_worker_handoff_slot();
             Ok(())
         } else {
-            Err(PoolJobSubmissionError::Rejected(SubmissionError::Saturated))
+            Err(SubmissionError::Saturated)
         }
     }
 
@@ -604,6 +646,12 @@ impl ThreadPoolInner {
     /// Returns [`SubmissionError::WorkerSpawnFailed`] if
     /// [`thread::Builder::spawn`] fails.
     fn spawn_reserved_worker_locked(self: &Arc<Self>, mut worker: ReservedWorker<'_>) -> Result<(), SubmissionError> {
+        #[cfg(test)]
+        if self.fail_next_worker_spawn.swap(false, Ordering::AcqRel) {
+            return Err(SubmissionError::WorkerSpawnFailed {
+                source: Arc::new(std::io::Error::other("injected worker spawn failure")),
+            });
+        }
         let index = worker.index;
         let worker_inner = Arc::clone(self);
         let mut builder = thread::Builder::new().name(format!("{}-{index}", self.thread_name_prefix));
@@ -1190,6 +1238,50 @@ mod tests {
         assert_eq!(inner.queued_count(), 0);
         assert!(matches!(*entry.lock(), QueuedJobState::Rejected));
         assert!(inner.reserve_queue_slot(), "unwound transaction must release its slot");
+        inner.release_queue_slot();
+        inner.shutdown();
+        assert!(inner.wait_for_termination_timeout(Duration::from_secs(2)));
+    }
+
+    #[test]
+    fn test_recoverable_worker_spawn_failure_returns_callable_and_rolls_back_reservation() {
+        struct Capture(Arc<AtomicUsize>);
+        impl Drop for Capture {
+            fn drop(&mut self) {
+                self.0.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+
+        let inner = Arc::new(ThreadPoolInner::new(
+            ThreadPoolConfig {
+                core_pool_size: 1,
+                maximum_pool_size: 1,
+                queue_capacity: Some(1),
+                thread_name_prefix: "recoverable-spawn-failure".to_owned(),
+                stack_size: None,
+                keep_alive: Duration::from_secs(1),
+                allow_core_thread_timeout: false,
+            },
+            ThreadPoolHooks::default(),
+        ));
+        inner.fail_next_worker_spawn.store(true, Ordering::Release);
+        let drops = Arc::new(AtomicUsize::new(0));
+        let capture = Capture(Arc::clone(&drops));
+        let rejected = match inner.try_submit_callable(move || {
+            let _capture = &capture;
+            Ok::<(), std::io::Error>(())
+        }) {
+            Ok(_) => panic!("injected worker spawn failure should reject"),
+            Err(rejected) => rejected,
+        };
+        assert!(matches!(rejected.reason(), SubmissionError::WorkerSpawnFailed { .. }));
+        assert_eq!(0, drops.load(Ordering::SeqCst));
+        let (_, callable) = rejected.into_parts();
+        drop(callable);
+        assert_eq!(1, drops.load(Ordering::SeqCst));
+        assert_eq!(0, inner.read_state(|state| state.live_workers));
+        assert_eq!(0, inner.queued_count());
+        assert!(inner.reserve_queue_slot(), "spawn failure must roll back its queue slot");
         inner.release_queue_slot();
         inner.shutdown();
         assert!(inner.wait_for_termination_timeout(Duration::from_secs(2)));
