@@ -195,6 +195,13 @@ stop, join and termination waiters to recheck predicates after atomic state
 changes. Waits always recheck their conditions; a notification is not evidence
 that work has finished. Cancellation completion participates in these wakes.
 
+The deterministic notification regression tests use per-pool, test-only gates
+on the production paths. For both dynamic and fixed pools they witness idle
+worker publication, shutdown with successful acceptance, shutdown with
+acceptance rollback, and join after the last admission rolls back. They verify
+these selected interleavings; they do not enumerate every pool schedule or
+extend the bounded Loom models into a whole-pool proof.
+
 ## Panic containment
 
 Acceptance, custom run/cancel callbacks, ordinary task execution and hooks

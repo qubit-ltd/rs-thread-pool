@@ -1,0 +1,46 @@
+   Compiling qubit-rayon-executor v0.9.0 (/data/working/qubit/rust-common/rs-rayon-executor)
+   Compiling qubit-execution-services v0.10.1 (/tmp/rtp-r2-downstream-20261110/execution-services)
+error: couldn't read `tests/../examples/quick_start.rs`: No such file or directory (os error 2)
+  --> tests/documentation_examples_tests.rs:10:27
+   |
+10 | const QUICK_START: &str = include_str!("../examples/quick_start.rs");
+   |                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: couldn't read `tests/../examples/resource_budget.rs`: No such file or directory (os error 2)
+  --> tests/documentation_examples_tests.rs:11:31
+   |
+11 | const RESOURCE_BUDGET: &str = include_str!("../examples/resource_budget.rs");
+   |                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: couldn't read `tests/../examples/daily_report.rs`: No such file or directory (os error 2)
+  --> tests/documentation_examples_tests.rs:12:28
+   |
+12 | const DAILY_REPORT: &str = include_str!("../examples/daily_report.rs");
+   |                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: couldn't read `tests/../doc/user_guide.md`: No such file or directory (os error 2)
+  --> tests/documentation_examples_tests.rs:15:29
+   |
+15 | const ENGLISH_GUIDE: &str = include_str!("../doc/user_guide.md");
+   |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: couldn't read `tests/../doc/user_guide.zh_CN.md`: No such file or directory (os error 2)
+  --> tests/documentation_examples_tests.rs:16:29
+   |
+16 | const CHINESE_GUIDE: &str = include_str!("../doc/user_guide.zh_CN.md");
+   |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: couldn't read `tests/../doc/design.md`: No such file or directory (os error 2)
+  --> tests/documentation_examples_tests.rs:17:30
+   |
+17 | const ENGLISH_DESIGN: &str = include_str!("../doc/design.md");
+   |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: couldn't read `tests/../doc/design.zh_CN.md`: No such file or directory (os error 2)
+  --> tests/documentation_examples_tests.rs:18:30
+   |
+18 | const CHINESE_DESIGN: &str = include_str!("../doc/design.zh_CN.md");
+   |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: could not compile `qubit-execution-services` (test "documentation_examples_tests") due to 7 previous errors
+warning: build failed, waiting for other jobs to finish...

@@ -104,3 +104,45 @@ confirmed. Therefore an O(1) removable FIFO candidate is being evaluated. The
 candidate must improve cancellation-scale tails beyond noise while keeping the
 matched 0% path within 5% of the baseline. A measured threshold crossing alone
 does not justify retaining a structural change.
+
+## Indexed FIFO candidate A/B and decision
+
+The candidate source was commit `8757ad1b96b19fbed9dfc3b9b5ff454277129f64`
+(tree `fd565dd73f7db99c9fe66d60348ec9a6f9b9d5df`), with benchmark source SHA-256
+`bf09e880018fc33ba71da0e01e001c70a21fdbf550f34d3c6d0b09145d4311f4`. It used
+the same command, host, toolchain, lockfile, and default features as baseline.
+Three sequential rounds exited 0 and each emitted all 44 race summaries. Raw
+logs and round identities are in `t2-candidate-round-{1,2,3}/`; all SHA checks
+pass.
+
+Median-of-round TP006 operation percentiles (ns):
+
+| Queue depth / position | Baseline p50/p95/p99 | Candidate p50/p95/p99 | Change p50/p95/p99 |
+| --- | ---: | ---: | ---: |
+| 16,384 / middle | 5,872 / 6,327 / 9,563 | 236 / 307 / 376 | -96.0% / -95.1% / -96.1% |
+| 65,536 / middle | 27,172 / 32,444 / 37,066 | 354 / 538 / 979 | -98.7% / -98.3% / -97.4% |
+| 16,384 / back | 6,417 / 6,537 / 11,183 | 212 / 219 / 313 | -96.7% / -96.6% / -97.2% |
+| 65,536 / back | 26,439 / 32,381 / 43,951 | 212 / 219 / 321 | -99.2% / -99.3% / -99.3% |
+
+The indexed queue strongly improves the cancellation-scale measurements, but
+it fails the plan's normal-path guard. In the matched 1-worker / 4-producer /
+1-canceller 0% arm, median submit-call p95/p99 increased from 5,302/10,363 ns
+to 9,613/16,823 ns (+81.3%/+62.3%). Median submit-to-run p95/p99 increased from
+26,880/47,992 ns to 54,570/87,678 ns (+103%/+82.7%). For the historical
+submit/consume-only 4-producer / 4-worker control, median Criterion batch time
+rose 11.4% and throughput fell 10.2%. That exceeds the allowed 5% regression.
+
+The candidate also adds reusable slot storage and a pointer-index hash table.
+Each node is about 24 bytes on 64-bit targets (~1.5 MiB at 65,536 slots), plus
+hash-table and free-list capacity. The queue retains those high-water
+allocations after drain. It has no job-retaining tombstones, but its measured
+ordinary-path cost and retained memory outweigh its scale-case gains under the
+plan's acceptance criteria.
+
+**Decision:** reject and remove this candidate from the final implementation.
+The current evidence confirms linear middle/back removal cost and a workload-
+specific cancellation submit-tail signal, but this candidate is not suitable
+because normal submission/claim performance regresses beyond the allowed
+threshold. Keep the existing FIFO implementation. A different candidate would
+require a separate design and the same paired acceptance gates; this result is
+not a request to expand the current change.

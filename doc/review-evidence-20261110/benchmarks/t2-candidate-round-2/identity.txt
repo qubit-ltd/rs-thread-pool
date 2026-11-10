@@ -1,0 +1,8 @@
+commit=8757ad1b96b19fbed9dfc3b9b5ff454277129f64
+tree=fd565dd73f7db99c9fe66d60348ec9a6f9b9d5df
+bench_sha256=bf09e880018fc33ba71da0e01e001c70a21fdbf550f34d3c6d0b09145d4311f4
+cargo_lock_sha256=f0ce0a6b6f3a034c09d6c4b657328ce6022f7a6fbf0b14707f556e65522754db
+rustc=rustc 1.94.0 (4a4ef493e 2026-03-02)
+cargo=cargo 1.94.0 (85eff7c80 2026-01-15)
+features=default
+criterion_filter=thread_pool_ticket_cancel

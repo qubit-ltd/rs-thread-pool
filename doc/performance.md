@@ -163,6 +163,70 @@ The old TP-006 tables above remain for historical context, but their original
 logs were absent and their exact dirty source snapshot is unrecoverable. They
 are not reproducibility evidence.
 
+## Ticket cancellation race and long-queue check: 2026-11-10
+
+The new `thread_pool_ticket_cancel_race` group uses persistent actors, a
+per-batch barrier, immediate ticket handoff, and natural competition between
+workers and cancellers. Its 32 natural cases cover 1/4 workers, 1/4 producers,
+1/2 cancellers and 0/10/50/100% targets; 12 additional worker-gated cases
+ensure cancellation wins can be measured. The 0% arm uses the same harness as
+the cancellation arms. The historical `thread_pool_ticket_cancellation_contended`
+group remains a submit/consume-only reference and is not treated as the matched
+control. The scale group measures front, middle and back removal at depths
+16,384 and 65,536, replenishing each removed ticket to keep queue depth fixed.
+
+Three exclusive rounds used default features, sample size 20, the same
+commit/tree, Rust 1.94.0, lockfile, and Intel Xeon E5-2680 v4 host. Each round
+ran:
+
+```bash
+timeout 3600s cargo bench --locked --bench thread_pool_bench -- thread_pool_ticket_cancel
+```
+
+The three complete outputs, identities, timestamps, host details and hashes
+are archived under
+[`doc/review-evidence-20261110/benchmarks`](review-evidence-20261110/benchmarks/);
+the per-case table and conservation summaries are in
+[`t2-measurement-summary.md`](review-evidence-20261110/benchmarks/t2-measurement-summary.md).
+All rounds exited 0 and emitted all 44 race summaries. Counts satisfy
+`accepted = run + cancel_callback`, `cancel_true = cancel_callback`, and
+`cancel_attempts = cancel_true + cancel_false`; the unbounded race had zero
+rejections. Natural competition is not forced to produce the target ratio.
+
+For 1 worker / 4 producers / 1 canceller, the matched natural-race results
+were:
+
+| Round | Cancel target | Batch time (µs) | Throughput (K accepted jobs/s) | Submit p95/p99 (ns) | Submit-to-run p95/p99 (ns) |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 0% | 564.58 | 453.43 | 5,302 / 10,363 | 26,880 / 185,423 |
+| 1 | 50% | 393.61 | 650.39 | 10,943 / 18,005 | 107,375 / 124,664 |
+| 1 | 100% | 397.05 | 644.75 | 8,453 / 16,318 | 126,740 / 170,143 |
+| 2 | 0% | 587.17 | 435.99 | 4,980 / 8,726 | 24,069 / 38,290 |
+| 2 | 50% | 347.29 | 737.14 | 8,886 / 15,424 | 99,729 / 115,283 |
+| 2 | 100% | 360.07 | 710.97 | 7,637 / 15,520 | 114,343 / 143,255 |
+| 3 | 0% | 677.37 | 377.93 | 5,637 / 11,304 | 29,871 / 47,992 |
+| 3 | 50% | 387.09 | 661.35 | 10,270 / 17,180 | 112,675 / 130,002 |
+| 3 | 100% | 389.25 | 657.68 | 8,005 / 15,552 | 116,030 / 129,662 |
+
+At 50% and 100%, submit-call p95/p99 increased in all three rounds versus the
+same-harness 0% arm. Middle-position removal increased from 5.90–6.29 µs at
+16,384 entries to 27.11–28.68 µs at 65,536; front removal stayed near
+0.19–0.23 µs. The increase is a stable signal to evaluate the private queue
+candidate; it does not establish a public performance guarantee or business
+SLO violation. Higher cancellation also changes the amount of terminal work,
+so accepted-job batch throughput is not a same-work comparison.
+
+TP006 reports timer-read and atomic-recording overhead separately; these costs
+were not subtracted. TP008's run/cancel calibration covers only the isolated
+callback, timestamp, status, counter and channel-send path. It is not a
+correction for shared-channel contention. Gated setup and release timings are
+reported separately from natural-race results. The indexed FIFO candidate cut
+middle/back scale latency by roughly 95–99%, but raised matched 0% submit-call
+p95/p99 by 81%/62% and submit-to-run p95/p99 by 103%/83%; the historical
+submit/consume control also exceeded the allowed 5% regression. The candidate
+was removed, and the current FIFO remains. Details and raw outputs are in the
+results summary.
+
 ## Interpretation and reproduction
 
 Compare the same group, workload, worker count, compiler and machine. Record

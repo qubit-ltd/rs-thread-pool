@@ -81,5 +81,34 @@
     "result_summary": "Stable >20% increase in submit-call p95/p99 for 50% and 100% cancellation at 1 worker/4 producers/1 canceller, and middle-position cancellation grows about 4.5x from queue depth 16384 to 65536. This triggers candidate evaluation, not automatic retention.",
     "summary_file": "benchmarks/t2-measurement-summary.md",
     "tp008_limit": "Standalone callback/atomic/timestamp/channel instrumentation only; not a correction for shared-channel contention."
+  },
+  "indexed_queue_candidate": {
+    "commit": "8757ad1b96b19fbed9dfc3b9b5ff454277129f64",
+    "tree": "fd565dd73f7db99c9fe66d60348ec9a6f9b9d5df",
+    "bench_sha256": "bf09e880018fc33ba71da0e01e001c70a21fdbf550f34d3c6d0b09145d4311f4",
+    "command": "timeout 3600s cargo bench --locked --bench thread_pool_bench -- thread_pool_ticket_cancel",
+    "features": "default",
+    "rounds": [
+      {
+        "directory": "benchmarks/t2-candidate-round-1",
+        "exit_code": 0,
+        "criterion_log_sha256": "b81bda908afdd912522ac93e9b98644f509df3b4af2cc4149e8ee30776e3442a",
+        "race_summaries": 44
+      },
+      {
+        "directory": "benchmarks/t2-candidate-round-2",
+        "exit_code": 0,
+        "criterion_log_sha256": "cf990f31aad5c3f15e9bcbd21a862cc4c799f7c3a8e35beb7c77fca9c5d66372",
+        "race_summaries": 44
+      },
+      {
+        "directory": "benchmarks/t2-candidate-round-3",
+        "exit_code": 0,
+        "criterion_log_sha256": "00d81faaefb3af452bcc2d2d0b06ac1bdd73b0bbff4c5d28519d013c67381421",
+        "race_summaries": 44
+      }
+    ],
+    "decision": "Rejected and removed from final source: middle/back scale latency improved 95-99%, but matched 0% submit p95/p99 regressed 81.3%/62.3%, submit-to-run p95/p99 regressed 103%/82.7%, and historical contended throughput regressed 10.2%, exceeding the plan 5% ceiling.",
+    "summary_file": "benchmarks/t2-measurement-summary.md"
   }
 }

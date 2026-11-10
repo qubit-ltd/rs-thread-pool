@@ -1,0 +1,997 @@
+    Finished `bench` profile [optimized] target(s) in 0.16s
+     Running benches/thread_pool_bench.rs (target/release/deps/thread_pool_bench-07304301fb52c04f)
+Gnuplot not found, using plotters backend
+Benchmarking thread_pool_ticket_cancellation/queue=1/cancel=10%/dynamic
+Benchmarking thread_pool_ticket_cancellation/queue=1/cancel=10%/dynamic: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancellation/queue=1/cancel=10%/dynamic: Collecting 20 samples in estimated 5.0000 s (8.4M iterations)
+Benchmarking thread_pool_ticket_cancellation/queue=1/cancel=10%/dynamic: Analyzing
+thread_pool_ticket_cancellation/queue=1/cancel=10%/dynamic
+                        time:   [216.52 ns 220.68 ns 225.43 ns]
+                        thrpt:  [4.4359 Melem/s 4.5314 Melem/s 4.6186 Melem/s]
+                 change:
+                        time:   [−11.327% −6.7185% −2.4172%] (p = 0.01 < 0.05)
+                        thrpt:  [+2.4770% +7.2024% +12.774%]
+                        Performance has improved.
+Found 2 outliers among 20 measurements (10.00%)
+  2 (10.00%) high mild
+TP006 latency case=ticket_cancel/queue=1/ratio=10%/replicas=10/seed=0x5eedcafe phase=criterion_warmup_plus_measurement sample_count=16749127 p50_ns=213 p95_ns=295 p99_ns=330 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+Benchmarking thread_pool_ticket_cancellation/queue=1/cancel=50%/dynamic
+Benchmarking thread_pool_ticket_cancellation/queue=1/cancel=50%/dynamic: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancellation/queue=1/cancel=50%/dynamic: Collecting 20 samples in estimated 5.0001 s (8.7M iterations)
+Benchmarking thread_pool_ticket_cancellation/queue=1/cancel=50%/dynamic: Analyzing
+thread_pool_ticket_cancellation/queue=1/cancel=50%/dynamic
+                        time:   [215.22 ns 222.99 ns 234.82 ns]
+                        thrpt:  [4.2585 Melem/s 4.4846 Melem/s 4.6465 Melem/s]
+                 change:
+                        time:   [−0.1229% +2.0567% +5.1391%] (p = 0.17 > 0.05)
+                        thrpt:  [−4.8879% −2.0153% +0.1231%]
+                        No change in performance detected.
+Found 2 outliers among 20 measurements (10.00%)
+  2 (10.00%) high severe
+TP006 latency case=ticket_cancel/queue=1/ratio=50%/replicas=2/seed=0x5eedcafe phase=criterion_warmup_plus_measurement sample_count=17079667 p50_ns=213 p95_ns=221 p99_ns=312 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+Benchmarking thread_pool_ticket_cancellation/queue=1/cancel=100%/dynamic
+Benchmarking thread_pool_ticket_cancellation/queue=1/cancel=100%/dynamic: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancellation/queue=1/cancel=100%/dynamic: Collecting 20 samples in estimated 5.0001 s (8.3M iterations)
+Benchmarking thread_pool_ticket_cancellation/queue=1/cancel=100%/dynamic: Analyzing
+thread_pool_ticket_cancellation/queue=1/cancel=100%/dynamic
+                        time:   [214.13 ns 214.32 ns 214.60 ns]
+                        thrpt:  [4.6598 Melem/s 4.6658 Melem/s 4.6701 Melem/s]
+                 change:
+                        time:   [−0.2212% +0.3326% +0.7484%] (p = 0.21 > 0.05)
+                        thrpt:  [−0.7428% −0.3315% +0.2217%]
+                        No change in performance detected.
+Found 4 outliers among 20 measurements (20.00%)
+  1 (5.00%) high mild
+  3 (15.00%) high severe
+TP006 latency case=ticket_cancel/queue=1/ratio=100%/replicas=1/seed=0x5eedcafe phase=criterion_warmup_plus_measurement sample_count=16653367 p50_ns=212 p95_ns=300 p99_ns=326 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+Benchmarking thread_pool_ticket_cancellation/queue=128/cancel=10%/dynamic
+Benchmarking thread_pool_ticket_cancellation/queue=128/cancel=10%/dynamic: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancellation/queue=128/cancel=10%/dynamic: Collecting 20 samples in estimated 5.0065 s (131k iterations)
+Benchmarking thread_pool_ticket_cancellation/queue=128/cancel=10%/dynamic: Analyzing
+thread_pool_ticket_cancellation/queue=128/cancel=10%/dynamic
+                        time:   [14.597 µs 14.619 µs 14.641 µs]
+                        thrpt:  [4.3714 Melem/s 4.3779 Melem/s 4.3844 Melem/s]
+                 change:
+                        time:   [−3.6888% −2.1947% −0.9662%] (p = 0.00 < 0.05)
+                        thrpt:  [+0.9756% +2.2440% +3.8301%]
+                        Change within noise threshold.
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+TP006 latency case=ticket_cancel/queue=128/ratio=10%/replicas=5/seed=0x5eedcafe phase=criterion_warmup_plus_measurement sample_count=16748224 p50_ns=226 p95_ns=240 p99_ns=251 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+Benchmarking thread_pool_ticket_cancellation/queue=128/cancel=50%/dynamic
+Benchmarking thread_pool_ticket_cancellation/queue=128/cancel=50%/dynamic: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancellation/queue=128/cancel=50%/dynamic: Collecting 20 samples in estimated 5.0013 s (132k iterations)
+Benchmarking thread_pool_ticket_cancellation/queue=128/cancel=50%/dynamic: Analyzing
+thread_pool_ticket_cancellation/queue=128/cancel=50%/dynamic
+                        time:   [14.387 µs 14.393 µs 14.399 µs]
+                        thrpt:  [4.4447 Melem/s 4.4467 Melem/s 4.4485 Melem/s]
+                 change:
+                        time:   [−14.376% −8.5522% −2.9816%] (p = 0.01 < 0.05)
+                        thrpt:  [+3.0732% +9.3520% +16.790%]
+                        Performance has improved.
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+TP006 latency case=ticket_cancel/queue=128/ratio=50%/replicas=1/seed=0x5eedcafe phase=criterion_warmup_plus_measurement sample_count=16815424 p50_ns=224 p95_ns=233 p99_ns=240 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+Benchmarking thread_pool_ticket_cancellation/queue=128/cancel=100%/dynamic
+Benchmarking thread_pool_ticket_cancellation/queue=128/cancel=100%/dynamic: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancellation/queue=128/cancel=100%/dynamic: Collecting 20 samples in estimated 5.0055 s (64k iterations)
+Benchmarking thread_pool_ticket_cancellation/queue=128/cancel=100%/dynamic: Analyzing
+thread_pool_ticket_cancellation/queue=128/cancel=100%/dynamic
+                        time:   [29.513 µs 31.132 µs 33.562 µs]
+                        thrpt:  [3.8138 Melem/s 4.1115 Melem/s 4.3371 Melem/s]
+                 change:
+                        time:   [+0.3083% +5.4415% +11.267%] (p = 0.08 > 0.05)
+                        thrpt:  [−10.126% −5.1607% −0.3074%]
+                        No change in performance detected.
+Found 3 outliers among 20 measurements (15.00%)
+  3 (15.00%) high severe
+TP006 latency case=ticket_cancel/queue=128/ratio=100%/replicas=1/seed=0x5eedcafe phase=criterion_warmup_plus_measurement sample_count=16560000 p50_ns=225 p95_ns=337 p99_ns=373 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+Benchmarking thread_pool_ticket_cancellation/queue=4096/cancel=10%/dynamic
+Benchmarking thread_pool_ticket_cancellation/queue=4096/cancel=10%/dynamic: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancellation/queue=4096/cancel=10%/dynamic: Collecting 20 samples in estimated 5.3117 s (3570 iterations)
+Benchmarking thread_pool_ticket_cancellation/queue=4096/cancel=10%/dynamic: Analyzing
+thread_pool_ticket_cancellation/queue=4096/cancel=10%/dynamic
+                        time:   [582.85 µs 586.13 µs 590.45 µs]
+                        thrpt:  [3.4686 Melem/s 3.4941 Melem/s 3.5138 Melem/s]
+                 change:
+                        time:   [−0.3162% +1.0745% +2.1886%] (p = 0.12 > 0.05)
+                        thrpt:  [−2.1417% −1.0631% +0.3172%]
+                        No change in performance detected.
+TP006 latency case=ticket_cancel/queue=4096/ratio=10%/replicas=5/seed=0x5eedcafe phase=criterion_warmup_plus_measurement sample_count=11503616 p50_ns=280 p95_ns=319 p99_ns=382 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+Benchmarking thread_pool_ticket_cancellation/queue=4096/cancel=50%/dynamic
+Benchmarking thread_pool_ticket_cancellation/queue=4096/cancel=50%/dynamic: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancellation/queue=4096/cancel=50%/dynamic: Collecting 20 samples in estimated 5.0249 s (3570 iterations)
+Benchmarking thread_pool_ticket_cancellation/queue=4096/cancel=50%/dynamic: Analyzing
+thread_pool_ticket_cancellation/queue=4096/cancel=50%/dynamic
+                        time:   [543.25 µs 543.83 µs 544.48 µs]
+                        thrpt:  [3.7614 Melem/s 3.7659 Melem/s 3.7699 Melem/s]
+                 change:
+                        time:   [+1.1835% +1.3852% +1.5976%] (p = 0.00 < 0.05)
+                        thrpt:  [−1.5725% −1.3663% −1.1697%]
+                        Performance has regressed.
+TP006 latency case=ticket_cancel/queue=4096/ratio=50%/replicas=1/seed=0x5eedcafe phase=criterion_warmup_plus_measurement sample_count=15697920 p50_ns=263 p95_ns=290 p99_ns=310 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+Benchmarking thread_pool_ticket_cancellation/queue=4096/cancel=100%/dynamic
+Benchmarking thread_pool_ticket_cancellation/queue=4096/cancel=100%/dynamic: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancellation/queue=4096/cancel=100%/dynamic: Collecting 20 samples in estimated 5.4607 s (1890 iterations)
+Benchmarking thread_pool_ticket_cancellation/queue=4096/cancel=100%/dynamic: Analyzing
+thread_pool_ticket_cancellation/queue=4096/cancel=100%/dynamic
+                        time:   [1.0977 ms 1.1261 ms 1.1621 ms]
+                        thrpt:  [3.5246 Melem/s 3.6374 Melem/s 3.7314 Melem/s]
+                 change:
+                        time:   [+0.3866% +1.7666% +3.4267%] (p = 0.02 < 0.05)
+                        thrpt:  [−3.3132% −1.7359% −0.3851%]
+                        Change within noise threshold.
+Found 3 outliers among 20 measurements (15.00%)
+  1 (5.00%) high mild
+  2 (10.00%) high severe
+TP006 latency case=ticket_cancel/queue=4096/ratio=100%/replicas=1/seed=0x5eedcafe phase=criterion_warmup_plus_measurement sample_count=16125952 p50_ns=264 p95_ns=320 p99_ns=434 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+
+Benchmarking thread_pool_ticket_cancellation_scale_position/queue=16384/position=front/dynamic
+Benchmarking thread_pool_ticket_cancellation_scale_position/queue=16384/position=front/dynamic: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancellation_scale_position/queue=16384/position=front/dynamic: Collecting 10 samples in estimated 2.0000 s (3.3M iterations)
+Benchmarking thread_pool_ticket_cancellation_scale_position/queue=16384/position=front/dynamic: Analyzing
+thread_pool_ticket_cancellation_scale_position/queue=16384/position=front/dynamic
+                        time:   [232.94 ns 234.78 ns 236.54 ns]
+                        thrpt:  [4.2276 Melem/s 4.2594 Melem/s 4.2930 Melem/s]
+                 change:
+                        time:   [−2.1801% −1.4224% −0.6692%] (p = 0.00 < 0.05)
+                        thrpt:  [+0.6737% +1.4429% +2.2287%]
+                        Change within noise threshold.
+TP006 latency case=ticket_cancel_scale/queue=16384/position=front phase=criterion_warmup_plus_measurement sample_count=11689762 p50_ns=230 p95_ns=343 p99_ns=457 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+Benchmarking thread_pool_ticket_cancellation_scale_position/queue=16384/position=middle/dynamic
+Benchmarking thread_pool_ticket_cancellation_scale_position/queue=16384/position=middle/dynamic: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancellation_scale_position/queue=16384/position=middle/dynamic: Collecting 10 samples in estimated 2.0001 s (377k iterations)
+Benchmarking thread_pool_ticket_cancellation_scale_position/queue=16384/position=middle/dynamic: Analyzing
+thread_pool_ticket_cancellation_scale_position/queue=16384/position=middle/dynamic
+                        time:   [243.20 ns 250.84 ns 264.06 ns]
+                        thrpt:  [3.7870 Melem/s 3.9866 Melem/s 4.1118 Melem/s]
+                 change:
+                        time:   [+1.1732% +4.4941% +8.2289%] (p = 0.04 < 0.05)
+                        thrpt:  [−7.6032% −4.3009% −1.1596%]
+                        Performance has regressed.
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+TP006 latency case=ticket_cancel_scale/queue=16384/position=middle phase=criterion_warmup_plus_measurement sample_count=1425985 p50_ns=236 p95_ns=322 p99_ns=431 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+Benchmarking thread_pool_ticket_cancellation_scale_position/queue=16384/position=back/dynamic
+Benchmarking thread_pool_ticket_cancellation_scale_position/queue=16384/position=back/dynamic: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancellation_scale_position/queue=16384/position=back/dynamic: Collecting 10 samples in estimated 2.0000 s (3.5M iterations)
+Benchmarking thread_pool_ticket_cancellation_scale_position/queue=16384/position=back/dynamic: Analyzing
+thread_pool_ticket_cancellation_scale_position/queue=16384/position=back/dynamic
+                        time:   [213.90 ns 224.10 ns 240.12 ns]
+                        thrpt:  [4.1646 Melem/s 4.4624 Melem/s 4.6752 Melem/s]
+                 change:
+                        time:   [−1.1997% +1.9521% +6.3763%] (p = 0.50 > 0.05)
+                        thrpt:  [−5.9941% −1.9148% +1.2143%]
+                        No change in performance detected.
+Found 2 outliers among 10 measurements (20.00%)
+  2 (20.00%) high severe
+TP006 latency case=ticket_cancel_scale/queue=16384/position=back phase=criterion_warmup_plus_measurement sample_count=11936382 p50_ns=212 p95_ns=219 p99_ns=319 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+Benchmarking thread_pool_ticket_cancellation_scale_position/queue=65536/position=front/dynamic
+Benchmarking thread_pool_ticket_cancellation_scale_position/queue=65536/position=front/dynamic: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancellation_scale_position/queue=65536/position=front/dynamic: Collecting 10 samples in estimated 2.0000 s (2.8M iterations)
+Benchmarking thread_pool_ticket_cancellation_scale_position/queue=65536/position=front/dynamic: Analyzing
+thread_pool_ticket_cancellation_scale_position/queue=65536/position=front/dynamic
+                        time:   [284.18 ns 302.51 ns 314.72 ns]
+                        thrpt:  [3.1774 Melem/s 3.3056 Melem/s 3.5189 Melem/s]
+                 change:
+                        time:   [+0.3190% +6.4974% +13.500%] (p = 0.07 > 0.05)
+                        thrpt:  [−11.895% −6.1010% −0.3180%]
+                        No change in performance detected.
+TP006 latency case=ticket_cancel_scale/queue=65536/position=front phase=criterion_warmup_plus_measurement sample_count=11214837 p50_ns=301 p95_ns=517 p99_ns=678 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+Benchmarking thread_pool_ticket_cancellation_scale_position/queue=65536/position=middle/dynamic
+Benchmarking thread_pool_ticket_cancellation_scale_position/queue=65536/position=middle/dynamic: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancellation_scale_position/queue=65536/position=middle/dynamic: Collecting 10 samples in estimated 2.0010 s (74k iterations)
+Benchmarking thread_pool_ticket_cancellation_scale_position/queue=65536/position=middle/dynamic: Analyzing
+thread_pool_ticket_cancellation_scale_position/queue=65536/position=middle/dynamic
+                        time:   [393.25 ns 449.59 ns 495.56 ns]
+                        thrpt:  [2.0179 Melem/s 2.2243 Melem/s 2.5429 Melem/s]
+                 change:
+                        time:   [+3.5683% +17.464% +31.002%] (p = 0.02 < 0.05)
+                        thrpt:  [−23.665% −14.867% −3.4454%]
+                        Performance has regressed.
+TP006 latency case=ticket_cancel_scale/queue=65536/position=middle phase=criterion_warmup_plus_measurement sample_count=205101 p50_ns=378 p95_ns=538 p99_ns=2239 timer_overhead_sample_count=10000 timer_overhead_p50_ns=32 timer_overhead_p95_ns=121 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=73 atomic_recording_overhead_p95_ns=165
+Benchmarking thread_pool_ticket_cancellation_scale_position/queue=65536/position=back/dynamic
+Benchmarking thread_pool_ticket_cancellation_scale_position/queue=65536/position=back/dynamic: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancellation_scale_position/queue=65536/position=back/dynamic: Collecting 10 samples in estimated 2.0000 s (3.6M iterations)
+Benchmarking thread_pool_ticket_cancellation_scale_position/queue=65536/position=back/dynamic: Analyzing
+thread_pool_ticket_cancellation_scale_position/queue=65536/position=back/dynamic
+                        time:   [213.23 ns 213.30 ns 213.38 ns]
+                        thrpt:  [4.6865 Melem/s 4.6883 Melem/s 4.6897 Melem/s]
+                 change:
+                        time:   [−22.835% −16.982% −10.291%] (p = 0.00 < 0.05)
+                        thrpt:  [+11.471% +20.456% +29.592%]
+                        Performance has improved.
+Found 2 outliers among 10 measurements (20.00%)
+  1 (10.00%) high mild
+  1 (10.00%) high severe
+TP006 latency case=ticket_cancel_scale/queue=65536/position=back phase=criterion_warmup_plus_measurement sample_count=11939682 p50_ns=212 p95_ns=217 p99_ns=275 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+
+Benchmarking thread_pool_ticket_cancellation_contended/producers=4/workers=4/jobs=256
+Benchmarking thread_pool_ticket_cancellation_contended/producers=4/workers=4/jobs=256: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancellation_contended/producers=4/workers=4/jobs=256: Collecting 20 samples in estimated 5.0191 s (6300 iterations)
+Benchmarking thread_pool_ticket_cancellation_contended/producers=4/workers=4/jobs=256: Analyzing
+thread_pool_ticket_cancellation_contended/producers=4/workers=4/jobs=256
+                        time:   [769.57 µs 790.59 µs 812.55 µs]
+                        thrpt:  [315.06 Kelem/s 323.81 Kelem/s 332.65 Kelem/s]
+                 change:
+                        time:   [+72.321% +81.869% +95.646%] (p = 0.00 < 0.05)
+                        thrpt:  [−48.887% −45.016% −41.969%]
+                        Performance has regressed.
+Found 2 outliers among 20 measurements (10.00%)
+  1 (5.00%) low severe
+  1 (5.00%) high severe
+TP006 latency case=ticket_cancel/contended_submit_consume/producers=4/workers=4 phase=criterion_warmup_plus_measurement sample_count=2661120 p50_ns=55137 p95_ns=152796 p99_ns=193973 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+
+TP008 terminal_instrumentation phase=standalone_calibration route=run sample_count=5000 p50_ns=88 p95_ns=107 p99_ns=145 included=batch_relative_clock_atomic_timestamp_status_cas_counter_channel_send
+TP008 terminal_instrumentation phase=standalone_calibration route=cancel sample_count=5000 p50_ns=87 p95_ns=92 p99_ns=145 included=batch_relative_clock_atomic_timestamp_status_cas_counter_channel_send
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=0%/jobs=256/natural
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=0%/jobs=256/natural: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=0%/jobs=256/natural: Collecting 20 samples in estimated 5.1154 s (6300 iterations)
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=0%/jobs=256/natural: Analyzing
+thread_pool_ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=0%/jobs=256/natural
+                        time:   [599.19 µs 608.67 µs 619.77 µs]
+                        thrpt:  [413.06 Kelem/s 420.59 Kelem/s 427.24 Kelem/s]
+                 change:
+                        time:   [−42.052% −24.155% −5.0100%] (p = 0.06 > 0.05)
+                        thrpt:  [+5.2742% +31.848% +72.570%]
+                        No change in performance detected.
+Found 2 outliers among 20 measurements (10.00%)
+  1 (5.00%) high mild
+  1 (5.00%) high severe
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=0%/gated=false/submit_call phase=criterion_warmup_plus_measurement sample_count=2661120 p50_ns=641 p95_ns=2895 p99_ns=4026 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=0%/gated=false/submit_to_run phase=criterion_warmup_plus_measurement sample_count=2661120 p50_ns=3815 p95_ns=7599 p99_ns=9908 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP007 race case=ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=0%/gated=false queue=unbounded rejected=0 accepted=2661120 run=2661120 cancel_callback=0 cancel_attempts=0 cancel_true=0 cancel_false=0 target_rule=deterministic_seeded_shuffle selected=ceil(jobs*percent/100) target_count_per_batch=0 jobs_per_batch=256 ticket_handoff=immediate_after_submit
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=10%/jobs=256/natural
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=10%/jobs=256/natural: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=10%/jobs=256/natural: Collecting 20 samples in estimated 5.0795 s (6930 iterations)
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=10%/jobs=256/natural: Analyzing
+thread_pool_ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=10%/jobs=256/natural
+                        time:   [793.93 µs 881.60 µs 943.15 µs]
+                        thrpt:  [271.43 Kelem/s 290.38 Kelem/s 322.45 Kelem/s]
+                 change:
+                        time:   [−21.834% −11.220% +1.5932%] (p = 0.10 > 0.05)
+                        thrpt:  [−1.5682% +12.638% +27.933%]
+                        No change in performance detected.
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=10%/gated=false/submit_call phase=criterion_warmup_plus_measurement sample_count=2822400 p50_ns=667 p95_ns=3558 p99_ns=5039 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=10%/gated=false/cancel_true phase=criterion_warmup_plus_measurement sample_count=100742 p50_ns=1793 p95_ns=4817 p99_ns=7100 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=10%/gated=false/cancel_false phase=criterion_warmup_plus_measurement sample_count=185908 p50_ns=232 p95_ns=1637 p99_ns=5770 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=10%/gated=false/submit_to_run phase=criterion_warmup_plus_measurement sample_count=2721658 p50_ns=4183 p95_ns=18793 p99_ns=335810 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+TP007 race case=ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=10%/gated=false queue=unbounded rejected=0 accepted=2822400 run=2721658 cancel_callback=100742 cancel_attempts=286650 cancel_true=100742 cancel_false=185908 target_rule=deterministic_seeded_shuffle selected=ceil(jobs*percent/100) target_count_per_batch=26 jobs_per_batch=256 ticket_handoff=immediate_after_submit
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=50%/jobs=256/natural
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=50%/jobs=256/natural: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=50%/jobs=256/natural: Collecting 20 samples in estimated 5.0313 s (7350 iterations)
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=50%/jobs=256/natural: Analyzing
+thread_pool_ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=50%/jobs=256/natural
+                        time:   [898.55 µs 973.84 µs 1.0215 ms]
+                        thrpt:  [250.62 Kelem/s 262.88 Kelem/s 284.90 Kelem/s]
+                 change:
+                        time:   [+45.461% +51.481% +56.813%] (p = 0.00 < 0.05)
+                        thrpt:  [−36.230% −33.985% −31.253%]
+                        Performance has regressed.
+Found 3 outliers among 20 measurements (15.00%)
+  2 (10.00%) low severe
+  1 (5.00%) high mild
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=50%/gated=false/submit_call phase=criterion_warmup_plus_measurement sample_count=3978496 p50_ns=900 p95_ns=3978 p99_ns=9108 timer_overhead_sample_count=10000 timer_overhead_p50_ns=50 timer_overhead_p95_ns=54 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=120
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=50%/gated=false/cancel_true phase=criterion_warmup_plus_measurement sample_count=513080 p50_ns=1860 p95_ns=4690 p99_ns=6525 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=50%/gated=false/cancel_false phase=criterion_warmup_plus_measurement sample_count=1476168 p50_ns=260 p95_ns=2500 p99_ns=9230 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=50%/gated=false/submit_to_run phase=criterion_warmup_plus_measurement sample_count=3465416 p50_ns=3998 p95_ns=9557 p99_ns=14999 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP007 race case=ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=50%/gated=false queue=unbounded rejected=0 accepted=3978496 run=3465416 cancel_callback=513080 cancel_attempts=1989248 cancel_true=513080 cancel_false=1476168 target_rule=deterministic_seeded_shuffle selected=ceil(jobs*percent/100) target_count_per_batch=128 jobs_per_batch=256 ticket_handoff=immediate_after_submit
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=100%/jobs=256/natural
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=100%/jobs=256/natural: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=100%/jobs=256/natural: Collecting 20 samples in estimated 5.1292 s (8190 iterations)
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=100%/jobs=256/natural: Analyzing
+thread_pool_ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=100%/jobs=256/natural
+                        time:   [615.49 µs 630.81 µs 650.03 µs]
+                        thrpt:  [393.83 Kelem/s 405.83 Kelem/s 415.93 Kelem/s]
+                 change:
+                        time:   [−8.5932% −5.2818% −1.4710%] (p = 0.01 < 0.05)
+                        thrpt:  [+1.4929% +5.5764% +9.4010%]
+                        Performance has improved.
+Found 2 outliers among 20 measurements (10.00%)
+  2 (10.00%) high severe
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=100%/gated=false/submit_call phase=criterion_warmup_plus_measurement sample_count=4193536 p50_ns=685 p95_ns=3122 p99_ns=4920 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=100%/gated=false/cancel_true phase=criterion_warmup_plus_measurement sample_count=665222 p50_ns=1400 p95_ns=2608 p99_ns=4600 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=100%/gated=false/cancel_false phase=criterion_warmup_plus_measurement sample_count=3528314 p50_ns=224 p95_ns=1084 p99_ns=3375 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=100%/gated=false/submit_to_run phase=criterion_warmup_plus_measurement sample_count=3528314 p50_ns=3157 p95_ns=7798 p99_ns=11211 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+TP007 race case=ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=100%/gated=false queue=unbounded rejected=0 accepted=4193536 run=3528314 cancel_callback=665222 cancel_attempts=4193536 cancel_true=665222 cancel_false=3528314 target_rule=deterministic_seeded_shuffle selected=ceil(jobs*percent/100) target_count_per_batch=256 jobs_per_batch=256 ticket_handoff=immediate_after_submit
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=0%/jobs=256/natural
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=0%/jobs=256/natural: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=0%/jobs=256/natural: Collecting 20 samples in estimated 5.0853 s (5880 iterations)
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=0%/jobs=256/natural: Analyzing
+thread_pool_ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=0%/jobs=256/natural
+                        time:   [855.19 µs 933.92 µs 1.0307 ms]
+                        thrpt:  [248.38 Kelem/s 274.11 Kelem/s 299.35 Kelem/s]
+                 change:
+                        time:   [−11.257% −0.7818% +9.4529%] (p = 0.89 > 0.05)
+                        thrpt:  [−8.6365% +0.7879% +12.686%]
+                        No change in performance detected.
+Found 4 outliers among 20 measurements (20.00%)
+  3 (15.00%) high mild
+  1 (5.00%) high severe
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=0%/gated=false/submit_call phase=criterion_warmup_plus_measurement sample_count=2553600 p50_ns=741 p95_ns=3331 p99_ns=4566 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=0%/gated=false/submit_to_run phase=criterion_warmup_plus_measurement sample_count=2553600 p50_ns=3552 p95_ns=8186 p99_ns=10360 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+TP007 race case=ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=0%/gated=false queue=unbounded rejected=0 accepted=2553600 run=2553600 cancel_callback=0 cancel_attempts=0 cancel_true=0 cancel_false=0 target_rule=deterministic_seeded_shuffle selected=ceil(jobs*percent/100) target_count_per_batch=0 jobs_per_batch=256 ticket_handoff=immediate_after_submit
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=10%/jobs=256/natural
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=10%/jobs=256/natural: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=10%/jobs=256/natural: Collecting 20 samples in estimated 5.1711 s (5880 iterations)
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=10%/jobs=256/natural: Analyzing
+thread_pool_ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=10%/jobs=256/natural
+                        time:   [828.99 µs 879.97 µs 954.45 µs]
+                        thrpt:  [268.22 Kelem/s 290.92 Kelem/s 308.81 Kelem/s]
+                 change:
+                        time:   [−25.654% −18.048% −9.1063%] (p = 0.00 < 0.05)
+                        thrpt:  [+10.019% +22.022% +34.506%]
+                        Performance has improved.
+Found 2 outliers among 20 measurements (10.00%)
+  1 (5.00%) high mild
+  1 (5.00%) high severe
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=10%/gated=false/submit_call phase=criterion_warmup_plus_measurement sample_count=2553600 p50_ns=708 p95_ns=3412 p99_ns=4726 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=10%/gated=false/cancel_true phase=criterion_warmup_plus_measurement sample_count=47892 p50_ns=1983 p95_ns=4660 p99_ns=6849 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=10%/gated=false/cancel_false phase=criterion_warmup_plus_measurement sample_count=211458 p50_ns=277 p95_ns=577 p99_ns=4083 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=10%/gated=false/submit_to_run phase=criterion_warmup_plus_measurement sample_count=2505708 p50_ns=3454 p95_ns=8372 p99_ns=11163 timer_overhead_sample_count=10000 timer_overhead_p50_ns=31 timer_overhead_p95_ns=37 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=69 atomic_recording_overhead_p95_ns=135
+TP007 race case=ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=10%/gated=false queue=unbounded rejected=0 accepted=2553600 run=2505708 cancel_callback=47892 cancel_attempts=259350 cancel_true=47892 cancel_false=211458 target_rule=deterministic_seeded_shuffle selected=ceil(jobs*percent/100) target_count_per_batch=26 jobs_per_batch=256 ticket_handoff=immediate_after_submit
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=50%/jobs=256/natural
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=50%/jobs=256/natural: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=50%/jobs=256/natural: Collecting 20 samples in estimated 5.0216 s (5040 iterations)
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=50%/jobs=256/natural: Analyzing
+thread_pool_ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=50%/jobs=256/natural
+                        time:   [856.38 µs 892.69 µs 952.41 µs]
+                        thrpt:  [268.79 Kelem/s 286.77 Kelem/s 298.93 Kelem/s]
+                 change:
+                        time:   [−4.4882% +3.0841% +12.121%] (p = 0.49 > 0.05)
+                        thrpt:  [−10.810% −2.9919% +4.6991%]
+                        No change in performance detected.
+Found 3 outliers among 20 measurements (15.00%)
+  1 (5.00%) high mild
+  2 (10.00%) high severe
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=50%/gated=false/submit_call phase=criterion_warmup_plus_measurement sample_count=2338560 p50_ns=812 p95_ns=4099 p99_ns=8325 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=50%/gated=false/cancel_true phase=criterion_warmup_plus_measurement sample_count=232092 p50_ns=2083 p95_ns=5503 p99_ns=7680 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=50%/gated=false/cancel_false phase=criterion_warmup_plus_measurement sample_count=937188 p50_ns=317 p95_ns=1024 p99_ns=4833 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=50%/gated=false/submit_to_run phase=criterion_warmup_plus_measurement sample_count=2106468 p50_ns=3904 p95_ns=9977 p99_ns=14492 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP007 race case=ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=50%/gated=false queue=unbounded rejected=0 accepted=2338560 run=2106468 cancel_callback=232092 cancel_attempts=1169280 cancel_true=232092 cancel_false=937188 target_rule=deterministic_seeded_shuffle selected=ceil(jobs*percent/100) target_count_per_batch=128 jobs_per_batch=256 ticket_handoff=immediate_after_submit
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=100%/jobs=256/natural
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=100%/jobs=256/natural: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=100%/jobs=256/natural: Collecting 20 samples in estimated 5.0037 s (4200 iterations)
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=100%/jobs=256/natural: Analyzing
+thread_pool_ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=100%/jobs=256/natural
+                        time:   [1.2136 ms 1.2375 ms 1.2557 ms]
+                        thrpt:  [203.87 Kelem/s 206.87 Kelem/s 210.94 Kelem/s]
+                 change:
+                        time:   [+36.087% +42.736% +50.559%] (p = 0.00 < 0.05)
+                        thrpt:  [−33.581% −29.940% −26.517%]
+                        Performance has regressed.
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high severe
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=100%/gated=false/submit_call phase=criterion_warmup_plus_measurement sample_count=2123520 p50_ns=1500 p95_ns=4328 p99_ns=7408 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=100%/gated=false/cancel_true phase=criterion_warmup_plus_measurement sample_count=259020 p50_ns=2653 p95_ns=6127 p99_ns=8350 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=100%/gated=false/cancel_false phase=criterion_warmup_plus_measurement sample_count=1864500 p50_ns=368 p95_ns=1173 p99_ns=5163 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=100%/gated=false/submit_to_run phase=criterion_warmup_plus_measurement sample_count=1864500 p50_ns=4422 p95_ns=9697 p99_ns=13631 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP007 race case=ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=100%/gated=false queue=unbounded rejected=0 accepted=2123520 run=1864500 cancel_callback=259020 cancel_attempts=2123520 cancel_true=259020 cancel_false=1864500 target_rule=deterministic_seeded_shuffle selected=ceil(jobs*percent/100) target_count_per_batch=256 jobs_per_batch=256 ticket_handoff=immediate_after_submit
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=0%/jobs=256/natural
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=0%/jobs=256/natural: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=0%/jobs=256/natural: Collecting 20 samples in estimated 5.1157 s (6930 iterations)
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=0%/jobs=256/natural: Analyzing
+thread_pool_ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=0%/jobs=256/natural
+                        time:   [597.68 µs 654.76 µs 704.94 µs]
+                        thrpt:  [363.15 Kelem/s 390.98 Kelem/s 428.32 Kelem/s]
+                 change:
+                        time:   [+2.8167% +10.776% +18.638%] (p = 0.01 < 0.05)
+                        thrpt:  [−15.710% −9.7275% −2.7396%]
+                        Performance has regressed.
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=0%/gated=false/submit_call phase=criterion_warmup_plus_measurement sample_count=3870976 p50_ns=1890 p95_ns=9613 p99_ns=16823 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=77
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=0%/gated=false/submit_to_run phase=criterion_warmup_plus_measurement sample_count=3870976 p50_ns=10196 p95_ns=42015 p99_ns=68679 timer_overhead_sample_count=10000 timer_overhead_p50_ns=28 timer_overhead_p95_ns=121 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=61 atomic_recording_overhead_p95_ns=75
+TP007 race case=ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=0%/gated=false queue=unbounded rejected=0 accepted=3870976 run=3870976 cancel_callback=0 cancel_attempts=0 cancel_true=0 cancel_false=0 target_rule=deterministic_seeded_shuffle selected=ceil(jobs*percent/100) target_count_per_batch=0 jobs_per_batch=256 ticket_handoff=immediate_after_submit
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=10%/jobs=256/natural
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=10%/jobs=256/natural: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=10%/jobs=256/natural: Collecting 20 samples in estimated 5.0144 s (7980 iterations)
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=10%/jobs=256/natural: Analyzing
+thread_pool_ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=10%/jobs=256/natural
+                        time:   [514.65 µs 528.90 µs 540.09 µs]
+                        thrpt:  [473.99 Kelem/s 484.03 Kelem/s 497.43 Kelem/s]
+                 change:
+                        time:   [−7.1883% −1.2164% +5.0178%] (p = 0.71 > 0.05)
+                        thrpt:  [−4.7780% +1.2314% +7.7451%]
+                        No change in performance detected.
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=10%/gated=false/submit_call phase=criterion_warmup_plus_measurement sample_count=4139776 p50_ns=1604 p95_ns=11704 p99_ns=19149 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=10%/gated=false/cancel_true phase=criterion_warmup_plus_measurement sample_count=328435 p50_ns=2453 p95_ns=12362 p99_ns=19970 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=32 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=51 atomic_recording_overhead_p95_ns=76
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=10%/gated=false/cancel_false phase=criterion_warmup_plus_measurement sample_count=92011 p50_ns=355 p95_ns=10947 p99_ns=21129 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=10%/gated=false/submit_to_run phase=criterion_warmup_plus_measurement sample_count=3811341 p50_ns=26236 p95_ns=114334 p99_ns=198902 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP007 race case=ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=10%/gated=false queue=unbounded rejected=0 accepted=4139776 run=3811341 cancel_callback=328435 cancel_attempts=420446 cancel_true=328435 cancel_false=92011 target_rule=deterministic_seeded_shuffle selected=ceil(jobs*percent/100) target_count_per_batch=26 jobs_per_batch=256 ticket_handoff=immediate_after_submit
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=50%/jobs=256/natural
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=50%/jobs=256/natural: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=50%/jobs=256/natural: Collecting 20 samples in estimated 5.0638 s (10k iterations)
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=50%/jobs=256/natural: Analyzing
+thread_pool_ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=50%/jobs=256/natural
+                        time:   [469.60 µs 542.21 µs 592.20 µs]
+                        thrpt:  [432.29 Kelem/s 472.14 Kelem/s 545.14 Kelem/s]
+                 change:
+                        time:   [−9.5170% +1.6028% +12.211%] (p = 0.78 > 0.05)
+                        thrpt:  [−10.882% −1.5775% +10.518%]
+                        No change in performance detected.
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=50%/gated=false/submit_call phase=criterion_warmup_plus_measurement sample_count=4677376 p50_ns=1956 p95_ns=15766 p99_ns=26520 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=50%/gated=false/cancel_true phase=criterion_warmup_plus_measurement sample_count=1805016 p50_ns=1740 p95_ns=9467 p99_ns=15694 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=50%/gated=false/cancel_false phase=criterion_warmup_plus_measurement sample_count=533672 p50_ns=288 p95_ns=11224 p99_ns=19968 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=50%/gated=false/submit_to_run phase=criterion_warmup_plus_measurement sample_count=2872360 p50_ns=61727 p95_ns=142591 p99_ns=179281 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP007 race case=ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=50%/gated=false queue=unbounded rejected=0 accepted=4677376 run=2872360 cancel_callback=1805016 cancel_attempts=2338688 cancel_true=1805016 cancel_false=533672 target_rule=deterministic_seeded_shuffle selected=ceil(jobs*percent/100) target_count_per_batch=128 jobs_per_batch=256 ticket_handoff=immediate_after_submit
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=100%/jobs=256/natural
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=100%/jobs=256/natural: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=100%/jobs=256/natural: Collecting 20 samples in estimated 5.0835 s (9030 iterations)
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=100%/jobs=256/natural: Analyzing
+thread_pool_ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=100%/jobs=256/natural
+                        time:   [461.58 µs 490.18 µs 544.17 µs]
+                        thrpt:  [470.44 Kelem/s 522.26 Kelem/s 554.62 Kelem/s]
+                 change:
+                        time:   [−11.326% −3.4533% +5.7975%] (p = 0.46 > 0.05)
+                        thrpt:  [−5.4798% +3.5769% +12.772%]
+                        No change in performance detected.
+Found 5 outliers among 20 measurements (25.00%)
+  2 (10.00%) low severe
+  1 (5.00%) low mild
+  1 (5.00%) high mild
+  1 (5.00%) high severe
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=100%/gated=false/submit_call phase=criterion_warmup_plus_measurement sample_count=4408576 p50_ns=2113 p95_ns=15187 p99_ns=25133 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=100%/gated=false/cancel_true phase=criterion_warmup_plus_measurement sample_count=1445501 p50_ns=1529 p95_ns=4994 p99_ns=8166 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=100%/gated=false/cancel_false phase=criterion_warmup_plus_measurement sample_count=2963075 p50_ns=260 p95_ns=6554 p99_ns=13333 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=100%/gated=false/submit_to_run phase=criterion_warmup_plus_measurement sample_count=2963075 p50_ns=84206 p95_ns=148326 p99_ns=185681 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP007 race case=ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=100%/gated=false queue=unbounded rejected=0 accepted=4408576 run=2963075 cancel_callback=1445501 cancel_attempts=4408576 cancel_true=1445501 cancel_false=2963075 target_rule=deterministic_seeded_shuffle selected=ceil(jobs*percent/100) target_count_per_batch=256 jobs_per_batch=256 ticket_handoff=immediate_after_submit
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=0%/jobs=256/natural
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=0%/jobs=256/natural: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=0%/jobs=256/natural: Collecting 20 samples in estimated 5.0860 s (8400 iterations)
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=0%/jobs=256/natural: Analyzing
+thread_pool_ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=0%/jobs=256/natural
+                        time:   [525.40 µs 562.53 µs 604.85 µs]
+                        thrpt:  [423.24 Kelem/s 455.09 Kelem/s 487.25 Kelem/s]
+                 change:
+                        time:   [+10.615% +17.462% +24.395%] (p = 0.00 < 0.05)
+                        thrpt:  [−19.611% −14.866% −9.5966%]
+                        Performance has regressed.
+Found 6 outliers among 20 measurements (30.00%)
+  4 (20.00%) low severe
+  1 (5.00%) high mild
+  1 (5.00%) high severe
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=0%/gated=false/submit_call phase=criterion_warmup_plus_measurement sample_count=4247296 p50_ns=1565 p95_ns=11200 p99_ns=18825 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=0%/gated=false/submit_to_run phase=criterion_warmup_plus_measurement sample_count=4247296 p50_ns=22203 p95_ns=175373 p99_ns=209467 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+TP007 race case=ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=0%/gated=false queue=unbounded rejected=0 accepted=4247296 run=4247296 cancel_callback=0 cancel_attempts=0 cancel_true=0 cancel_false=0 target_rule=deterministic_seeded_shuffle selected=ceil(jobs*percent/100) target_count_per_batch=0 jobs_per_batch=256 ticket_handoff=immediate_after_submit
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=10%/jobs=256/natural
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=10%/jobs=256/natural: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=10%/jobs=256/natural: Collecting 20 samples in estimated 5.0677 s (6720 iterations)
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=10%/jobs=256/natural: Analyzing
+thread_pool_ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=10%/jobs=256/natural
+                        time:   [481.19 µs 510.11 µs 555.68 µs]
+                        thrpt:  [460.70 Kelem/s 501.86 Kelem/s 532.01 Kelem/s]
+                 change:
+                        time:   [+6.0067% +12.946% +20.886%] (p = 0.00 < 0.05)
+                        thrpt:  [−17.278% −11.462% −5.6663%]
+                        Performance has regressed.
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=10%/gated=false/submit_call phase=criterion_warmup_plus_measurement sample_count=2768640 p50_ns=1332 p95_ns=11310 p99_ns=18990 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=10%/gated=false/cancel_true phase=criterion_warmup_plus_measurement sample_count=239019 p50_ns=2394 p95_ns=12525 p99_ns=21820 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=10%/gated=false/cancel_false phase=criterion_warmup_plus_measurement sample_count=42171 p50_ns=301 p95_ns=9738 p99_ns=19097 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=10%/gated=false/submit_to_run phase=criterion_warmup_plus_measurement sample_count=2529621 p50_ns=33277 p95_ns=211154 p99_ns=312162 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP007 race case=ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=10%/gated=false queue=unbounded rejected=0 accepted=2768640 run=2529621 cancel_callback=239019 cancel_attempts=281190 cancel_true=239019 cancel_false=42171 target_rule=deterministic_seeded_shuffle selected=ceil(jobs*percent/100) target_count_per_batch=26 jobs_per_batch=256 ticket_handoff=immediate_after_submit
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=50%/jobs=256/natural
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=50%/jobs=256/natural: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=50%/jobs=256/natural: Collecting 20 samples in estimated 5.0694 s (10k iterations)
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=50%/jobs=256/natural: Analyzing
+thread_pool_ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=50%/jobs=256/natural
+                        time:   [463.59 µs 479.33 µs 498.87 µs]
+                        thrpt:  [513.16 Kelem/s 534.08 Kelem/s 552.21 Kelem/s]
+                 change:
+                        time:   [+1.2977% +5.2375% +9.9347%] (p = 0.02 < 0.05)
+                        thrpt:  [−9.0369% −4.9768% −1.2811%]
+                        Performance has regressed.
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=50%/gated=false/submit_call phase=criterion_warmup_plus_measurement sample_count=4731136 p50_ns=1758 p95_ns=13602 p99_ns=22558 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=50%/gated=false/cancel_true phase=criterion_warmup_plus_measurement sample_count=1814015 p50_ns=2305 p95_ns=12195 p99_ns=19133 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=50%/gated=false/cancel_false phase=criterion_warmup_plus_measurement sample_count=551553 p50_ns=340 p95_ns=13590 p99_ns=23906 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=50%/gated=false/submit_to_run phase=criterion_warmup_plus_measurement sample_count=2917121 p50_ns=24047 p95_ns=95056 p99_ns=127095 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP007 race case=ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=50%/gated=false queue=unbounded rejected=0 accepted=4731136 run=2917121 cancel_callback=1814015 cancel_attempts=2365568 cancel_true=1814015 cancel_false=551553 target_rule=deterministic_seeded_shuffle selected=ceil(jobs*percent/100) target_count_per_batch=128 jobs_per_batch=256 ticket_handoff=immediate_after_submit
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=100%/jobs=256/natural
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=100%/jobs=256/natural: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=100%/jobs=256/natural: Collecting 20 samples in estimated 5.0490 s (7980 iterations)
+Benchmarking thread_pool_ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=100%/jobs=256/natural: Analyzing
+thread_pool_ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=100%/jobs=256/natural
+                        time:   [438.41 µs 451.24 µs 465.50 µs]
+                        thrpt:  [549.94 Kelem/s 567.32 Kelem/s 583.93 Kelem/s]
+                 change:
+                        time:   [+4.8167% +13.575% +24.261%] (p = 0.00 < 0.05)
+                        thrpt:  [−19.524% −11.952% −4.5953%]
+                        Performance has regressed.
+Found 3 outliers among 20 measurements (15.00%)
+  3 (15.00%) high severe
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=100%/gated=false/submit_call phase=criterion_warmup_plus_measurement sample_count=4139776 p50_ns=2222 p95_ns=17642 p99_ns=29688 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=100%/gated=false/cancel_true phase=criterion_warmup_plus_measurement sample_count=2106430 p50_ns=2083 p95_ns=8185 p99_ns=13829 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=100%/gated=false/cancel_false phase=criterion_warmup_plus_measurement sample_count=2033346 p50_ns=370 p95_ns=13683 p99_ns=23540 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=100%/gated=false/submit_to_run phase=criterion_warmup_plus_measurement sample_count=2033346 p50_ns=35164 p95_ns=97059 p99_ns=126296 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP007 race case=ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=100%/gated=false queue=unbounded rejected=0 accepted=4139776 run=2033346 cancel_callback=2106430 cancel_attempts=4139776 cancel_true=2106430 cancel_false=2033346 target_rule=deterministic_seeded_shuffle selected=ceil(jobs*percent/100) target_count_per_batch=256 jobs_per_batch=256 ticket_handoff=immediate_after_submit
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=1/cancellers=1/cancel=0%/jobs=256/natural
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=1/cancellers=1/cancel=0%/jobs=256/natural: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=1/cancellers=1/cancel=0%/jobs=256/natural: Collecting 20 samples in estimated 5.3040 s (3570 iterations)
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=1/cancellers=1/cancel=0%/jobs=256/natural: Analyzing
+thread_pool_ticket_cancel_race/workers=4/producers=1/cancellers=1/cancel=0%/jobs=256/natural
+                        time:   [1.4874 ms 1.5315 ms 1.5637 ms]
+                        thrpt:  [163.71 Kelem/s 167.16 Kelem/s 172.11 Kelem/s]
+                 change:
+                        time:   [−6.0535% −2.3916% +1.1638%] (p = 0.23 > 0.05)
+                        thrpt:  [−1.1504% +2.4502% +6.4436%]
+                        No change in performance detected.
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+TP006 latency case=ticket_cancel_race/workers=4/producers=1/cancellers=1/cancel=0%/gated=false/submit_call phase=criterion_warmup_plus_measurement sample_count=1437952 p50_ns=3669 p95_ns=7479 p99_ns=11781 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=4/producers=1/cancellers=1/cancel=0%/gated=false/submit_to_run phase=criterion_warmup_plus_measurement sample_count=1437952 p50_ns=2772 p95_ns=7705 p99_ns=12721 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP007 race case=ticket_cancel_race/workers=4/producers=1/cancellers=1/cancel=0%/gated=false queue=unbounded rejected=0 accepted=1437952 run=1437952 cancel_callback=0 cancel_attempts=0 cancel_true=0 cancel_false=0 target_rule=deterministic_seeded_shuffle selected=ceil(jobs*percent/100) target_count_per_batch=0 jobs_per_batch=256 ticket_handoff=immediate_after_submit
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=1/cancellers=1/cancel=10%/jobs=256/natural
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=1/cancellers=1/cancel=10%/jobs=256/natural: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=1/cancellers=1/cancel=10%/jobs=256/natural: Collecting 20 samples in estimated 5.0193 s (3360 iterations)
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=1/cancellers=1/cancel=10%/jobs=256/natural: Analyzing
+thread_pool_ticket_cancel_race/workers=4/producers=1/cancellers=1/cancel=10%/jobs=256/natural
+                        time:   [1.4521 ms 1.4697 ms 1.4897 ms]
+                        thrpt:  [171.85 Kelem/s 174.19 Kelem/s 176.30 Kelem/s]
+                 change:
+                        time:   [−21.240% −13.449% −5.6928%] (p = 0.00 < 0.05)
+                        thrpt:  [+6.0364% +15.539% +26.968%]
+                        Performance has improved.
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high severe
+TP006 latency case=ticket_cancel_race/workers=4/producers=1/cancellers=1/cancel=10%/gated=false/submit_call phase=criterion_warmup_plus_measurement sample_count=1384192 p50_ns=3622 p95_ns=6948 p99_ns=10380 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=4/producers=1/cancellers=1/cancel=10%/gated=false/cancel_true phase=criterion_warmup_plus_measurement sample_count=3722 p50_ns=2366 p95_ns=7256 p99_ns=10083 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=4/producers=1/cancellers=1/cancel=10%/gated=false/cancel_false phase=criterion_warmup_plus_measurement sample_count=136860 p50_ns=273 p95_ns=473 p99_ns=3773 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP006 latency case=ticket_cancel_race/workers=4/producers=1/cancellers=1/cancel=10%/gated=false/submit_to_run phase=criterion_warmup_plus_measurement sample_count=1380470 p50_ns=2480 p95_ns=6798 p99_ns=11232 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP007 race case=ticket_cancel_race/workers=4/producers=1/cancellers=1/cancel=10%/gated=false queue=unbounded rejected=0 accepted=1384192 run=1380470 cancel_callback=3722 cancel_attempts=140582 cancel_true=3722 cancel_false=136860 target_rule=deterministic_seeded_shuffle selected=ceil(jobs*percent/100) target_count_per_batch=26 jobs_per_batch=256 ticket_handoff=immediate_after_submit
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=1/cancellers=1/cancel=50%/jobs=256/natural
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=1/cancellers=1/cancel=50%/jobs=256/natural: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=1/cancellers=1/cancel=50%/jobs=256/natural: Collecting 20 samples in estimated 5.3228 s (3360 iterations)
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=1/cancellers=1/cancel=50%/jobs=256/natural: Analyzing
+thread_pool_ticket_cancel_race/workers=4/producers=1/cancellers=1/cancel=50%/jobs=256/natural
+                        time:   [1.4184 ms 1.4633 ms 1.5371 ms]
+                        thrpt:  [166.54 Kelem/s 174.94 Kelem/s 180.49 Kelem/s]
+                 change:
+                        time:   [−12.950% −5.2519% +3.3538%] (p = 0.23 > 0.05)
+                        thrpt:  [−3.2450% +5.5431% +14.876%]
+                        No change in performance detected.
+TP006 latency case=ticket_cancel_race/workers=4/producers=1/cancellers=1/cancel=50%/gated=false/submit_call phase=criterion_warmup_plus_measurement sample_count=1384192 p50_ns=3753 p95_ns=7656 p99_ns=11757 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=4/producers=1/cancellers=1/cancel=50%/gated=false/cancel_true phase=criterion_warmup_plus_measurement sample_count=16199 p50_ns=2186 p95_ns=6482 p99_ns=9492 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP006 latency case=ticket_cancel_race/workers=4/producers=1/cancellers=1/cancel=50%/gated=false/cancel_false phase=criterion_warmup_plus_measurement sample_count=675897 p50_ns=230 p95_ns=417 p99_ns=4275 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=4/producers=1/cancellers=1/cancel=50%/gated=false/submit_to_run phase=criterion_warmup_plus_measurement sample_count=1367993 p50_ns=2590 p95_ns=7532 p99_ns=12066 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP007 race case=ticket_cancel_race/workers=4/producers=1/cancellers=1/cancel=50%/gated=false queue=unbounded rejected=0 accepted=1384192 run=1367993 cancel_callback=16199 cancel_attempts=692096 cancel_true=16199 cancel_false=675897 target_rule=deterministic_seeded_shuffle selected=ceil(jobs*percent/100) target_count_per_batch=128 jobs_per_batch=256 ticket_handoff=immediate_after_submit
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=1/cancellers=1/cancel=100%/jobs=256/natural
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=1/cancellers=1/cancel=100%/jobs=256/natural: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=1/cancellers=1/cancel=100%/jobs=256/natural: Collecting 20 samples in estimated 5.1280 s (3150 iterations)
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=1/cancellers=1/cancel=100%/jobs=256/natural: Analyzing
+thread_pool_ticket_cancel_race/workers=4/producers=1/cancellers=1/cancel=100%/jobs=256/natural
+                        time:   [1.5611 ms 1.6453 ms 1.7404 ms]
+                        thrpt:  [147.10 Kelem/s 155.60 Kelem/s 163.99 Kelem/s]
+                 change:
+                        time:   [−5.4378% +1.2595% +8.1745%] (p = 0.72 > 0.05)
+                        thrpt:  [−7.5568% −1.2438% +5.7505%]
+                        No change in performance detected.
+Found 3 outliers among 20 measurements (15.00%)
+  2 (10.00%) low mild
+  1 (5.00%) high mild
+TP006 latency case=ticket_cancel_race/workers=4/producers=1/cancellers=1/cancel=100%/gated=false/submit_call phase=criterion_warmup_plus_measurement sample_count=1330432 p50_ns=4110 p95_ns=7836 p99_ns=11586 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP006 latency case=ticket_cancel_race/workers=4/producers=1/cancellers=1/cancel=100%/gated=false/cancel_true phase=criterion_warmup_plus_measurement sample_count=18816 p50_ns=1732 p95_ns=3867 p99_ns=7583 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP006 latency case=ticket_cancel_race/workers=4/producers=1/cancellers=1/cancel=100%/gated=false/cancel_false phase=criterion_warmup_plus_measurement sample_count=1311616 p50_ns=262 p95_ns=544 p99_ns=1152 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP006 latency case=ticket_cancel_race/workers=4/producers=1/cancellers=1/cancel=100%/gated=false/submit_to_run phase=criterion_warmup_plus_measurement sample_count=1311616 p50_ns=2553 p95_ns=6889 p99_ns=11030 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP007 race case=ticket_cancel_race/workers=4/producers=1/cancellers=1/cancel=100%/gated=false queue=unbounded rejected=0 accepted=1330432 run=1311616 cancel_callback=18816 cancel_attempts=1330432 cancel_true=18816 cancel_false=1311616 target_rule=deterministic_seeded_shuffle selected=ceil(jobs*percent/100) target_count_per_batch=256 jobs_per_batch=256 ticket_handoff=immediate_after_submit
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=1/cancellers=2/cancel=0%/jobs=256/natural
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=1/cancellers=2/cancel=0%/jobs=256/natural: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=1/cancellers=2/cancel=0%/jobs=256/natural: Collecting 20 samples in estimated 5.1621 s (3150 iterations)
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=1/cancellers=2/cancel=0%/jobs=256/natural: Analyzing
+thread_pool_ticket_cancel_race/workers=4/producers=1/cancellers=2/cancel=0%/jobs=256/natural
+                        time:   [1.9691 ms 3.5156 ms 5.4295 ms]
+                        thrpt:  [47.150 Kelem/s 72.819 Kelem/s 130.01 Kelem/s]
+                 change:
+                        time:   [−9.7711% +24.902% +80.326%] (p = 0.36 > 0.05)
+                        thrpt:  [−44.545% −19.937% +10.829%]
+                        No change in performance detected.
+Found 4 outliers among 20 measurements (20.00%)
+  1 (5.00%) high mild
+  3 (15.00%) high severe
+TP006 latency case=ticket_cancel_race/workers=4/producers=1/cancellers=2/cancel=0%/gated=false/submit_call phase=criterion_warmup_plus_measurement sample_count=1330432 p50_ns=3843 p95_ns=9977 p99_ns=30123 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=4/producers=1/cancellers=2/cancel=0%/gated=false/submit_to_run phase=criterion_warmup_plus_measurement sample_count=1330432 p50_ns=2451 p95_ns=16525 p99_ns=577017 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP007 race case=ticket_cancel_race/workers=4/producers=1/cancellers=2/cancel=0%/gated=false queue=unbounded rejected=0 accepted=1330432 run=1330432 cancel_callback=0 cancel_attempts=0 cancel_true=0 cancel_false=0 target_rule=deterministic_seeded_shuffle selected=ceil(jobs*percent/100) target_count_per_batch=0 jobs_per_batch=256 ticket_handoff=immediate_after_submit
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=1/cancellers=2/cancel=10%/jobs=256/natural
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=1/cancellers=2/cancel=10%/jobs=256/natural: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=1/cancellers=2/cancel=10%/jobs=256/natural: Collecting 20 samples in estimated 5.2054 s (2940 iterations)
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=1/cancellers=2/cancel=10%/jobs=256/natural: Analyzing
+thread_pool_ticket_cancel_race/workers=4/producers=1/cancellers=2/cancel=10%/jobs=256/natural
+                        time:   [1.6052 ms 1.6580 ms 1.7256 ms]
+                        thrpt:  [148.36 Kelem/s 154.40 Kelem/s 159.48 Kelem/s]
+                 change:
+                        time:   [−34.237% −20.410% −5.1432%] (p = 0.02 < 0.05)
+                        thrpt:  [+5.4221% +25.643% +52.062%]
+                        Performance has improved.
+Found 2 outliers among 20 measurements (10.00%)
+  2 (10.00%) high mild
+TP006 latency case=ticket_cancel_race/workers=4/producers=1/cancellers=2/cancel=10%/gated=false/submit_call phase=criterion_warmup_plus_measurement sample_count=1276672 p50_ns=3893 p95_ns=7618 p99_ns=10433 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP006 latency case=ticket_cancel_race/workers=4/producers=1/cancellers=2/cancel=10%/gated=false/cancel_true phase=criterion_warmup_plus_measurement sample_count=1603 p50_ns=2698 p95_ns=7756 p99_ns=10787 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP006 latency case=ticket_cancel_race/workers=4/producers=1/cancellers=2/cancel=10%/gated=false/cancel_false phase=criterion_warmup_plus_measurement sample_count=128059 p50_ns=287 p95_ns=563 p99_ns=988 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP006 latency case=ticket_cancel_race/workers=4/producers=1/cancellers=2/cancel=10%/gated=false/submit_to_run phase=criterion_warmup_plus_measurement sample_count=1275069 p50_ns=2388 p95_ns=6931 p99_ns=10459 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP007 race case=ticket_cancel_race/workers=4/producers=1/cancellers=2/cancel=10%/gated=false queue=unbounded rejected=0 accepted=1276672 run=1275069 cancel_callback=1603 cancel_attempts=129662 cancel_true=1603 cancel_false=128059 target_rule=deterministic_seeded_shuffle selected=ceil(jobs*percent/100) target_count_per_batch=26 jobs_per_batch=256 ticket_handoff=immediate_after_submit
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=1/cancellers=2/cancel=50%/jobs=256/natural
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=1/cancellers=2/cancel=50%/jobs=256/natural: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=1/cancellers=2/cancel=50%/jobs=256/natural: Collecting 20 samples in estimated 5.2669 s (3150 iterations)
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=1/cancellers=2/cancel=50%/jobs=256/natural: Analyzing
+thread_pool_ticket_cancel_race/workers=4/producers=1/cancellers=2/cancel=50%/jobs=256/natural
+                        time:   [1.6029 ms 1.7228 ms 1.8453 ms]
+                        thrpt:  [138.73 Kelem/s 148.59 Kelem/s 159.71 Kelem/s]
+                 change:
+                        time:   [−16.518% −10.516% −4.3018%] (p = 0.01 < 0.05)
+                        thrpt:  [+4.4952% +11.752% +19.787%]
+                        Performance has improved.
+Found 3 outliers among 20 measurements (15.00%)
+  1 (5.00%) high mild
+  2 (10.00%) high severe
+TP006 latency case=ticket_cancel_race/workers=4/producers=1/cancellers=2/cancel=50%/gated=false/submit_call phase=criterion_warmup_plus_measurement sample_count=1330432 p50_ns=3949 p95_ns=7332 p99_ns=10710 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=4/producers=1/cancellers=2/cancel=50%/gated=false/cancel_true phase=criterion_warmup_plus_measurement sample_count=9203 p50_ns=2314 p95_ns=6584 p99_ns=10586 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=4/producers=1/cancellers=2/cancel=50%/gated=false/cancel_false phase=criterion_warmup_plus_measurement sample_count=656013 p50_ns=277 p95_ns=406 p99_ns=865 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP006 latency case=ticket_cancel_race/workers=4/producers=1/cancellers=2/cancel=50%/gated=false/submit_to_run phase=criterion_warmup_plus_measurement sample_count=1321229 p50_ns=2476 p95_ns=6344 p99_ns=10578 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP007 race case=ticket_cancel_race/workers=4/producers=1/cancellers=2/cancel=50%/gated=false queue=unbounded rejected=0 accepted=1330432 run=1321229 cancel_callback=9203 cancel_attempts=665216 cancel_true=9203 cancel_false=656013 target_rule=deterministic_seeded_shuffle selected=ceil(jobs*percent/100) target_count_per_batch=128 jobs_per_batch=256 ticket_handoff=immediate_after_submit
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=1/cancellers=2/cancel=100%/jobs=256/natural
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=1/cancellers=2/cancel=100%/jobs=256/natural: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=1/cancellers=2/cancel=100%/jobs=256/natural: Collecting 20 samples in estimated 5.4013 s (2730 iterations)
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=1/cancellers=2/cancel=100%/jobs=256/natural: Analyzing
+thread_pool_ticket_cancel_race/workers=4/producers=1/cancellers=2/cancel=100%/jobs=256/natural
+                        time:   [1.6316 ms 1.7315 ms 1.9136 ms]
+                        thrpt:  [133.78 Kelem/s 147.85 Kelem/s 156.90 Kelem/s]
+                 change:
+                        time:   [+11.114% +38.051% +70.411%] (p = 0.01 < 0.05)
+                        thrpt:  [−41.318% −27.563% −10.003%]
+                        Performance has regressed.
+TP006 latency case=ticket_cancel_race/workers=4/producers=1/cancellers=2/cancel=100%/gated=false/submit_call phase=criterion_warmup_plus_measurement sample_count=1222912 p50_ns=4043 p95_ns=8744 p99_ns=21404 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=4/producers=1/cancellers=2/cancel=100%/gated=false/cancel_true phase=criterion_warmup_plus_measurement sample_count=23228 p50_ns=1757 p95_ns=5090 p99_ns=11080 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP006 latency case=ticket_cancel_race/workers=4/producers=1/cancellers=2/cancel=100%/gated=false/cancel_false phase=criterion_warmup_plus_measurement sample_count=1199684 p50_ns=240 p95_ns=423 p99_ns=768 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=4/producers=1/cancellers=2/cancel=100%/gated=false/submit_to_run phase=criterion_warmup_plus_measurement sample_count=1199684 p50_ns=2190 p95_ns=8219 p99_ns=14703 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP007 race case=ticket_cancel_race/workers=4/producers=1/cancellers=2/cancel=100%/gated=false queue=unbounded rejected=0 accepted=1222912 run=1199684 cancel_callback=23228 cancel_attempts=1222912 cancel_true=23228 cancel_false=1199684 target_rule=deterministic_seeded_shuffle selected=ceil(jobs*percent/100) target_count_per_batch=256 jobs_per_batch=256 ticket_handoff=immediate_after_submit
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=4/cancellers=1/cancel=0%/jobs=256/natural
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=4/cancellers=1/cancel=0%/jobs=256/natural: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=4/cancellers=1/cancel=0%/jobs=256/natural: Collecting 20 samples in estimated 5.0726 s (7350 iterations)
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=4/cancellers=1/cancel=0%/jobs=256/natural: Analyzing
+thread_pool_ticket_cancel_race/workers=4/producers=4/cancellers=1/cancel=0%/jobs=256/natural
+                        time:   [742.43 µs 771.76 µs 802.08 µs]
+                        thrpt:  [319.17 Kelem/s 331.71 Kelem/s 344.81 Kelem/s]
+                 change:
+                        time:   [+6.8137% +12.894% +19.518%] (p = 0.00 < 0.05)
+                        thrpt:  [−16.331% −11.421% −6.3791%]
+                        Performance has regressed.
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+TP006 latency case=ticket_cancel_race/workers=4/producers=4/cancellers=1/cancel=0%/gated=false/submit_call phase=criterion_warmup_plus_measurement sample_count=3978496 p50_ns=3452 p95_ns=17008 p99_ns=27651 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=4/producers=4/cancellers=1/cancel=0%/gated=false/submit_to_run phase=criterion_warmup_plus_measurement sample_count=3978496 p50_ns=6475 p95_ns=21823 p99_ns=33378 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP007 race case=ticket_cancel_race/workers=4/producers=4/cancellers=1/cancel=0%/gated=false queue=unbounded rejected=0 accepted=3978496 run=3978496 cancel_callback=0 cancel_attempts=0 cancel_true=0 cancel_false=0 target_rule=deterministic_seeded_shuffle selected=ceil(jobs*percent/100) target_count_per_batch=0 jobs_per_batch=256 ticket_handoff=immediate_after_submit
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=4/cancellers=1/cancel=10%/jobs=256/natural
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=4/cancellers=1/cancel=10%/jobs=256/natural: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=4/cancellers=1/cancel=10%/jobs=256/natural: Collecting 20 samples in estimated 5.1168 s (7770 iterations)
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=4/cancellers=1/cancel=10%/jobs=256/natural: Analyzing
+thread_pool_ticket_cancel_race/workers=4/producers=4/cancellers=1/cancel=10%/jobs=256/natural
+                        time:   [611.24 µs 636.14 µs 655.79 µs]
+                        thrpt:  [390.37 Kelem/s 402.43 Kelem/s 418.82 Kelem/s]
+                 change:
+                        time:   [−16.407% −10.921% −5.0996%] (p = 0.00 < 0.05)
+                        thrpt:  [+5.3736% +12.260% +19.627%]
+                        Performance has improved.
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+TP006 latency case=ticket_cancel_race/workers=4/producers=4/cancellers=1/cancel=10%/gated=false/submit_call phase=criterion_warmup_plus_measurement sample_count=4086016 p50_ns=3094 p95_ns=14044 p99_ns=22194 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP006 latency case=ticket_cancel_race/workers=4/producers=4/cancellers=1/cancel=10%/gated=false/cancel_true phase=criterion_warmup_plus_measurement sample_count=55257 p50_ns=2298 p95_ns=8695 p99_ns=14705 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=4/producers=4/cancellers=1/cancel=10%/gated=false/cancel_false phase=criterion_warmup_plus_measurement sample_count=359729 p50_ns=290 p95_ns=8745 p99_ns=20630 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=4/producers=4/cancellers=1/cancel=10%/gated=false/submit_to_run phase=criterion_warmup_plus_measurement sample_count=4030759 p50_ns=5455 p95_ns=18447 p99_ns=29687 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+TP007 race case=ticket_cancel_race/workers=4/producers=4/cancellers=1/cancel=10%/gated=false queue=unbounded rejected=0 accepted=4086016 run=4030759 cancel_callback=55257 cancel_attempts=414986 cancel_true=55257 cancel_false=359729 target_rule=deterministic_seeded_shuffle selected=ceil(jobs*percent/100) target_count_per_batch=26 jobs_per_batch=256 ticket_handoff=immediate_after_submit
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=4/cancellers=1/cancel=50%/jobs=256/natural
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=4/cancellers=1/cancel=50%/jobs=256/natural: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=4/cancellers=1/cancel=50%/jobs=256/natural: Collecting 20 samples in estimated 5.0029 s (8610 iterations)
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=4/cancellers=1/cancel=50%/jobs=256/natural: Analyzing
+thread_pool_ticket_cancel_race/workers=4/producers=4/cancellers=1/cancel=50%/jobs=256/natural
+                        time:   [658.79 µs 710.17 µs 762.83 µs]
+                        thrpt:  [335.59 Kelem/s 360.47 Kelem/s 388.59 Kelem/s]
+                 change:
+                        time:   [−5.1586% +1.0819% +8.5154%] (p = 0.77 > 0.05)
+                        thrpt:  [−7.8472% −1.0703% +5.4392%]
+                        No change in performance detected.
+Found 2 outliers among 20 measurements (10.00%)
+  2 (10.00%) high mild
+TP006 latency case=ticket_cancel_race/workers=4/producers=4/cancellers=1/cancel=50%/gated=false/submit_call phase=criterion_warmup_plus_measurement sample_count=4301056 p50_ns=3242 p95_ns=17823 p99_ns=29171 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=4/producers=4/cancellers=1/cancel=50%/gated=false/cancel_true phase=criterion_warmup_plus_measurement sample_count=213389 p50_ns=2220 p95_ns=7993 p99_ns=12017 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=4/producers=4/cancellers=1/cancel=50%/gated=false/cancel_false phase=criterion_warmup_plus_measurement sample_count=1937139 p50_ns=225 p95_ns=8241 p99_ns=22913 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=4/producers=4/cancellers=1/cancel=50%/gated=false/submit_to_run phase=criterion_warmup_plus_measurement sample_count=4087667 p50_ns=7705 p95_ns=30045 p99_ns=52619 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP007 race case=ticket_cancel_race/workers=4/producers=4/cancellers=1/cancel=50%/gated=false queue=unbounded rejected=0 accepted=4301056 run=4087667 cancel_callback=213389 cancel_attempts=2150528 cancel_true=213389 cancel_false=1937139 target_rule=deterministic_seeded_shuffle selected=ceil(jobs*percent/100) target_count_per_batch=128 jobs_per_batch=256 ticket_handoff=immediate_after_submit
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=4/cancellers=1/cancel=100%/jobs=256/natural
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=4/cancellers=1/cancel=100%/jobs=256/natural: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=4/cancellers=1/cancel=100%/jobs=256/natural: Collecting 20 samples in estimated 5.0286 s (7770 iterations)
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=4/cancellers=1/cancel=100%/jobs=256/natural: Analyzing
+thread_pool_ticket_cancel_race/workers=4/producers=4/cancellers=1/cancel=100%/jobs=256/natural
+                        time:   [581.99 µs 628.97 µs 722.69 µs]
+                        thrpt:  [354.23 Kelem/s 407.01 Kelem/s 439.87 Kelem/s]
+                 change:
+                        time:   [+5.3497% +21.394% +42.693%] (p = 0.02 < 0.05)
+                        thrpt:  [−29.920% −17.623% −5.0780%]
+                        Performance has regressed.
+TP006 latency case=ticket_cancel_race/workers=4/producers=4/cancellers=1/cancel=100%/gated=false/submit_call phase=criterion_warmup_plus_measurement sample_count=4086016 p50_ns=3445 p95_ns=18526 p99_ns=30371 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=104
+TP006 latency case=ticket_cancel_race/workers=4/producers=4/cancellers=1/cancel=100%/gated=false/cancel_true phase=criterion_warmup_plus_measurement sample_count=232589 p50_ns=1873 p95_ns=5977 p99_ns=8410 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP006 latency case=ticket_cancel_race/workers=4/producers=4/cancellers=1/cancel=100%/gated=false/cancel_false phase=criterion_warmup_plus_measurement sample_count=3853427 p50_ns=265 p95_ns=1147 p99_ns=15157 timer_overhead_sample_count=10000 timer_overhead_p50_ns=33 timer_overhead_p95_ns=114 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=74 atomic_recording_overhead_p95_ns=159
+TP006 latency case=ticket_cancel_race/workers=4/producers=4/cancellers=1/cancel=100%/gated=false/submit_to_run phase=criterion_warmup_plus_measurement sample_count=3853427 p50_ns=8275 p95_ns=29370 p99_ns=51205 timer_overhead_sample_count=10000 timer_overhead_p50_ns=31 timer_overhead_p95_ns=38 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=75 atomic_recording_overhead_p95_ns=85
+TP007 race case=ticket_cancel_race/workers=4/producers=4/cancellers=1/cancel=100%/gated=false queue=unbounded rejected=0 accepted=4086016 run=3853427 cancel_callback=232589 cancel_attempts=4086016 cancel_true=232589 cancel_false=3853427 target_rule=deterministic_seeded_shuffle selected=ceil(jobs*percent/100) target_count_per_batch=256 jobs_per_batch=256 ticket_handoff=immediate_after_submit
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=4/cancellers=2/cancel=0%/jobs=256/natural
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=4/cancellers=2/cancel=0%/jobs=256/natural: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=4/cancellers=2/cancel=0%/jobs=256/natural: Collecting 20 samples in estimated 5.1009 s (5460 iterations)
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=4/cancellers=2/cancel=0%/jobs=256/natural: Analyzing
+thread_pool_ticket_cancel_race/workers=4/producers=4/cancellers=2/cancel=0%/jobs=256/natural
+                        time:   [589.04 µs 631.81 µs 677.43 µs]
+                        thrpt:  [377.90 Kelem/s 405.19 Kelem/s 434.60 Kelem/s]
+                 change:
+                        time:   [−6.0066% +5.2957% +16.196%] (p = 0.37 > 0.05)
+                        thrpt:  [−13.939% −5.0294% +6.3905%]
+                        No change in performance detected.
+TP006 latency case=ticket_cancel_race/workers=4/producers=4/cancellers=2/cancel=0%/gated=false/submit_call phase=criterion_warmup_plus_measurement sample_count=2446080 p50_ns=3060 p95_ns=15693 p99_ns=26591 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=4/producers=4/cancellers=2/cancel=0%/gated=false/submit_to_run phase=criterion_warmup_plus_measurement sample_count=2446080 p50_ns=5983 p95_ns=20925 p99_ns=39481 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+TP007 race case=ticket_cancel_race/workers=4/producers=4/cancellers=2/cancel=0%/gated=false queue=unbounded rejected=0 accepted=2446080 run=2446080 cancel_callback=0 cancel_attempts=0 cancel_true=0 cancel_false=0 target_rule=deterministic_seeded_shuffle selected=ceil(jobs*percent/100) target_count_per_batch=0 jobs_per_batch=256 ticket_handoff=immediate_after_submit
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=4/cancellers=2/cancel=10%/jobs=256/natural
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=4/cancellers=2/cancel=10%/jobs=256/natural: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=4/cancellers=2/cancel=10%/jobs=256/natural: Collecting 20 samples in estimated 5.1395 s (7140 iterations)
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=4/cancellers=2/cancel=10%/jobs=256/natural: Analyzing
+thread_pool_ticket_cancel_race/workers=4/producers=4/cancellers=2/cancel=10%/jobs=256/natural
+                        time:   [585.66 µs 604.94 µs 631.69 µs]
+                        thrpt:  [405.26 Kelem/s 423.18 Kelem/s 437.12 Kelem/s]
+                 change:
+                        time:   [−0.5912% +4.8848% +10.763%] (p = 0.10 > 0.05)
+                        thrpt:  [−9.7169% −4.6573% +0.5947%]
+                        No change in performance detected.
+TP006 latency case=ticket_cancel_race/workers=4/producers=4/cancellers=2/cancel=10%/gated=false/submit_call phase=criterion_warmup_plus_measurement sample_count=3924736 p50_ns=3383 p95_ns=16633 p99_ns=26662 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=4/producers=4/cancellers=2/cancel=10%/gated=false/cancel_true phase=criterion_warmup_plus_measurement sample_count=52600 p50_ns=3244 p95_ns=12722 p99_ns=22863 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=4/producers=4/cancellers=2/cancel=10%/gated=false/cancel_false phase=criterion_warmup_plus_measurement sample_count=346006 p50_ns=387 p95_ns=13902 p99_ns=32910 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=4/producers=4/cancellers=2/cancel=10%/gated=false/submit_to_run phase=criterion_warmup_plus_measurement sample_count=3872136 p50_ns=6768 p95_ns=23963 p99_ns=39455 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+TP007 race case=ticket_cancel_race/workers=4/producers=4/cancellers=2/cancel=10%/gated=false queue=unbounded rejected=0 accepted=3924736 run=3872136 cancel_callback=52600 cancel_attempts=398606 cancel_true=52600 cancel_false=346006 target_rule=deterministic_seeded_shuffle selected=ceil(jobs*percent/100) target_count_per_batch=26 jobs_per_batch=256 ticket_handoff=immediate_after_submit
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=4/cancellers=2/cancel=50%/jobs=256/natural
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=4/cancellers=2/cancel=50%/jobs=256/natural: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=4/cancellers=2/cancel=50%/jobs=256/natural: Collecting 20 samples in estimated 5.0361 s (7350 iterations)
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=4/cancellers=2/cancel=50%/jobs=256/natural: Analyzing
+thread_pool_ticket_cancel_race/workers=4/producers=4/cancellers=2/cancel=50%/jobs=256/natural
+                        time:   [609.07 µs 734.31 µs 973.28 µs]
+                        thrpt:  [263.03 Kelem/s 348.63 Kelem/s 420.31 Kelem/s]
+                 change:
+                        time:   [−3.3592% +10.417% +32.572%] (p = 0.38 > 0.05)
+                        thrpt:  [−24.569% −9.4338% +3.4760%]
+                        No change in performance detected.
+Found 2 outliers among 20 measurements (10.00%)
+  1 (5.00%) high mild
+  1 (5.00%) high severe
+TP006 latency case=ticket_cancel_race/workers=4/producers=4/cancellers=2/cancel=50%/gated=false/submit_call phase=criterion_warmup_plus_measurement sample_count=3978496 p50_ns=3235 p95_ns=16041 p99_ns=26391 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=4/producers=4/cancellers=2/cancel=50%/gated=false/cancel_true phase=criterion_warmup_plus_measurement sample_count=184300 p50_ns=2463 p95_ns=8668 p99_ns=13750 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=4/producers=4/cancellers=2/cancel=50%/gated=false/cancel_false phase=criterion_warmup_plus_measurement sample_count=1804948 p50_ns=327 p95_ns=5908 p99_ns=21322 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=4/producers=4/cancellers=2/cancel=50%/gated=false/submit_to_run phase=criterion_warmup_plus_measurement sample_count=3794196 p50_ns=6067 p95_ns=21900 p99_ns=45474 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP007 race case=ticket_cancel_race/workers=4/producers=4/cancellers=2/cancel=50%/gated=false queue=unbounded rejected=0 accepted=3978496 run=3794196 cancel_callback=184300 cancel_attempts=1989248 cancel_true=184300 cancel_false=1804948 target_rule=deterministic_seeded_shuffle selected=ceil(jobs*percent/100) target_count_per_batch=128 jobs_per_batch=256 ticket_handoff=immediate_after_submit
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=4/cancellers=2/cancel=100%/jobs=256/natural
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=4/cancellers=2/cancel=100%/jobs=256/natural: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=4/cancellers=2/cancel=100%/jobs=256/natural: Collecting 20 samples in estimated 5.0920 s (8190 iterations)
+Benchmarking thread_pool_ticket_cancel_race/workers=4/producers=4/cancellers=2/cancel=100%/jobs=256/natural: Analyzing
+thread_pool_ticket_cancel_race/workers=4/producers=4/cancellers=2/cancel=100%/jobs=256/natural
+                        time:   [598.23 µs 615.91 µs 641.94 µs]
+                        thrpt:  [398.79 Kelem/s 415.64 Kelem/s 427.93 Kelem/s]
+                 change:
+                        time:   [−0.4426% +4.1486% +9.2415%] (p = 0.11 > 0.05)
+                        thrpt:  [−8.4597% −3.9833% +0.4445%]
+                        No change in performance detected.
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+TP006 latency case=ticket_cancel_race/workers=4/producers=4/cancellers=2/cancel=100%/gated=false/submit_call phase=criterion_warmup_plus_measurement sample_count=4193536 p50_ns=3506 p95_ns=15390 p99_ns=23787 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=4/producers=4/cancellers=2/cancel=100%/gated=false/cancel_true phase=criterion_warmup_plus_measurement sample_count=249248 p50_ns=2295 p95_ns=6920 p99_ns=9486 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=4/producers=4/cancellers=2/cancel=100%/gated=false/cancel_false phase=criterion_warmup_plus_measurement sample_count=3944288 p50_ns=335 p95_ns=1297 p99_ns=16274 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=4/producers=4/cancellers=2/cancel=100%/gated=false/submit_to_run phase=criterion_warmup_plus_measurement sample_count=3944288 p50_ns=5848 p95_ns=18906 p99_ns=28481 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+TP007 race case=ticket_cancel_race/workers=4/producers=4/cancellers=2/cancel=100%/gated=false queue=unbounded rejected=0 accepted=4193536 run=3944288 cancel_callback=249248 cancel_attempts=4193536 cancel_true=249248 cancel_false=3944288 target_rule=deterministic_seeded_shuffle selected=ceil(jobs*percent/100) target_count_per_batch=256 jobs_per_batch=256 ticket_handoff=immediate_after_submit
+
+Benchmarking thread_pool_ticket_cancel_race_gated/workers=1/producers=1/cancellers=1/cancel=10%/jobs=256/gated
+Benchmarking thread_pool_ticket_cancel_race_gated/workers=1/producers=1/cancellers=1/cancel=10%/jobs=256/gated: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancel_race_gated/workers=1/producers=1/cancellers=1/cancel=10%/jobs=256/gated: Collecting 20 samples in estimated 5.1954 s (5460 iterations)
+Benchmarking thread_pool_ticket_cancel_race_gated/workers=1/producers=1/cancellers=1/cancel=10%/jobs=256/gated: Analyzing
+thread_pool_ticket_cancel_race_gated/workers=1/producers=1/cancellers=1/cancel=10%/jobs=256/gated
+                        time:   [876.72 µs 910.97 µs 948.02 µs]
+                        thrpt:  [270.04 Kelem/s 281.02 Kelem/s 292.00 Kelem/s]
+                 change:
+                        time:   [−0.9981% +6.8821% +15.832%] (p = 0.11 > 0.05)
+                        thrpt:  [−13.668% −6.4389% +1.0081%]
+                        No change in performance detected.
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=10%/gated=true/submit_call phase=criterion_warmup_plus_measurement sample_count=2446080 p50_ns=566 p95_ns=1166 p99_ns=1540 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=54
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=10%/gated=true/cancel_true phase=criterion_warmup_plus_measurement sample_count=248430 p50_ns=1824 p95_ns=2593 p99_ns=3294 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=10%/gated=true/submit_to_run phase=criterion_warmup_plus_measurement sample_count=2197650 p50_ns=442389 p95_ns=616430 p99_ns=663928 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=10%/gated=true/gate_setup phase=criterion_warmup_plus_measurement sample_count=9555 p50_ns=21167 p95_ns=27383 p99_ns=32820 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=10%/gated=true/gate_release phase=criterion_warmup_plus_measurement sample_count=9555 p50_ns=2877 p95_ns=3725 p99_ns=5087 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP007 race case=ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=10%/gated=true queue=unbounded rejected=0 accepted=2446080 run=2197650 cancel_callback=248430 cancel_attempts=248430 cancel_true=248430 cancel_false=0 target_rule=deterministic_seeded_shuffle selected=ceil(jobs*percent/100) target_count_per_batch=26 jobs_per_batch=256 ticket_handoff=immediate_after_submit
+Benchmarking thread_pool_ticket_cancel_race_gated/workers=1/producers=1/cancellers=1/cancel=50%/jobs=256/gated
+Benchmarking thread_pool_ticket_cancel_race_gated/workers=1/producers=1/cancellers=1/cancel=50%/jobs=256/gated: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancel_race_gated/workers=1/producers=1/cancellers=1/cancel=50%/jobs=256/gated: Collecting 20 samples in estimated 5.0481 s (7770 iterations)
+Benchmarking thread_pool_ticket_cancel_race_gated/workers=1/producers=1/cancellers=1/cancel=50%/jobs=256/gated: Analyzing
+thread_pool_ticket_cancel_race_gated/workers=1/producers=1/cancellers=1/cancel=50%/jobs=256/gated
+                        time:   [636.30 µs 678.12 µs 730.42 µs]
+                        thrpt:  [350.48 Kelem/s 377.51 Kelem/s 402.33 Kelem/s]
+                 change:
+                        time:   [−46.173% −32.958% −13.643%] (p = 0.01 < 0.05)
+                        thrpt:  [+15.799% +49.160% +85.779%]
+                        Performance has improved.
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=50%/gated=true/submit_call phase=criterion_warmup_plus_measurement sample_count=4086016 p50_ns=562 p95_ns=1126 p99_ns=1460 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=50%/gated=true/cancel_true phase=criterion_warmup_plus_measurement sample_count=2043008 p50_ns=1436 p95_ns=2233 p99_ns=2740 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=50%/gated=true/submit_to_run phase=criterion_warmup_plus_measurement sample_count=2043008 p50_ns=312355 p95_ns=516187 p99_ns=588419 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=50%/gated=true/gate_setup phase=criterion_warmup_plus_measurement sample_count=15961 p50_ns=19076 p95_ns=24596 p99_ns=30523 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=50%/gated=true/gate_release phase=criterion_warmup_plus_measurement sample_count=15961 p50_ns=2643 p95_ns=3505 p99_ns=4780 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP007 race case=ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=50%/gated=true queue=unbounded rejected=0 accepted=4086016 run=2043008 cancel_callback=2043008 cancel_attempts=2043008 cancel_true=2043008 cancel_false=0 target_rule=deterministic_seeded_shuffle selected=ceil(jobs*percent/100) target_count_per_batch=128 jobs_per_batch=256 ticket_handoff=immediate_after_submit
+Benchmarking thread_pool_ticket_cancel_race_gated/workers=1/producers=1/cancellers=1/cancel=100%/jobs=256/gated
+Benchmarking thread_pool_ticket_cancel_race_gated/workers=1/producers=1/cancellers=1/cancel=100%/jobs=256/gated: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancel_race_gated/workers=1/producers=1/cancellers=1/cancel=100%/jobs=256/gated: Collecting 20 samples in estimated 5.0213 s (9660 iterations)
+Benchmarking thread_pool_ticket_cancel_race_gated/workers=1/producers=1/cancellers=1/cancel=100%/jobs=256/gated: Analyzing
+thread_pool_ticket_cancel_race_gated/workers=1/producers=1/cancellers=1/cancel=100%/jobs=256/gated
+                        time:   [406.08 µs 422.73 µs 441.81 µs]
+                        thrpt:  [579.43 Kelem/s 605.59 Kelem/s 630.42 Kelem/s]
+                 change:
+                        time:   [−7.4532% +6.5262% +22.075%] (p = 0.41 > 0.05)
+                        thrpt:  [−18.083% −6.1264% +8.0534%]
+                        No change in performance detected.
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=100%/gated=true/submit_call phase=criterion_warmup_plus_measurement sample_count=4569856 p50_ns=557 p95_ns=915 p99_ns=1086 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=100%/gated=true/cancel_true phase=criterion_warmup_plus_measurement sample_count=4569856 p50_ns=1024 p95_ns=1510 p99_ns=1864 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=100%/gated=true/gate_setup phase=criterion_warmup_plus_measurement sample_count=17851 p50_ns=15918 p95_ns=27067 p99_ns=33077 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=100%/gated=true/gate_release phase=criterion_warmup_plus_measurement sample_count=17851 p50_ns=2407 p95_ns=3806 p99_ns=8811 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP007 race case=ticket_cancel_race/workers=1/producers=1/cancellers=1/cancel=100%/gated=true queue=unbounded rejected=0 accepted=4569856 run=0 cancel_callback=4569856 cancel_attempts=4569856 cancel_true=4569856 cancel_false=0 target_rule=deterministic_seeded_shuffle selected=ceil(jobs*percent/100) target_count_per_batch=256 jobs_per_batch=256 ticket_handoff=immediate_after_submit
+Benchmarking thread_pool_ticket_cancel_race_gated/workers=1/producers=1/cancellers=2/cancel=10%/jobs=256/gated
+Benchmarking thread_pool_ticket_cancel_race_gated/workers=1/producers=1/cancellers=2/cancel=10%/jobs=256/gated: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancel_race_gated/workers=1/producers=1/cancellers=2/cancel=10%/jobs=256/gated: Collecting 20 samples in estimated 5.0045 s (5670 iterations)
+Benchmarking thread_pool_ticket_cancel_race_gated/workers=1/producers=1/cancellers=2/cancel=10%/jobs=256/gated: Analyzing
+thread_pool_ticket_cancel_race_gated/workers=1/producers=1/cancellers=2/cancel=10%/jobs=256/gated
+                        time:   [883.77 µs 943.39 µs 1.0035 ms]
+                        thrpt:  [255.12 Kelem/s 271.36 Kelem/s 289.67 Kelem/s]
+                 change:
+                        time:   [−26.679% −13.733% +5.1645%] (p = 0.13 > 0.05)
+                        thrpt:  [−4.9109% +15.919% +36.386%]
+                        No change in performance detected.
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high severe
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=10%/gated=true/submit_call phase=criterion_warmup_plus_measurement sample_count=2499840 p50_ns=398 p95_ns=777 p99_ns=1171 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=10%/gated=true/cancel_true phase=criterion_warmup_plus_measurement sample_count=253890 p50_ns=1707 p95_ns=2730 p99_ns=4066 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=10%/gated=true/submit_to_run phase=criterion_warmup_plus_measurement sample_count=2245950 p50_ns=442673 p95_ns=681410 p99_ns=857537 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=10%/gated=true/gate_setup phase=criterion_warmup_plus_measurement sample_count=9765 p50_ns=19038 p95_ns=23910 p99_ns=30617 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=10%/gated=true/gate_release phase=criterion_warmup_plus_measurement sample_count=9765 p50_ns=2743 p95_ns=3590 p99_ns=6242 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+TP007 race case=ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=10%/gated=true queue=unbounded rejected=0 accepted=2499840 run=2245950 cancel_callback=253890 cancel_attempts=253890 cancel_true=253890 cancel_false=0 target_rule=deterministic_seeded_shuffle selected=ceil(jobs*percent/100) target_count_per_batch=26 jobs_per_batch=256 ticket_handoff=immediate_after_submit
+Benchmarking thread_pool_ticket_cancel_race_gated/workers=1/producers=1/cancellers=2/cancel=50%/jobs=256/gated
+Benchmarking thread_pool_ticket_cancel_race_gated/workers=1/producers=1/cancellers=2/cancel=50%/jobs=256/gated: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancel_race_gated/workers=1/producers=1/cancellers=2/cancel=50%/jobs=256/gated: Collecting 20 samples in estimated 5.1766 s (6090 iterations)
+Benchmarking thread_pool_ticket_cancel_race_gated/workers=1/producers=1/cancellers=2/cancel=50%/jobs=256/gated: Analyzing
+thread_pool_ticket_cancel_race_gated/workers=1/producers=1/cancellers=2/cancel=50%/jobs=256/gated
+                        time:   [667.34 µs 745.31 µs 829.36 µs]
+                        thrpt:  [308.67 Kelem/s 343.48 Kelem/s 383.61 Kelem/s]
+                 change:
+                        time:   [−25.176% −18.435% −10.905%] (p = 0.00 < 0.05)
+                        thrpt:  [+12.239% +22.602% +33.647%]
+                        Performance has improved.
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=50%/gated=true/submit_call phase=criterion_warmup_plus_measurement sample_count=2607360 p50_ns=475 p95_ns=1098 p99_ns=2734 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=50%/gated=true/cancel_true phase=criterion_warmup_plus_measurement sample_count=1303680 p50_ns=1613 p95_ns=2875 p99_ns=5523 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=50%/gated=true/submit_to_run phase=criterion_warmup_plus_measurement sample_count=1303680 p50_ns=383944 p95_ns=596155 p99_ns=723338 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=50%/gated=true/gate_setup phase=criterion_warmup_plus_measurement sample_count=10185 p50_ns=19254 p95_ns=25191 p99_ns=31630 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=50%/gated=true/gate_release phase=criterion_warmup_plus_measurement sample_count=10185 p50_ns=2574 p95_ns=3177 p99_ns=5110 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP007 race case=ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=50%/gated=true queue=unbounded rejected=0 accepted=2607360 run=1303680 cancel_callback=1303680 cancel_attempts=1303680 cancel_true=1303680 cancel_false=0 target_rule=deterministic_seeded_shuffle selected=ceil(jobs*percent/100) target_count_per_batch=128 jobs_per_batch=256 ticket_handoff=immediate_after_submit
+Benchmarking thread_pool_ticket_cancel_race_gated/workers=1/producers=1/cancellers=2/cancel=100%/jobs=256/gated
+Benchmarking thread_pool_ticket_cancel_race_gated/workers=1/producers=1/cancellers=2/cancel=100%/jobs=256/gated: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancel_race_gated/workers=1/producers=1/cancellers=2/cancel=100%/jobs=256/gated: Collecting 20 samples in estimated 5.0805 s (7980 iterations)
+Benchmarking thread_pool_ticket_cancel_race_gated/workers=1/producers=1/cancellers=2/cancel=100%/jobs=256/gated: Analyzing
+thread_pool_ticket_cancel_race_gated/workers=1/producers=1/cancellers=2/cancel=100%/jobs=256/gated
+                        time:   [596.50 µs 603.12 µs 612.67 µs]
+                        thrpt:  [417.84 Kelem/s 424.46 Kelem/s 429.17 Kelem/s]
+                 change:
+                        time:   [−11.565% −3.5946% +2.6742%] (p = 0.46 > 0.05)
+                        thrpt:  [−2.6046% +3.7286% +13.077%]
+                        No change in performance detected.
+Found 5 outliers among 20 measurements (25.00%)
+  1 (5.00%) low mild
+  2 (10.00%) high mild
+  2 (10.00%) high severe
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=100%/gated=true/submit_call phase=criterion_warmup_plus_measurement sample_count=4139776 p50_ns=554 p95_ns=1334 p99_ns=7088 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=100%/gated=true/cancel_true phase=criterion_warmup_plus_measurement sample_count=4139776 p50_ns=1384 p95_ns=2958 p99_ns=4771 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=100%/gated=true/gate_setup phase=criterion_warmup_plus_measurement sample_count=16171 p50_ns=16451 p95_ns=24393 p99_ns=31200 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=100%/gated=true/gate_release phase=criterion_warmup_plus_measurement sample_count=16171 p50_ns=2216 p95_ns=3124 p99_ns=4167 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP007 race case=ticket_cancel_race/workers=1/producers=1/cancellers=2/cancel=100%/gated=true queue=unbounded rejected=0 accepted=4139776 run=0 cancel_callback=4139776 cancel_attempts=4139776 cancel_true=4139776 cancel_false=0 target_rule=deterministic_seeded_shuffle selected=ceil(jobs*percent/100) target_count_per_batch=256 jobs_per_batch=256 ticket_handoff=immediate_after_submit
+Benchmarking thread_pool_ticket_cancel_race_gated/workers=1/producers=4/cancellers=1/cancel=10%/jobs=256/gated
+Benchmarking thread_pool_ticket_cancel_race_gated/workers=1/producers=4/cancellers=1/cancel=10%/jobs=256/gated: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancel_race_gated/workers=1/producers=4/cancellers=1/cancel=10%/jobs=256/gated: Collecting 20 samples in estimated 5.0951 s (5460 iterations)
+Benchmarking thread_pool_ticket_cancel_race_gated/workers=1/producers=4/cancellers=1/cancel=10%/jobs=256/gated: Analyzing
+thread_pool_ticket_cancel_race_gated/workers=1/producers=4/cancellers=1/cancel=10%/jobs=256/gated
+                        time:   [799.14 µs 845.30 µs 882.45 µs]
+                        thrpt:  [290.10 Kelem/s 302.85 Kelem/s 320.34 Kelem/s]
+                 change:
+                        time:   [−10.199% −2.4978% +4.8277%] (p = 0.52 > 0.05)
+                        thrpt:  [−4.6054% +2.5618% +11.357%]
+                        No change in performance detected.
+Found 2 outliers among 20 measurements (10.00%)
+  1 (5.00%) low severe
+  1 (5.00%) low mild
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=10%/gated=true/submit_call phase=criterion_warmup_plus_measurement sample_count=2446080 p50_ns=1153 p95_ns=5265 p99_ns=10040 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=10%/gated=true/cancel_true phase=criterion_warmup_plus_measurement sample_count=248430 p50_ns=2187 p95_ns=6787 p99_ns=11460 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=10%/gated=true/submit_to_run phase=criterion_warmup_plus_measurement sample_count=2197650 p50_ns=462495 p95_ns=582341 p99_ns=647375 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=10%/gated=true/gate_setup phase=criterion_warmup_plus_measurement sample_count=9555 p50_ns=20746 p95_ns=26434 p99_ns=31083 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=10%/gated=true/gate_release phase=criterion_warmup_plus_measurement sample_count=9555 p50_ns=2787 p95_ns=3530 p99_ns=4745 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP007 race case=ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=10%/gated=true queue=unbounded rejected=0 accepted=2446080 run=2197650 cancel_callback=248430 cancel_attempts=248430 cancel_true=248430 cancel_false=0 target_rule=deterministic_seeded_shuffle selected=ceil(jobs*percent/100) target_count_per_batch=26 jobs_per_batch=256 ticket_handoff=immediate_after_submit
+Benchmarking thread_pool_ticket_cancel_race_gated/workers=1/producers=4/cancellers=1/cancel=50%/jobs=256/gated
+Benchmarking thread_pool_ticket_cancel_race_gated/workers=1/producers=4/cancellers=1/cancel=50%/jobs=256/gated: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancel_race_gated/workers=1/producers=4/cancellers=1/cancel=50%/jobs=256/gated: Collecting 20 samples in estimated 5.1078 s (8190 iterations)
+Benchmarking thread_pool_ticket_cancel_race_gated/workers=1/producers=4/cancellers=1/cancel=50%/jobs=256/gated: Analyzing
+thread_pool_ticket_cancel_race_gated/workers=1/producers=4/cancellers=1/cancel=50%/jobs=256/gated
+                        time:   [531.70 µs 579.85 µs 630.77 µs]
+                        thrpt:  [405.85 Kelem/s 441.49 Kelem/s 481.47 Kelem/s]
+                 change:
+                        time:   [−10.405% −4.8107% +1.1796%] (p = 0.15 > 0.05)
+                        thrpt:  [−1.1658% +5.0538% +11.613%]
+                        No change in performance detected.
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=50%/gated=true/submit_call phase=criterion_warmup_plus_measurement sample_count=4193536 p50_ns=1523 p95_ns=9190 p99_ns=18004 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=50%/gated=true/cancel_true phase=criterion_warmup_plus_measurement sample_count=2096768 p50_ns=1480 p95_ns=6117 p99_ns=12722 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=50%/gated=true/submit_to_run phase=criterion_warmup_plus_measurement sample_count=2096768 p50_ns=337946 p95_ns=426886 p99_ns=467569 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=50%/gated=true/gate_setup phase=criterion_warmup_plus_measurement sample_count=16381 p50_ns=19716 p95_ns=25634 p99_ns=31250 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=50%/gated=true/gate_release phase=criterion_warmup_plus_measurement sample_count=16381 p50_ns=2630 p95_ns=3537 p99_ns=5020 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP007 race case=ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=50%/gated=true queue=unbounded rejected=0 accepted=4193536 run=2096768 cancel_callback=2096768 cancel_attempts=2096768 cancel_true=2096768 cancel_false=0 target_rule=deterministic_seeded_shuffle selected=ceil(jobs*percent/100) target_count_per_batch=128 jobs_per_batch=256 ticket_handoff=immediate_after_submit
+Benchmarking thread_pool_ticket_cancel_race_gated/workers=1/producers=4/cancellers=1/cancel=100%/jobs=256/gated
+Benchmarking thread_pool_ticket_cancel_race_gated/workers=1/producers=4/cancellers=1/cancel=100%/jobs=256/gated: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancel_race_gated/workers=1/producers=4/cancellers=1/cancel=100%/jobs=256/gated: Collecting 20 samples in estimated 5.0073 s (9450 iterations)
+Benchmarking thread_pool_ticket_cancel_race_gated/workers=1/producers=4/cancellers=1/cancel=100%/jobs=256/gated: Analyzing
+thread_pool_ticket_cancel_race_gated/workers=1/producers=4/cancellers=1/cancel=100%/jobs=256/gated
+                        time:   [457.02 µs 487.70 µs 521.83 µs]
+                        thrpt:  [490.58 Kelem/s 524.91 Kelem/s 560.15 Kelem/s]
+                 change:
+                        time:   [−24.295% −15.086% −3.7638%] (p = 0.01 < 0.05)
+                        thrpt:  [+3.9110% +17.766% +32.092%]
+                        Performance has improved.
+Found 2 outliers among 20 measurements (10.00%)
+  2 (10.00%) high mild
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=100%/gated=true/submit_call phase=criterion_warmup_plus_measurement sample_count=4516096 p50_ns=1780 p95_ns=9105 p99_ns=18200 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=100%/gated=true/cancel_true phase=criterion_warmup_plus_measurement sample_count=4516096 p50_ns=751 p95_ns=3578 p99_ns=9083 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=100%/gated=true/gate_setup phase=criterion_warmup_plus_measurement sample_count=17641 p50_ns=19541 p95_ns=27620 p99_ns=33581 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=100%/gated=true/gate_release phase=criterion_warmup_plus_measurement sample_count=17641 p50_ns=2603 p95_ns=3487 p99_ns=4900 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+TP007 race case=ticket_cancel_race/workers=1/producers=4/cancellers=1/cancel=100%/gated=true queue=unbounded rejected=0 accepted=4516096 run=0 cancel_callback=4516096 cancel_attempts=4516096 cancel_true=4516096 cancel_false=0 target_rule=deterministic_seeded_shuffle selected=ceil(jobs*percent/100) target_count_per_batch=256 jobs_per_batch=256 ticket_handoff=immediate_after_submit
+Benchmarking thread_pool_ticket_cancel_race_gated/workers=1/producers=4/cancellers=2/cancel=10%/jobs=256/gated
+Benchmarking thread_pool_ticket_cancel_race_gated/workers=1/producers=4/cancellers=2/cancel=10%/jobs=256/gated: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancel_race_gated/workers=1/producers=4/cancellers=2/cancel=10%/jobs=256/gated: Collecting 20 samples in estimated 5.1357 s (5670 iterations)
+Benchmarking thread_pool_ticket_cancel_race_gated/workers=1/producers=4/cancellers=2/cancel=10%/jobs=256/gated: Analyzing
+thread_pool_ticket_cancel_race_gated/workers=1/producers=4/cancellers=2/cancel=10%/jobs=256/gated
+                        time:   [781.70 µs 845.72 µs 890.89 µs]
+                        thrpt:  [287.35 Kelem/s 302.70 Kelem/s 327.49 Kelem/s]
+                 change:
+                        time:   [−3.9039% +5.8677% +16.619%] (p = 0.27 > 0.05)
+                        thrpt:  [−14.250% −5.5425% +4.0625%]
+                        No change in performance detected.
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=10%/gated=true/submit_call phase=criterion_warmup_plus_measurement sample_count=2499840 p50_ns=922 p95_ns=3905 p99_ns=9019 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=10%/gated=true/cancel_true phase=criterion_warmup_plus_measurement sample_count=253890 p50_ns=1990 p95_ns=6117 p99_ns=11449 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=10%/gated=true/submit_to_run phase=criterion_warmup_plus_measurement sample_count=2245950 p50_ns=425117 p95_ns=643639 p99_ns=1270565 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=10%/gated=true/gate_setup phase=criterion_warmup_plus_measurement sample_count=9765 p50_ns=17994 p95_ns=28730 p99_ns=36155 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=10%/gated=true/gate_release phase=criterion_warmup_plus_measurement sample_count=9765 p50_ns=2606 p95_ns=4416 p99_ns=8086 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP007 race case=ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=10%/gated=true queue=unbounded rejected=0 accepted=2499840 run=2245950 cancel_callback=253890 cancel_attempts=253890 cancel_true=253890 cancel_false=0 target_rule=deterministic_seeded_shuffle selected=ceil(jobs*percent/100) target_count_per_batch=26 jobs_per_batch=256 ticket_handoff=immediate_after_submit
+Benchmarking thread_pool_ticket_cancel_race_gated/workers=1/producers=4/cancellers=2/cancel=50%/jobs=256/gated
+Benchmarking thread_pool_ticket_cancel_race_gated/workers=1/producers=4/cancellers=2/cancel=50%/jobs=256/gated: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancel_race_gated/workers=1/producers=4/cancellers=2/cancel=50%/jobs=256/gated: Collecting 20 samples in estimated 5.0168 s (6930 iterations)
+Benchmarking thread_pool_ticket_cancel_race_gated/workers=1/producers=4/cancellers=2/cancel=50%/jobs=256/gated: Analyzing
+thread_pool_ticket_cancel_race_gated/workers=1/producers=4/cancellers=2/cancel=50%/jobs=256/gated
+                        time:   [607.92 µs 649.30 µs 681.08 µs]
+                        thrpt:  [375.88 Kelem/s 394.27 Kelem/s 421.11 Kelem/s]
+                 change:
+                        time:   [−11.877% −5.6032% +0.6402%] (p = 0.10 > 0.05)
+                        thrpt:  [−0.6361% +5.9358% +13.477%]
+                        No change in performance detected.
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=50%/gated=true/submit_call phase=criterion_warmup_plus_measurement sample_count=3870976 p50_ns=1720 p95_ns=11440 p99_ns=20860 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=50%/gated=true/cancel_true phase=criterion_warmup_plus_measurement sample_count=1935488 p50_ns=2423 p95_ns=9873 p99_ns=19457 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=50%/gated=true/submit_to_run phase=criterion_warmup_plus_measurement sample_count=1935488 p50_ns=354017 p95_ns=506969 p99_ns=571735 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=50%/gated=true/gate_setup phase=criterion_warmup_plus_measurement sample_count=15121 p50_ns=20022 p95_ns=27003 p99_ns=31627 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=52
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=50%/gated=true/gate_release phase=criterion_warmup_plus_measurement sample_count=15121 p50_ns=2660 p95_ns=3586 p99_ns=4780 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+TP007 race case=ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=50%/gated=true queue=unbounded rejected=0 accepted=3870976 run=1935488 cancel_callback=1935488 cancel_attempts=1935488 cancel_true=1935488 cancel_false=0 target_rule=deterministic_seeded_shuffle selected=ceil(jobs*percent/100) target_count_per_batch=128 jobs_per_batch=256 ticket_handoff=immediate_after_submit
+Benchmarking thread_pool_ticket_cancel_race_gated/workers=1/producers=4/cancellers=2/cancel=100%/jobs=256/gated
+Benchmarking thread_pool_ticket_cancel_race_gated/workers=1/producers=4/cancellers=2/cancel=100%/jobs=256/gated: Warming up for 3.0000 s
+Benchmarking thread_pool_ticket_cancel_race_gated/workers=1/producers=4/cancellers=2/cancel=100%/jobs=256/gated: Collecting 20 samples in estimated 5.0476 s (10k iterations)
+Benchmarking thread_pool_ticket_cancel_race_gated/workers=1/producers=4/cancellers=2/cancel=100%/jobs=256/gated: Analyzing
+thread_pool_ticket_cancel_race_gated/workers=1/producers=4/cancellers=2/cancel=100%/jobs=256/gated
+                        time:   [426.88 µs 459.95 µs 502.60 µs]
+                        thrpt:  [509.35 Kelem/s 556.59 Kelem/s 599.70 Kelem/s]
+                 change:
+                        time:   [−18.084% −9.3065% −0.4930%] (p = 0.07 > 0.05)
+                        thrpt:  [+0.4954% +10.261% +22.076%]
+                        No change in performance detected.
+Found 2 outliers among 20 measurements (10.00%)
+  2 (10.00%) high severe
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=100%/gated=true/submit_call phase=criterion_warmup_plus_measurement sample_count=4784896 p50_ns=1558 p95_ns=13500 p99_ns=22563 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=48 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=100%/gated=true/cancel_true phase=criterion_warmup_plus_measurement sample_count=4784896 p50_ns=1556 p95_ns=8583 p99_ns=15713 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=100%/gated=true/gate_setup phase=criterion_warmup_plus_measurement sample_count=18691 p50_ns=17670 p95_ns=27880 p99_ns=31374 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+TP006 latency case=ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=100%/gated=true/gate_release phase=criterion_warmup_plus_measurement sample_count=18691 p50_ns=2505 p95_ns=3480 p99_ns=4843 timer_overhead_sample_count=10000 timer_overhead_p50_ns=22 timer_overhead_p95_ns=24 atomic_recording_overhead_sample_count=10000 atomic_recording_overhead_p50_ns=49 atomic_recording_overhead_p95_ns=53
+TP007 race case=ticket_cancel_race/workers=1/producers=4/cancellers=2/cancel=100%/gated=true queue=unbounded rejected=0 accepted=4784896 run=0 cancel_callback=4784896 cancel_attempts=4784896 cancel_true=4784896 cancel_false=0 target_rule=deterministic_seeded_shuffle selected=ceil(jobs*percent/100) target_count_per_batch=256 jobs_per_batch=256 ticket_handoff=immediate_after_submit
+

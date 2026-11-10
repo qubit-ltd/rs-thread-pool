@@ -1,0 +1,9 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.06s
+     Running tests/execution_services_tests.rs (target/debug/deps/execution_services_tests-9c15d50df48cf21a)
+
+running 2 tests
+test execution_services::waiting_submission_tests::test_cpu_full_capacity_wait_wakes_on_stop ... ok
+test execution_services::waiting_submission_tests::test_cpu_full_capacity_wait_wakes_on_shutdown ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 40 filtered out; finished in 0.00s
+

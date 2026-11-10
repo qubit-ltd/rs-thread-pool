@@ -105,6 +105,60 @@ cargo bench --bench thread_pool_bench --locked -- thread_pool_sparse_multiworker
 上方旧 TP-006 表格保留作历史参考，但其原始日志缺失，精确的历史脏源码
 快照也无法恢复，因此不作为可复现证据。
 
+## ticket 取消竞争与长队列核查：2026-11-10
+
+新增 `thread_pool_ticket_cancel_race` 分组使用持久 actor、每批屏障、提交后立即
+交接 ticket，并让 worker 与取消者自然竞争。32 个自然竞争用例覆盖 1/4 个
+worker、1/4 个 producer、1/2 个 canceller 和 0/10/50/100% 目标比例；另有 12 个
+worker 门控用例确保能够测到成功取消。0% arm 与取消 arm 使用同一 harness。
+历史 `thread_pool_ticket_cancellation_contended` 仍只是 submit/consume 参考组，
+不作为匹配对照。规模组在 16,384 和 65,536 队列深度测量队首、队中、队尾删除，
+每次删除后补回 ticket 以保持实际深度。
+
+三轮独占测量使用默认 feature、样本数 20、相同 commit/tree、Rust 1.94.0、
+lockfile 和 Intel Xeon E5-2680 v4 主机。每轮命令为：
+
+```bash
+timeout 3600s cargo bench --locked --bench thread_pool_bench -- thread_pool_ticket_cancel
+```
+
+三轮完整输出、代码身份、时间戳、主机信息和摘要存档于
+[`doc/review-evidence-20261110/benchmarks`](review-evidence-20261110/benchmarks/)，
+逐配置数据和守恒汇总见
+[`t2-measurement-summary.md`](review-evidence-20261110/benchmarks/t2-measurement-summary.md)。
+三轮均退出 0 并输出全部 44 个 race 摘要。计数满足
+`accepted = run + cancel_callback`、`cancel_true = cancel_callback`、
+`cancel_attempts = cancel_true + cancel_false`；无界竞争组拒绝数为零。自然竞争
+不会被强制为目标取消比例。
+
+1 worker / 4 producers / 1 canceller 的匹配自然竞争结果：
+
+| 轮次 | 取消目标 | 批次时间（µs） | accepted jobs 吞吐（K/s） | submit p95/p99（ns） | submit-to-run p95/p99（ns） |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 0% | 564.58 | 453.43 | 5,302 / 10,363 | 26,880 / 185,423 |
+| 1 | 50% | 393.61 | 650.39 | 10,943 / 18,005 | 107,375 / 124,664 |
+| 1 | 100% | 397.05 | 644.75 | 8,453 / 16,318 | 126,740 / 170,143 |
+| 2 | 0% | 587.17 | 435.99 | 4,980 / 8,726 | 24,069 / 38,290 |
+| 2 | 50% | 347.29 | 737.14 | 8,886 / 15,424 | 99,729 / 115,283 |
+| 2 | 100% | 360.07 | 710.97 | 7,637 / 15,520 | 114,343 / 143,255 |
+| 3 | 0% | 677.37 | 377.93 | 5,637 / 11,304 | 29,871 / 47,992 |
+| 3 | 50% | 387.09 | 661.35 | 10,270 / 17,180 | 112,675 / 130,002 |
+| 3 | 100% | 389.25 | 657.68 | 8,005 / 15,552 | 116,030 / 129,662 |
+
+50% 和 100% 取消的 submit-call p95/p99 在三轮中均高于同 harness 的 0% arm。队中
+删除从 16,384 个 entry 时的 5.90–6.29 µs 上升到 65,536 个时的
+27.11–28.68 µs；队首删除保持在约 0.19–0.23 µs。这触发了内部队列候选评估，
+但不构成公共性能保证或业务 SLO 不达标的证据。取消比例较高时终态工作量也不同，
+因此 accepted-job 批次吞吐不是相同工作量的比较。
+
+TP006 分别记录计时器读取和原子记录开销，不从结果中扣除。TP008 run/cancel
+校准只覆盖孤立的 callback、时间戳、状态、计数及 channel send 路径，不能作为
+共享 channel 竞争的修正值。门控 setup/release 单独报告，不并入自然竞争结果。
+索引 FIFO 候选与该基线分开测量。它将队中/队尾规模延迟降低约 95–99%，但使匹配
+0% submit-call p95/p99 增加 81%/62%、submit-to-run p95/p99 增加 103%/83%；历史
+submit/consume 对照也超过允许的 5% 退化线。因此已移除该候选，继续使用现有 FIFO。
+完整数值和原始输出见结果汇总。
+
 ## 解读与复现
 
 比较时应保持分组、工作负载、worker 数量、编译器和机器一致。每次记录结果时都应附上 commit、Rust 版本、硬件/OS 和命令。预热、后台负载和任务粒度都会影响排序。drop-request 不包含 worker 终止等待，不能当作完整生命周期成本；steady-state 也不代表线程池启动时间。当前 benchmark 不读取历史 `test-data` 数据集。
