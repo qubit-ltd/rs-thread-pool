@@ -109,9 +109,7 @@ fn wait_for_job(inner: &ThreadPoolInner, worker_index: usize) -> Option<PoolJob>
                     unregister_exiting_worker(inner, &mut state, worker_index);
                     return None;
                 }
-                drop(state);
-                state = inner.lock_state();
-                if state.lifecycle == ExecutorServiceLifecycle::Running && state.worker_wait_is_timed() {
+                if state.worker_wait_is_timed() {
                     let keep_alive = state.keep_alive;
                     mark_thread_pool_worker_idle(inner, &mut state);
                     let mut timed_out = false;
@@ -130,7 +128,7 @@ fn wait_for_job(inner: &ThreadPoolInner, worker_index: usize) -> Option<PoolJob>
                         unregister_exiting_worker(inner, &mut state, worker_index);
                         return None;
                     }
-                } else if state.lifecycle == ExecutorServiceLifecycle::Running {
+                } else {
                     mark_thread_pool_worker_idle(inner, &mut state);
                     if inner.queued_count() == 0 && !inner.has_pending_worker_wake() {
                         state.wait();
