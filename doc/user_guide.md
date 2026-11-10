@@ -89,11 +89,10 @@ work, cancellation callbacks, or workers to finish. Call `shutdown()` and
 `wait_termination()` before dropping the pool when completion is required, and
 make those calls from outside the pool. Do not wait for termination from a task
 or callback whose own progress it depends on.
-`stop()` waits for in-flight admission and cancels work that has not crossed
-the worker claim boundary. All accepted jobs use the global queue; a job may
-finish acceptance while stop is waiting, then be cancelled. A job already
-claimed for running is not interrupted even if its run callback has yet to
-begin. The
+`stop()` waits for in-flight admission and cancels queued jobs that have not
+been claimed by a worker. A claimed job is not revoked even if its user
+callback has not begun. All accepted jobs use the global queue; a job may
+finish acceptance while stop is waiting, then be cancelled. The
 `StopReport` counts are a point-in-time snapshot rather than a synchronization
 barrier. For `submit_job`, `Ok(())` reports acceptance only, not task start or
 task success.
@@ -322,8 +321,9 @@ When upgrading, see the [0.9 to 0.10 migration guide](migration_0.9_to_0.10.md).
 
 ## Limitations and Best Practices
 
-`stop()` cancels queued work that has not started but cannot forcibly kill work
-already executing on an OS thread. Prefer `shutdown()` for graceful draining.
+`stop()` cancels queued work that no worker has claimed. A claimed job cannot
+be revoked, even if its user callback has not begun. Prefer `shutdown()` for
+graceful draining.
 Bound queue capacity according to the memory footprint and latency budget of
 queued tasks. Select pool sizes at construction time for normal operation;
 runtime size setters are intended for explicit control-plane adjustments.

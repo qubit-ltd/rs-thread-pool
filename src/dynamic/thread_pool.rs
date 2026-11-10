@@ -39,8 +39,10 @@ use crate::ThreadPoolStats;
 /// tracked submissions return [`TrackedTask`].
 ///
 /// `shutdown` is graceful: already accepted queued tasks are allowed to run.
-/// `stop` is abrupt: queued tasks that have not started are completed
-/// with [`TaskExecutionError::Cancelled`](qubit_executor::TaskExecutionError::Cancelled).
+/// `stop` is abrupt: it cancels queued tasks that have not been claimed by a
+/// worker. A claimed task is not revoked, even if its user callback has not
+/// begun. Queued tasks cancelled by stop complete with
+/// [`TaskExecutionError::Cancelled`](qubit_executor::TaskExecutionError::Cancelled).
 /// Dropping the pool requests graceful shutdown, but does not wait for accepted
 /// work, cancellation callbacks, or workers to finish. When completion is
 /// required, call [`ExecutorService::shutdown`] and
@@ -580,7 +582,9 @@ impl ExecutorService for ThreadPool {
         self.inner.shutdown();
     }
 
-    /// Stops accepting tasks and cancels queued tasks that have not started.
+    /// Stops accepting tasks and cancels queued tasks that no worker has
+    /// claimed. A claimed task is not revoked, even if its user callback has
+    /// not begun.
     ///
     /// # Returns
     ///

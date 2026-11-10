@@ -9,7 +9,9 @@
 
 use std::io;
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::sync::atomic::AtomicBool;
+use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::sync::mpsc;
 use std::time::Duration;
@@ -58,6 +60,59 @@ fn test_thread_pool_stop_cancels_queued_tasks() {
     first.get().expect("running task should complete normally");
     pool.wait_termination();
     assert!(pool.is_terminated());
+}
+
+#[test]
+fn test_thread_pool_stop_does_not_cancel_job_claimed_before_task_hook() {
+    let (hook_started_tx, hook_started_rx) = mpsc::channel();
+    let (release_hook_tx, release_hook_rx) = mpsc::channel();
+    let release_hook_rx = Arc::new(Mutex::new(release_hook_rx));
+    let pool = ThreadPool::builder()
+        .pool_size(1)
+        .prestart_core_threads()
+        .before_task(move |_| {
+            hook_started_tx
+                .send(())
+                .expect("test should receive before_task signal");
+            release_hook_rx
+                .lock()
+                .expect("before_task receiver mutex should not be poisoned")
+                .recv_timeout(Duration::from_secs(2))
+                .expect("test should release before_task hook");
+        })
+        .build()
+        .expect("thread pool should be created");
+    let ran = Arc::new(AtomicUsize::new(0));
+    let cancelled = Arc::new(AtomicUsize::new(0));
+    let run_count = Arc::clone(&ran);
+    let cancel_count = Arc::clone(&cancelled);
+
+    pool.submit_job(PoolJob::new(
+        Box::new(move || {
+            run_count.fetch_add(1, Ordering::AcqRel);
+        }),
+        Box::new(move || {
+            cancel_count.fetch_add(1, Ordering::AcqRel);
+        }),
+    ))
+    .expect("job should be accepted");
+    hook_started_rx
+        .recv_timeout(Duration::from_secs(2))
+        .expect("worker should reach before_task after claiming the job");
+
+    let report = pool.stop();
+    release_hook_tx
+        .send(())
+        .expect("before_task hook should receive release signal");
+    assert!(pool.wait_termination_timeout(Duration::from_secs(2)));
+
+    assert_eq!(report.queued, 0);
+    assert_eq!(report.running, 1);
+    assert_eq!(report.cancelled, 0);
+    assert_eq!(ran.load(Ordering::Acquire), 1);
+    assert_eq!(cancelled.load(Ordering::Acquire), 0);
+    assert_eq!(pool.stats().completed_tasks, 1);
+    assert_eq!(pool.stats().cancelled_tasks, 0);
 }
 
 #[test]
