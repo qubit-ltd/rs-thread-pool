@@ -54,9 +54,9 @@ ShuttingDown --stop-> Stopping
 
 shutdown 关闭接纳入口，持 monitor 切换生命周期并唤醒 worker，不等待提交或已接纳任务结束。stop 关闭入口、设置停止标志、等待正在接纳的提交、取出排队任务，再在 monitor 外执行取消回调。它不会强制中断运行中的任务，也不是终止屏障。重复调用生命周期操作不会重新开放接纳。
 
-终止使用统一谓词判断：生命周期不再是 `Running`、`live_workers == 0`、`exiting_workers == 0`，且计数状态空闲。`exiting_workers` 统计已经离开调度循环、但尚未执行完 `after_worker_stop` hook 的 worker。worker 会先从 `live_workers` 注销，再运行退出 hook；因此 `live_worker_count()` 只表示仍登记参与调度的 worker，不包括正在运行退出 hook 的线程。`wait_termination`、`wait_termination_timeout` 和 `await_termination` 共用这个谓词；只有谓词成立后，`async-wait` watch 才发布终止状态。终止等待会等退出 hook 返回，但不保证操作系统已物理回收线程。
+两种池都要求生命周期不再是 `Running` 且任务计数状态空闲，才算终止。动态池还要求 `live_workers == 0` 且 `exiting_workers == 0`。动态 worker 离开调度循环时会从 `live_workers` 中移除，并计入 `exiting_workers`，直到 `after_worker_stop` hook 返回。因此，动态池的 `live_worker_count()` 不包含正在运行退出 hook 的 worker，但终止等待仍会等它们完成。动态池的 `wait_termination`、`wait_termination_timeout` 和 `await_termination` 使用此谓词；启用 `async-wait` 时，终止 watch 仅在谓词成立后发布终止状态。
 
-`join` 只等待计数状态空闲，不关闭接纳入口，也不要求空闲 worker 退出。并发提交可能延长等待，或使刚观察到的空闲状态失效。若任务或回调的自身进展是同池终止的前提，就不能在该任务或回调中等待终止；否则它会阻止等待条件成立。
+固定池使用不同的谓词：生命周期不再是 `Running`、`live_workers == 0`，且任务计数状态空闲。固定 worker 在运行 `after_worker_stop` hook 期间仍计入 `live_workers`，hook 返回后才递减该计数。两种池达到终止状态时，退出 hook 都已返回；但这不保证操作系统已物理回收线程。`join` 只等待任务计数状态空闲，不关闭接纳入口，也不要求空闲 worker 退出。并发提交可能延长等待，或使刚观察到的空闲状态失效。若任务或回调的自身进展是同池终止的前提，就不能在该任务或回调中等待终止；否则它会阻止等待条件成立。
 
 ## 计数不变量
 

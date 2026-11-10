@@ -109,21 +109,28 @@ queued jobs and executes their cancellation callbacks outside the monitor.
 It does not forcibly interrupt running jobs and is not a termination barrier.
 Repeated lifecycle requests cannot reopen admission.
 
-Termination is observed by one shared predicate: lifecycle is no longer
-`Running`, `live_workers == 0`, `exiting_workers == 0`, and accounting is idle.
-`exiting_workers` counts workers that left the scheduling loop but have not
-finished their `after_worker_stop` hook. A worker leaves `live_workers` before
-that hook starts, so `live_worker_count()` reports workers registered for
-scheduling and excludes workers in their exit hook. `wait_termination`,
-`wait_termination_timeout`, and `await_termination` use this same predicate;
-the `async-wait` watch publishes terminal state only after it becomes true.
-Termination waits therefore include exit-hook completion, but do not promise
-that the operating system has physically reclaimed the thread. `join` waits
-only for accounting to become idle and does not close admission or require idle
-workers to exit. Concurrent submissions can extend or invalidate an idle
-observation. These waits must not be made by a task or callback on the same
-pool when progress depends on that task or callback: its own work or exit hook
-prevents the predicate from becoming true.
+Both pool types require lifecycle to be no longer `Running` and job accounting
+to be idle before termination. Dynamic pools additionally require
+`live_workers == 0` and `exiting_workers == 0`. A dynamic worker is removed from
+`live_workers` when it leaves the scheduling loop and counted in
+`exiting_workers` until its `after_worker_stop` hook returns. Thus
+`live_worker_count()` excludes dynamic workers running that hook, while
+termination waits continue to include them. The dynamic pool's
+`wait_termination`, `wait_termination_timeout`, and `await_termination` use
+this predicate; with `async-wait`, the termination watch publishes terminal
+state only after it becomes true.
+
+Fixed pools use a different predicate: lifecycle is no longer `Running`,
+`live_workers == 0`, and accounting is idle. A fixed worker remains in
+`live_workers` while its `after_worker_stop` hook runs and is decremented only
+after the hook returns. In both pool types, reaching termination means the exit
+hooks have returned; it does not promise that the operating system has
+physically reclaimed the threads. `join` waits only for accounting to become
+idle and does not close admission or require idle workers to exit. Concurrent
+submissions can extend or invalidate an idle observation. These waits must not
+be made by a task or callback on the same pool when progress depends on that
+task or callback: its own work or exit hook prevents the predicate from becoming
+true.
 
 ## Accounting invariants
 
