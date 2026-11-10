@@ -316,12 +316,11 @@ fn test_thread_pool_keep_alive_duration_max_does_not_kill_worker() {
         .build()
         .expect("thread pool should accept a large keep-alive");
     wait_until(|| pool.stats().idle_workers == 1);
-    pool
-        .submit_callable(move || {
-            ran_tx.send(()).expect("test should receive task notification");
-            Ok::<(), io::Error>(())
-        })
-        .expect("idle worker should remain available");
+    pool.submit_callable(move || {
+        ran_tx.send(()).expect("test should receive task notification");
+        Ok::<(), io::Error>(())
+    })
+    .expect("idle worker should remain available");
     ran_rx
         .recv_timeout(Duration::from_secs(2))
         .expect("idle worker should run a second task");

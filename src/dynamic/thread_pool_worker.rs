@@ -162,7 +162,20 @@ fn wait_for_job(inner: &ThreadPoolInner, worker_index: usize) -> Option<PoolJob>
 /// Individual slice timeouts do not retire the worker before the total duration
 /// has elapsed. A timer registration/completion error falls back to one
 /// unbounded wait so lifecycle notifications can still wake this worker.
-fn wait_for_keep_alive(state: &mut qubit_lock::ParkingLotMonitorGuard<'_, ThreadPoolState>, keep_alive: Duration) -> WaitTimeoutStatus {
+///
+/// # Parameters
+///
+/// * `state` - Monitor guard protecting pool state and worker notifications.
+/// * `keep_alive` - Total idle duration before the worker may retire.
+///
+/// # Returns
+///
+/// `TimedOut` when the complete duration elapses, or `Woken` after a
+/// notification or timer error fallback.
+fn wait_for_keep_alive(
+    state: &mut qubit_lock::ParkingLotMonitorGuard<'_, ThreadPoolState>,
+    keep_alive: Duration,
+) -> WaitTimeoutStatus {
     wait_for_keep_alive_with(keep_alive, Duration::from_secs(3600), |timeout| match timeout {
         Some(timeout) => state.wait_for(timeout).map_err(|_| ()),
         None => {
@@ -172,11 +185,23 @@ fn wait_for_keep_alive(state: &mut qubit_lock::ParkingLotMonitorGuard<'_, Thread
     })
 }
 
-fn wait_for_keep_alive_with<F>(
-    keep_alive: Duration,
-    maximum_slice: Duration,
-    mut wait: F,
-) -> WaitTimeoutStatus
+/// Waits in bounded slices through an injected wait operation.
+///
+/// # Type Parameters
+///
+/// * `F` - Wait operation used for timed slices and the error fallback.
+///
+/// # Parameters
+///
+/// * `keep_alive` - Total idle duration.
+/// * `maximum_slice` - Maximum duration of each timer registration.
+/// * `wait` - Operation that waits for a slice or performs the fallback wait.
+///
+/// # Returns
+///
+/// `TimedOut` after the full duration, or `Woken` after a notification or
+/// timer error fallback.
+fn wait_for_keep_alive_with<F>(keep_alive: Duration, maximum_slice: Duration, mut wait: F) -> WaitTimeoutStatus
 where
     F: FnMut(Option<Duration>) -> Result<WaitTimeoutStatus, ()>,
 {
@@ -197,50 +222,19 @@ where
     }
 }
 
+/// Computes the remaining idle duration without overflowing.
+///
+/// # Parameters
+///
+/// * `keep_alive` - Configured total idle duration.
+/// * `elapsed` - Time elapsed since the worker became idle.
+///
+/// # Returns
+///
+/// The remaining duration, or zero when `elapsed` reached or exceeded the
+/// configured duration.
 fn remaining_keep_alive(keep_alive: Duration, elapsed: Duration) -> Duration {
     keep_alive.saturating_sub(elapsed)
-}
-
-#[cfg(test)]
-mod keep_alive_tests {
-    use super::wait_for_keep_alive_with;
-    use super::remaining_keep_alive;
-    use qubit_lock::WaitTimeoutStatus;
-    use std::cell::Cell;
-    use std::time::Duration;
-
-    #[test]
-    fn remaining_duration_saturates_at_zero_and_handles_maximum() {
-        assert_eq!(Duration::from_secs(3), remaining_keep_alive(Duration::from_secs(5), Duration::from_secs(2)));
-        assert_eq!(Duration::ZERO, remaining_keep_alive(Duration::from_secs(5), Duration::from_secs(5)));
-        assert_eq!(Duration::ZERO, remaining_keep_alive(Duration::from_secs(5), Duration::from_secs(6)));
-        assert_eq!(Duration::MAX, remaining_keep_alive(Duration::MAX, Duration::ZERO));
-    }
-
-    #[test]
-    fn large_keep_alive_slices_are_bounded_and_retried() {
-        let slices = Cell::new(0);
-        let status = wait_for_keep_alive_with(Duration::MAX, Duration::from_millis(1), |timeout| {
-            let Some(timeout) = timeout else { panic!("no error expected") };
-            assert!(timeout <= Duration::from_millis(1));
-            let count = slices.get() + 1;
-            slices.set(count);
-            Ok(if count == 3 { WaitTimeoutStatus::Woken } else { WaitTimeoutStatus::TimedOut })
-        });
-        assert_eq!(WaitTimeoutStatus::Woken, status);
-        assert_eq!(3, slices.get());
-    }
-
-    #[test]
-    fn wait_error_falls_back_once_to_unbounded_wait() {
-        let calls = Cell::new(0);
-        let status = wait_for_keep_alive_with(Duration::MAX, Duration::from_secs(3600), |timeout| {
-            calls.set(calls.get() + 1);
-            if timeout.is_some() { Err(()) } else { Ok(WaitTimeoutStatus::Woken) }
-        });
-        assert_eq!(WaitTimeoutStatus::Woken, status);
-        assert_eq!(2, calls.get());
-    }
 }
 
 /// Marks a dynamic-pool worker as idle in locked and lock-free state.
@@ -286,4 +280,67 @@ fn unregister_exiting_worker(inner: &ThreadPoolInner, state: &mut ThreadPoolStat
         .checked_add(1)
         .expect("thread pool exiting worker counter overflow");
     inner.unregister_worker_locked(state);
+}
+
+#[cfg(test)]
+mod keep_alive_tests {
+    use std::cell::Cell;
+    use std::time::Duration;
+
+    use qubit_lock::WaitTimeoutStatus;
+
+    use super::remaining_keep_alive;
+    use super::wait_for_keep_alive_with;
+
+    #[test]
+    fn test_remaining_duration_saturates_at_zero_and_handles_maximum() {
+        assert_eq!(
+            Duration::from_secs(3),
+            remaining_keep_alive(Duration::from_secs(5), Duration::from_secs(2))
+        );
+        assert_eq!(
+            Duration::ZERO,
+            remaining_keep_alive(Duration::from_secs(5), Duration::from_secs(5))
+        );
+        assert_eq!(
+            Duration::ZERO,
+            remaining_keep_alive(Duration::from_secs(5), Duration::from_secs(6))
+        );
+        assert_eq!(Duration::MAX, remaining_keep_alive(Duration::MAX, Duration::ZERO));
+    }
+
+    #[test]
+    fn test_large_keep_alive_slices_are_bounded_and_retried() {
+        let slices = Cell::new(0);
+        let status = wait_for_keep_alive_with(Duration::MAX, Duration::from_millis(1), |timeout| {
+            let Some(timeout) = timeout else {
+                panic!("no error expected")
+            };
+            assert!(timeout <= Duration::from_millis(1));
+            let count = slices.get() + 1;
+            slices.set(count);
+            Ok(if count == 3 {
+                WaitTimeoutStatus::Woken
+            } else {
+                WaitTimeoutStatus::TimedOut
+            })
+        });
+        assert_eq!(WaitTimeoutStatus::Woken, status);
+        assert_eq!(3, slices.get());
+    }
+
+    #[test]
+    fn test_wait_error_falls_back_once_to_unbounded_wait() {
+        let calls = Cell::new(0);
+        let status = wait_for_keep_alive_with(Duration::MAX, Duration::from_secs(3600), |timeout| {
+            calls.set(calls.get() + 1);
+            if timeout.is_some() {
+                Err(())
+            } else {
+                Ok(WaitTimeoutStatus::Woken)
+            }
+        });
+        assert_eq!(WaitTimeoutStatus::Woken, status);
+        assert_eq!(2, calls.get());
+    }
 }

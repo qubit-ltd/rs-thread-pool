@@ -196,11 +196,27 @@ impl ThreadPool {
         self.inner.stats()
     }
 
-    /// Attempts to submit a callable and returns it unchanged if admission fails.
+    /// Attempts to submit a callable and returns it unchanged if admission
+    /// fails.
     ///
     /// A rejected callable was not called, cloned, or retained by the pool, so
     /// callers may retry it or choose another disposition. Success means the
     /// task was accepted; it does not guarantee execution or task success.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `C` - Callable submitted to the pool.
+    /// * `R` - Successful result produced by the callable.
+    /// * `E` - Error produced by the callable.
+    ///
+    /// # Parameters
+    ///
+    /// * `task` - Callable to submit.
+    ///
+    /// # Returns
+    ///
+    /// A task handle when accepted, or the unchanged callable and rejection
+    /// reason when admission fails.
     pub fn try_submit_callable<C, R, E>(&self, task: C) -> Result<TaskHandle<R, E>, RejectedTask<C>>
     where
         C: Callable<R, E> + Send + 'static,
@@ -628,6 +644,23 @@ impl ExecutorService for ThreadPool {
 }
 
 impl RecoverableExecutorService for ThreadPool {
+    /// Attempts to submit a callable and returns it unchanged if admission
+    /// fails.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `C` - Callable submitted to the pool.
+    /// * `R` - Successful result produced by the callable.
+    /// * `E` - Error produced by the callable.
+    ///
+    /// # Parameters
+    ///
+    /// * `task` - Callable to submit.
+    ///
+    /// # Returns
+    ///
+    /// A task handle when accepted, or the unchanged callable and rejection
+    /// reason when admission fails.
     fn try_submit_callable<C, R, E>(&self, task: C) -> Result<Self::ResultHandle<R, E>, RejectedTask<C>>
     where
         C: Callable<R, E> + Send + 'static,

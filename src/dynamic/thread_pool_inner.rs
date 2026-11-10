@@ -18,13 +18,13 @@ use std::time::Instant;
 mod internal;
 
 use qubit_executor::service::ExecutorServiceLifecycle;
-use qubit_executor::service::StopReport;
 use qubit_executor::service::RejectedTask;
+use qubit_executor::service::StopReport;
 use qubit_executor::service::SubmissionError;
+use qubit_executor::task::spi::TaskEndpointPair;
+use qubit_function::Callable;
 use qubit_lock::ParkingLotMonitor;
 use qubit_lock::ParkingLotMonitorGuard;
-use qubit_function::Callable;
-use qubit_executor::task::spi::TaskEndpointPair;
 #[cfg(feature = "async-wait")]
 use tokio::sync::watch;
 
@@ -343,6 +343,22 @@ impl ThreadPoolInner {
         self.accept_and_enqueue_reserved_job_with_guard(job, None)
     }
 
+    /// Accepts and publishes a reserved job using its existing transaction.
+    ///
+    /// # Parameters
+    ///
+    /// * `job` - Job with one reserved queue slot.
+    /// * `reserved_transaction` - Transaction guard created immediately after
+    ///   reservation, or `None` when this method must create it.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` after acceptance succeeds and the job is published.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PoolJobSubmissionError::AcceptancePanicked`] if a custom
+    /// acceptance callback panics.
     fn accept_and_enqueue_reserved_job_with_guard(
         &self,
         mut job: PoolJob,
@@ -432,6 +448,21 @@ impl ThreadPoolInner {
     }
 
     /// Submits a typed callable while retaining it until admission succeeds.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `C` - Callable submitted to the pool.
+    /// * `R` - Successful result produced by the callable.
+    /// * `E` - Error produced by the callable.
+    ///
+    /// # Parameters
+    ///
+    /// * `task` - Callable to submit.
+    ///
+    /// # Returns
+    ///
+    /// A task handle when accepted, or the unchanged callable and rejection
+    /// reason when admission fails.
     pub(crate) fn try_submit_callable<C, R, E>(
         self: &Arc<Self>,
         task: C,
@@ -1281,7 +1312,10 @@ mod tests {
         assert_eq!(1, drops.load(Ordering::SeqCst));
         assert_eq!(0, inner.read_state(|state| state.live_workers));
         assert_eq!(0, inner.queued_count());
-        assert!(inner.reserve_queue_slot(), "spawn failure must roll back its queue slot");
+        assert!(
+            inner.reserve_queue_slot(),
+            "spawn failure must roll back its queue slot"
+        );
         inner.release_queue_slot();
         inner.shutdown();
         assert!(inner.wait_for_termination_timeout(Duration::from_secs(2)));

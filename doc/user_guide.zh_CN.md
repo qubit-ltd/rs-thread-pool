@@ -152,7 +152,7 @@ OS 线程。先订阅容量变化，再尝试首次提交；这样提交失败�
 use std::error::Error;
 use std::io;
 
-use qubit_executor::service::{RecoverableExecutorService, SubmissionError};
+use qubit_executor::service::{ExecutorService, RecoverableExecutorService, SubmissionError};
 use qubit_thread_pool::ThreadPool;
 
 async fn submit_light_task(pool: &ThreadPool) -> Result<(), Box<dyn Error>> {
