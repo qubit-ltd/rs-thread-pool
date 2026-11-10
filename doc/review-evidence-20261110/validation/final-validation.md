@@ -14,7 +14,7 @@ All target crate commands below ran from `/data/working/qubit/rust-common/rs-thr
 | `cargo test --locked --manifest-path /tmp/rtp-r2-downstream-20261110/execution-services/Cargo.toml -- --list` | Exit 0; discovered 42 tests and 7 doctests using temporary local dependency overrides. |
 | `cargo test --locked --manifest-path /tmp/rtp-r2-downstream-20261110/execution-services/Cargo.toml --test execution_services_tests test_cpu_full_capacity_wait` | Exit 0; 2 CPU capacity stop/shutdown wake tests passed. |
 | `cargo test --locked --manifest-path /tmp/rtp-r2-downstream-20261110/execution-services/Cargo.toml --test execution_services_tests test_waits_for_cpu_tokio_blocking_and_io_capacity` | Exit 0; 1 cross-domain capacity wait test passed. |
-| `git diff --check` | Exit 0; no whitespace errors. |
+| `git diff --check` on the source-only diff | Exit 0. After raw logs were staged, a full staged diff check exited 2 because captured Criterion and downstream command output contains trailing blank lines. The raw logs were preserved unchanged to keep their recorded hashes; this does not affect Rust source or Markdown alignment. |
 
 The broad `cargo fmt --all -- --check` diagnostic was attempted and exited nonzero because Cargo traversed the sibling `rs-executor` path dependency and found existing formatting differences there. It did not modify files. The repository-prescribed `align-ci.sh` subsequently passed on the target project. This is not treated as a target crate check.
 
@@ -25,3 +25,7 @@ Two early attempts to list execution-services tests in the temporary harness fai
 The three baseline and three candidate benchmark rounds each exited 0 and produced 44 race summaries. Hashes and raw logs are recorded in the benchmark round directories and `manifest.json`. The indexed queue improved middle/back cancellation latency by roughly 95–99%, but exceeded the plan's 5% normal-path regression limit (0% submit p95/p99 +81.3%/+62.3%, historical contended throughput -10.2%). It was removed from final source. The existing `VecDeque` queue remains; measurements and the decision are documented in the benchmark summary and bilingual performance docs.
 
 The deterministic notification tests were also checked with a temporary notification mutation during implementation; the idle-publish case failed under the mutation and passed after restoration. No mutation remains in the final source.
+
+## Final record correction
+
+After the evidence logs were staged, a full `git diff --check` returned exit 2 for trailing blank lines in captured raw outputs; the source-only check had exited 0. Those logs remain byte-for-byte unchanged because their SHA-256 values are part of the evidence. This record was corrected, then `align-ci.sh` passed and `ci-check.sh` was rerun. The first post-correction CI attempt exited 1 in the feature-matrix `cargo test --workspace` step at the pre-existing `test_fixed_worker_wake_with_older_termination_waiter` assertion (`idle_worker_count`, line 1225). That test's code is unchanged from baseline. The exact test passed 10 consecutive isolated runs, and the next full `ci-check.sh` exited 0, including the feature matrix, Loom, package, coverage, and audit suites. The intermittent failure was observed once; its scheduling trigger was not established, and no speculative fix was made.
