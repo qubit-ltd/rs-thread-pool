@@ -102,9 +102,7 @@ fn wait_for_job(inner: &ThreadPoolInner, worker_index: usize) -> Option<PoolJob>
     loop {
         if inner.should_check_maximum_retirement() {
             let mut state = inner.lock_state();
-            if state.lifecycle == ExecutorServiceLifecycle::Running
-                && state.live_workers > state.maximum_pool_size
-            {
+            if state.lifecycle == ExecutorServiceLifecycle::Running && state.live_workers > state.maximum_pool_size {
                 unregister_exiting_worker(inner, &mut state, worker_index);
                 return None;
             }

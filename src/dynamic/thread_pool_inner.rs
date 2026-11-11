@@ -50,7 +50,8 @@ pub(crate) struct ThreadPoolInner {
     accounting: PoolAccounting,
     /// Whether immediate shutdown has requested workers to stop taking jobs.
     stop_now: AtomicBool,
-    /// Advisory flag telling workers to check maximum-size retirement before taking queued work.
+    /// Advisory flag telling workers to check maximum-size retirement before
+    /// taking queued work.
     retire_excess_workers: AtomicBool,
     /// Successfully spawned workers that have not exited yet.
     live_worker_count: AtomicUsize,
@@ -247,8 +248,8 @@ impl ThreadPoolInner {
     ///
     /// * `state` - Locked pool lifecycle and worker state.
     pub(crate) fn refresh_maximum_retirement_hint_locked(&self, state: &ThreadPoolState) {
-        let should_retire = state.lifecycle == ExecutorServiceLifecycle::Running
-            && state.live_workers > state.maximum_pool_size;
+        let should_retire =
+            state.lifecycle == ExecutorServiceLifecycle::Running && state.live_workers > state.maximum_pool_size;
         self.retire_excess_workers.store(should_retire, Ordering::Release);
     }
 
