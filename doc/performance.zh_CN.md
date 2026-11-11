@@ -123,9 +123,9 @@ timeout 3600s cargo bench --locked --bench thread_pool_bench -- thread_pool_tick
 ```
 
 三轮完整输出、代码身份、时间戳、主机信息和摘要存档于
-[`doc/review-evidence-20261110/benchmarks`](review-evidence-20261110/benchmarks/)，
+[`doc/review-evidence-20261110/benchmarks`](https://github.com/qubit-ltd/rs-thread-pool/tree/92b5c82449862d64f043bbe96e83f1423898c509/doc/review-evidence-20261110/benchmarks/)，
 逐配置数据和守恒汇总见
-[`t2-measurement-summary.md`](review-evidence-20261110/benchmarks/t2-measurement-summary.md)。
+[`t2-measurement-summary.md`](https://github.com/qubit-ltd/rs-thread-pool/blob/92b5c82449862d64f043bbe96e83f1423898c509/doc/review-evidence-20261110/benchmarks/t2-measurement-summary.md)。
 三轮均退出 0 并输出全部 44 个 race 摘要。计数满足
 `accepted = run + cancel_callback`、`cancel_true = cancel_callback`、
 `cancel_attempts = cancel_true + cancel_false`；无界竞争组拒绝数为零。自然竞争
@@ -158,6 +158,8 @@ TP006 分别记录计时器读取和原子记录开销，不从结果中扣除�
 0% submit-call p95/p99 增加 81%/62%、submit-to-run p95/p99 增加 103%/83%；历史
 submit/consume 对照也超过允许的 5% 退化线。因此已移除该候选，继续使用现有 FIFO。
 完整数值和原始输出见结果汇总。
+
+**本轮核查（2026-11-11，源码提交 `92b5c82449862d64f043bbe96e83f1423898c509`）：**已复核归档基线与候选的校验和及三轮结果；当前取消路径仍通过线性队列位置查找。`rs-*` 下游 Rust 源码没有调用 `prepare_cancellable_job` 或 `PoolJobTicket`；静态搜索及 execution-services 的队列配置不能证明线上取消率或 SLO 瓶颈。索引候选使匹配 0% submit p95/p99 增加 81.3%/62.3%、submit-to-run p95/p99 增加 103%/82.7%，对照批次时间增加 11.4%，超过 5% 退化门槛，因此取消规模下的收益不足以支持替换 FIFO。本轮未重跑基准，历史测量仍是历史测量。详见[固定版本结果汇总](https://github.com/qubit-ltd/rs-thread-pool/blob/92b5c82449862d64f043bbe96e83f1423898c509/doc/review-evidence-20261110/benchmarks/t2-measurement-summary.md)。
 
 ## 解读与复现
 

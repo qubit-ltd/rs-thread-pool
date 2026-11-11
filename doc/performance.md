@@ -185,9 +185,9 @@ timeout 3600s cargo bench --locked --bench thread_pool_bench -- thread_pool_tick
 
 The three complete outputs, identities, timestamps, host details and hashes
 are archived under
-[`doc/review-evidence-20261110/benchmarks`](review-evidence-20261110/benchmarks/);
+[`doc/review-evidence-20261110/benchmarks`](https://github.com/qubit-ltd/rs-thread-pool/tree/92b5c82449862d64f043bbe96e83f1423898c509/doc/review-evidence-20261110/benchmarks/);
 the per-case table and conservation summaries are in
-[`t2-measurement-summary.md`](review-evidence-20261110/benchmarks/t2-measurement-summary.md).
+[`t2-measurement-summary.md`](https://github.com/qubit-ltd/rs-thread-pool/blob/92b5c82449862d64f043bbe96e83f1423898c509/doc/review-evidence-20261110/benchmarks/t2-measurement-summary.md).
 All rounds exited 0 and emitted all 44 race summaries. Counts satisfy
 `accepted = run + cancel_callback`, `cancel_true = cancel_callback`, and
 `cancel_attempts = cancel_true + cancel_false`; the unbounded race had zero
@@ -226,6 +226,8 @@ p95/p99 by 81%/62% and submit-to-run p95/p99 by 103%/83%; the historical
 submit/consume control also exceeded the allowed 5% regression. The candidate
 was removed, and the current FIFO remains. Details and raw outputs are in the
 results summary.
+
+**Review check (2026-11-11, source commit `92b5c82449862d64f043bbe96e83f1423898c509`):** the archived baseline and candidate checksums and three-round results were rechecked, and the current cancellation path still uses a linear queue-position search. The downstream Rust sources under `rs-*` contain no calls to `prepare_cancellable_job` or `PoolJobTicket`; static search and the execution-services queue configuration do not establish production cancellation rates or an SLO bottleneck. The indexed candidate increased matched 0% submit p95/p99 by 81.3%/62.3%, submit-to-run p95/p99 by 103%/82.7%, and control batch time by 11.4%, exceeding the 5% regression gate. Its cancellation-scale gains therefore do not justify replacing FIFO. Historical measurements remain historical; no benchmark was rerun for this review. See the [fixed-version results summary](https://github.com/qubit-ltd/rs-thread-pool/blob/92b5c82449862d64f043bbe96e83f1423898c509/doc/review-evidence-20261110/benchmarks/t2-measurement-summary.md).
 
 ## Interpretation and reproduction
 
