@@ -586,9 +586,12 @@ impl ExecutorService for ThreadPool {
         Ok(handle)
     }
 
-    /// Stops accepting new tasks after already queued work is drained.
+    /// Closes admission to new tasks and requests graceful shutdown.
     ///
-    /// Queued and running tasks remain eligible to complete normally.
+    /// Already accepted tasks remain eligible to complete normally. This
+    /// method returns without waiting for in-flight submissions or accepted
+    /// work to finish. Call [`ExecutorService::wait_termination`] from outside
+    /// the pool when a completion barrier is required.
     #[inline]
     fn shutdown(&self) {
         self.inner.shutdown();
@@ -629,11 +632,14 @@ impl ExecutorService for ThreadPool {
         self.inner.is_not_running()
     }
 
-    /// Returns whether shutdown was requested and all workers have exited.
+    /// Returns whether the pool has reached its logical terminal state.
     ///
     /// # Returns
     ///
-    /// `true` after all worker threads have terminated.
+    /// `true` after shutdown or stop has been requested, submission and job
+    /// accounting is idle, and all worker loops and `after_worker_stop` hooks
+    /// have finished. This does not join OS threads or guarantee that they
+    /// have physically exited or been reclaimed.
     #[inline]
     fn is_terminated(&self) -> bool {
         self.inner.is_terminated()
