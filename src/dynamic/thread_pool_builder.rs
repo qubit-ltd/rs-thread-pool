@@ -121,14 +121,17 @@ impl ThreadPoolBuilder {
         self
     }
 
-    /// Sets a bounded queue capacity.
+    /// Sets the limit for ordinary waiting-slot admission.
     ///
-    /// The capacity counts only tasks waiting in the queue. Tasks already held
-    /// by worker threads are not included.
+    /// Running jobs do not occupy these slots. Reservations remain occupied
+    /// during acceptance and until queued cancellation callbacks finish.
+    /// Dynamic worker growth can reserve an additional handoff slot outside
+    /// this limit, so this is not a strict queue-length or total-task limit.
+    /// A queued count below the limit does not guarantee admission.
     ///
     /// # Parameters
     ///
-    /// * `capacity` - Maximum number of queued tasks.
+    /// * `capacity` - Positive limit for ordinary waiting-slot reservations.
     ///
     /// # Returns
     ///
