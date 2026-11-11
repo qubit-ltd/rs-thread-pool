@@ -218,6 +218,215 @@ fn test_thread_pool_excess_workers_retire_after_maximum_size_decreases() {
 }
 
 #[test]
+fn test_maximum_shrink_retires_before_claiming_backlog() {
+    let (stopped_tx, stopped_rx) = mpsc::channel();
+    let pool = ThreadPool::builder()
+        .core_pool_size(1)
+        .maximum_pool_size(2)
+        .queue_capacity(1)
+        .after_worker_stop(move |_| {
+            let _ = stopped_tx.send(());
+        })
+        .build()
+        .expect("thread pool should be created");
+    let (first_started_tx, first_started_rx) = mpsc::channel();
+    let (extra_started_tx, extra_started_rx) = mpsc::channel();
+    let (first_release_tx, first_release_rx) = mpsc::channel();
+    let (extra_release_tx, extra_release_rx) = mpsc::channel();
+    let (backlog_started_tx, backlog_started_rx) = mpsc::channel();
+    let (backlog_release_tx, backlog_release_rx) = mpsc::channel();
+
+    let first = pool
+        .submit_tracked(move || {
+            first_started_tx.send(()).expect("first worker should start");
+            first_release_rx
+                .recv_timeout(Duration::from_secs(3))
+                .map_err(io::Error::other)?;
+            Ok::<(), io::Error>(())
+        })
+        .expect("first task should be accepted");
+    wait_started(first_started_rx);
+    let extra = pool
+        .submit_tracked(move || {
+            extra_started_tx.send(()).expect("extra worker should start");
+            extra_release_rx
+                .recv_timeout(Duration::from_secs(3))
+                .map_err(io::Error::other)?;
+            Ok::<(), io::Error>(())
+        })
+        .expect("second task should be queued for the new worker");
+    let backlog = pool
+        .submit_tracked(move || {
+            backlog_started_tx.send(()).expect("backlog start should be observed");
+            backlog_release_rx
+                .recv_timeout(Duration::from_secs(3))
+                .map_err(io::Error::other)?;
+            Ok::<(), io::Error>(())
+        })
+        .expect("backlog task should trigger the second worker");
+    wait_started(extra_started_rx);
+
+    pool.set_maximum_pool_size(1).expect("maximum should shrink");
+    extra_release_tx.send(()).expect("extra worker should be released");
+    extra.get().expect("extra task should finish");
+    stopped_rx
+        .recv_timeout(Duration::from_secs(2))
+        .expect("excess worker should exit at the task boundary");
+    assert!(
+        backlog_started_rx.try_recv().is_err(),
+        "backlog must remain queued while only the target worker is available"
+    );
+
+    first_release_tx.send(()).expect("remaining worker should be released");
+    first.get().expect("first task should finish");
+    backlog_started_rx
+        .recv_timeout(Duration::from_secs(2))
+        .expect("remaining worker should take the backlog");
+    backlog_release_tx.send(()).expect("backlog task should be released");
+    backlog.get().expect("backlog task should finish");
+    pool.shutdown();
+    pool.wait_termination();
+}
+
+#[test]
+fn test_maximum_shrink_concurrent_exits_preserve_target() {
+    let (stopped_tx, stopped_rx) = mpsc::channel();
+    let pool = ThreadPool::builder()
+        .pool_size(4)
+        .queue_capacity(8)
+        .prestart_core_threads()
+        .after_worker_stop(move |_| {
+            let _ = stopped_tx.send(());
+        })
+        .build()
+        .expect("thread pool should be created");
+    let mut started = Vec::new();
+    let mut releases = Vec::new();
+    let mut blockers = Vec::new();
+    for _ in 0..4 {
+        let (started_tx, started_rx) = mpsc::channel();
+        let (release_tx, release_rx) = mpsc::channel();
+        blockers.push(
+            pool.submit_tracked(move || {
+                started_tx.send(()).expect("worker start should be observed");
+                release_rx
+                    .recv_timeout(Duration::from_secs(3))
+                    .map_err(io::Error::other)?;
+                Ok::<(), io::Error>(())
+            })
+            .expect("blocking task should be accepted"),
+        );
+        started.push(started_rx);
+        releases.push(release_tx);
+    }
+    for started_rx in started {
+        wait_started(started_rx);
+    }
+    let (backlog_started_tx, backlog_started_rx) = mpsc::channel();
+    let backlog = pool
+        .submit_tracked(move || {
+            backlog_started_tx.send(()).expect("backlog start should be observed");
+            Ok::<(), io::Error>(())
+        })
+        .expect("backlog task should be accepted");
+
+    pool.set_core_pool_size(2).expect("core size should shrink");
+    pool.set_maximum_pool_size(2).expect("maximum should shrink");
+    for release in releases.iter().take(2) {
+        release.send(()).expect("excess worker should be released");
+    }
+    for blocker in blockers.drain(..2) {
+        blocker.get().expect("released blocker should finish");
+    }
+    for _ in 0..2 {
+        stopped_rx
+            .recv_timeout(Duration::from_secs(2))
+            .expect("exactly the excess workers should exit");
+    }
+    assert_eq!(pool.live_worker_count(), 2);
+    assert!(
+        backlog_started_rx.try_recv().is_err(),
+        "backlog should remain queued while target workers are blocked"
+    );
+    for release in releases.iter().skip(2) {
+        release.send(()).expect("target worker should be released");
+    }
+    for blocker in blockers {
+        blocker.get().expect("remaining blocker should finish");
+    }
+    backlog.get().expect("backlog should finish");
+    pool.shutdown();
+    pool.wait_termination();
+}
+
+#[test]
+fn test_maximum_regrowth_clears_retirement_hint() {
+    let (stopped_tx, stopped_rx) = mpsc::channel();
+    let pool = ThreadPool::builder()
+        .core_pool_size(1)
+        .maximum_pool_size(2)
+        .queue_capacity(1)
+        .after_worker_stop(move |_| {
+            let _ = stopped_tx.send(());
+        })
+        .build()
+        .expect("thread pool should be created");
+    let (first_started_tx, first_started_rx) = mpsc::channel();
+    let (first_release_tx, first_release_rx) = mpsc::channel();
+    let first = pool
+        .submit_tracked(move || {
+            first_started_tx.send(()).expect("first start should be observed");
+            first_release_rx
+                .recv_timeout(Duration::from_secs(3))
+                .map_err(io::Error::other)?;
+            Ok::<(), io::Error>(())
+        })
+        .expect("first task should be accepted");
+    wait_started(first_started_rx);
+    let (extra_started_tx, extra_started_rx) = mpsc::channel();
+    let (extra_release_tx, extra_release_rx) = mpsc::channel();
+    let extra = pool
+        .submit_tracked(move || {
+            extra_started_tx.send(()).expect("extra worker should start");
+            extra_release_rx
+                .recv_timeout(Duration::from_secs(3))
+                .map_err(io::Error::other)?;
+            Ok::<(), io::Error>(())
+        })
+        .expect("second task should be queued for the new worker");
+    let (backlog_started_tx, backlog_started_rx) = mpsc::channel();
+    let (backlog_release_tx, backlog_release_rx) = mpsc::channel();
+    let backlog = pool
+        .submit_tracked(move || {
+            backlog_started_tx.send(()).expect("backlog start should be observed");
+            backlog_release_rx
+                .recv_timeout(Duration::from_secs(3))
+                .map_err(io::Error::other)?;
+            Ok::<(), io::Error>(())
+        })
+        .expect("backlog task should trigger a second worker");
+    wait_started(extra_started_rx);
+
+    pool.set_maximum_pool_size(1).expect("maximum should shrink");
+    pool.set_maximum_pool_size(2).expect("maximum should grow again");
+    extra_release_tx.send(()).expect("extra worker should be released");
+    extra.get().expect("extra task should finish");
+    backlog_started_rx
+        .recv_timeout(Duration::from_secs(2))
+        .expect("regrown worker should take queued work");
+    assert!(
+        stopped_rx.try_recv().is_err(),
+        "regrowth should cancel pending retirement"
+    );
+    backlog_release_tx.send(()).expect("backlog should be released");
+    backlog.get().expect("backlog should finish");
+    first_release_tx.send(()).expect("first worker should be released");
+    first.get().expect("first task should finish");
+    pool.shutdown();
+    pool.wait_termination();
+}
+
+#[test]
 fn test_thread_pool_prestarts_core_workers() {
     let pool = ThreadPool::builder()
         .pool_size(2)

@@ -10,6 +10,7 @@
 use std::io;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::sync::mpsc;
@@ -341,5 +342,76 @@ fn test_termination_waits_for_core_size_shrink_exit_hooks_and_preserves_capacity
     release_tx.send(()).expect("first exit hook should be released");
     assert!(!pool.wait_termination_timeout(Duration::from_millis(20)));
     release_tx.send(()).expect("second exit hook should be released");
+    assert!(pool.wait_termination_timeout(Duration::from_secs(2)));
+}
+
+#[test]
+fn test_maximum_shrink_exit_hook_remains_in_termination() {
+    let (entered_tx, entered_rx) = mpsc::channel();
+    let (release_tx, release_rx) = mpsc::channel();
+    let _release_guard = ReleaseExitHookOnDrop(release_tx.clone());
+    let release_rx = Arc::new(Mutex::new(release_rx));
+    let first_exit = Arc::new(AtomicBool::new(true));
+    let pool = ThreadPool::builder()
+        .core_pool_size(1)
+        .maximum_pool_size(2)
+        .queue_capacity(1)
+        .after_worker_stop({
+            let release_rx = Arc::clone(&release_rx);
+            let first_exit = Arc::clone(&first_exit);
+            move |_| {
+                if first_exit.swap(false, Ordering::AcqRel) {
+                    entered_tx.send(()).expect("first exit hook should be observed");
+                    release_rx
+                        .lock()
+                        .expect("hook release receiver should lock")
+                        .recv_timeout(Duration::from_secs(3))
+                        .expect("test should release first exit hook");
+                }
+            }
+        })
+        .build()
+        .expect("thread pool should be created");
+    let (first_started_tx, first_started_rx) = mpsc::channel();
+    let (first_release_tx, first_release_rx) = mpsc::channel();
+    let first = pool
+        .submit_tracked(move || {
+            first_started_tx.send(()).expect("first task should start");
+            first_release_rx
+                .recv_timeout(Duration::from_secs(3))
+                .map_err(io::Error::other)?;
+            Ok::<(), io::Error>(())
+        })
+        .expect("first task should be accepted");
+    wait_started(first_started_rx);
+    let backlog = pool
+        .submit_tracked(ok_unit_task as fn() -> Result<(), io::Error>)
+        .expect("backlog task should be accepted");
+    let (extra_started_tx, extra_started_rx) = mpsc::channel();
+    let (extra_release_tx, extra_release_rx) = mpsc::channel();
+    let extra = pool
+        .submit_tracked(move || {
+            extra_started_tx.send(()).expect("extra worker should start");
+            extra_release_rx
+                .recv_timeout(Duration::from_secs(3))
+                .map_err(io::Error::other)?;
+            Ok::<(), io::Error>(())
+        })
+        .expect("extra task should create a second worker");
+    wait_started(extra_started_rx);
+    pool.set_maximum_pool_size(1).expect("maximum should shrink");
+    extra_release_tx.send(()).expect("extra worker should be released");
+    extra.get().expect("extra task should finish");
+    entered_rx
+        .recv_timeout(Duration::from_secs(2))
+        .expect("excess worker exit hook should start");
+    assert_eq!(pool.live_worker_count(), 1);
+
+    pool.shutdown();
+    first_release_tx.send(()).expect("remaining worker should be released");
+    first.get().expect("first task should finish");
+    backlog.get().expect("backlog should finish during shutdown");
+    assert!(!pool.wait_termination_timeout(Duration::from_millis(20)));
+    release_tx.send(()).expect("exit hook should be released");
     assert!(pool.wait_termination_timeout(Duration::from_secs(2)));
 }

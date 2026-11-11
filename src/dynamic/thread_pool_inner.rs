@@ -50,6 +50,8 @@ pub(crate) struct ThreadPoolInner {
     accounting: PoolAccounting,
     /// Whether immediate shutdown has requested workers to stop taking jobs.
     stop_now: AtomicBool,
+    /// Advisory flag telling workers to check maximum-size retirement before taking queued work.
+    retire_excess_workers: AtomicBool,
     /// Successfully spawned workers that have not exited yet.
     live_worker_count: AtomicUsize,
     /// Test-only switch used to exercise reservation unwind cleanup.
@@ -104,6 +106,7 @@ impl ThreadPoolInner {
             state_monitor: ParkingLotMonitor::new(ThreadPoolState::new(config)),
             accounting: PoolAccounting::new(queue_capacity),
             stop_now: AtomicBool::new(false),
+            retire_excess_workers: AtomicBool::new(false),
             live_worker_count: AtomicUsize::new(0),
             #[cfg(test)]
             panic_after_worker_reservation: AtomicBool::new(false),
@@ -227,6 +230,26 @@ impl ThreadPoolInner {
     #[inline]
     pub(crate) fn lock_state(&self) -> ParkingLotMonitorGuard<'_, ThreadPoolState> {
         self.state_monitor.lock()
+    }
+
+    /// Returns whether workers should check for maximum-size retirement.
+    ///
+    /// The flag is advisory; worker count and configured maximum remain
+    /// authoritative under the state monitor.
+    #[inline]
+    pub(crate) fn should_check_maximum_retirement(&self) -> bool {
+        self.retire_excess_workers.load(Ordering::Acquire)
+    }
+
+    /// Refreshes the retirement hint while the caller holds the state monitor.
+    ///
+    /// # Parameters
+    ///
+    /// * `state` - Locked pool lifecycle and worker state.
+    pub(crate) fn refresh_maximum_retirement_hint_locked(&self, state: &ThreadPoolState) {
+        let should_retire = state.lifecycle == ExecutorServiceLifecycle::Running
+            && state.live_workers > state.maximum_pool_size;
+        self.retire_excess_workers.store(should_retire, Ordering::Release);
     }
 
     /// Acquires the pool state and reads it while holding the monitor lock.
@@ -1086,6 +1109,7 @@ impl ThreadPoolInner {
                 Some(state.core_pool_size)
             } else {
                 state.maximum_pool_size = maximum_pool_size;
+                self.refresh_maximum_retirement_hint_locked(state);
                 None
             }
         });

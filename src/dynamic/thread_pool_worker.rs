@@ -100,6 +100,16 @@ fn run_with_task_hooks(job: PoolJob, hooks: &ThreadPoolHooks, worker_index: usiz
 /// next notification.
 fn wait_for_job(inner: &ThreadPoolInner, worker_index: usize) -> Option<PoolJob> {
     loop {
+        if inner.should_check_maximum_retirement() {
+            let mut state = inner.lock_state();
+            if state.lifecycle == ExecutorServiceLifecycle::Running
+                && state.live_workers > state.maximum_pool_size
+            {
+                unregister_exiting_worker(inner, &mut state, worker_index);
+                return None;
+            }
+            inner.refresh_maximum_retirement_hint_locked(&state);
+        }
         if let Some(job) = inner.try_take_queued_job() {
             return Some(job);
         }
@@ -288,6 +298,7 @@ fn unregister_exiting_worker(inner: &ThreadPoolInner, state: &mut ThreadPoolStat
         .checked_add(1)
         .expect("thread pool exiting worker counter overflow");
     inner.unregister_worker_locked(state);
+    inner.refresh_maximum_retirement_hint_locked(state);
 }
 
 #[cfg(test)]

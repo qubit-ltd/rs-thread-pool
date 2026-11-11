@@ -87,6 +87,14 @@ changes. The last timed worker does not retire while a submitter may still
 publish a job. Runtime core-size changes affect later admission and explicit
 prestart operations; they do not eagerly start workers for existing queues.
 
+When the maximum size is reduced, excess dynamic workers finish their current
+jobs and retire at a task boundary before claiming more queued work. They
+converge toward the new maximum even while the queue remains non-empty. A
+worker that races past the retirement check may claim one more job; the setter
+does not wait for exits and is not an exit barrier. Worker exit hooks remain
+part of termination waiting even after a worker is removed from the schedulable
+count.
+
 With `async-wait`, successful runtime core- or maximum-size updates also
 publish an advisory capacity notification. Increasing the maximum may make a
 saturated submission admissible, but the notification reserves no slot and

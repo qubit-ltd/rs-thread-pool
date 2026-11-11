@@ -47,6 +47,8 @@ monitor 等待，避免 panic 和忙轮询，同时仍可由生命周期或配�
 
 固定池预启动配置数量的 worker，运行期间不扩容。动态池根据 keep-alive、core 超时策略和 maximum size 调整回收空闲 worker。只剩最后一个允许超时的 worker 时，若仍有提交可能发布任务，该 worker 不会退出。运行时修改 core size 影响后续接纳和显式预启动，不会立即为现有队列创建 worker。
 
+降低 maximum size 后，多余的动态 worker 会完成当前任务，并在领取边界、领取更多排队任务之前退出；即使队列仍有积压，也会逐步收敛到新上限。与退出检查并发的 worker 可能多领取一个任务；setter 不等待 worker 退出，因此返回时不保证线程数已达标。worker 从可调度计数移除后，其退出 hook 仍计入终止等待。
+
 启用 `async-wait` 时，运行时成功修改 core 或 maximum size 也会发布容量提示。增加 maximum 可能使先前饱和的提交变为可接纳，但通知不预留槽位，调用方仍须重试并处理饱和。
 
 ## worker 领取与取消

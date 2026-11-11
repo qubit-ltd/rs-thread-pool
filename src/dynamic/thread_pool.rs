@@ -400,9 +400,15 @@ impl ThreadPool {
 
     /// Updates the maximum pool size.
     ///
-    /// Excess workers are not interrupted. They retire after finishing current
-    /// work or timing out while idle. With `async-wait`, every successful
-    /// update also sends an advisory capacity notification; increasing this
+    /// Excess workers are not interrupted and are never removed from running
+    /// work. When the maximum is reduced, excess workers retire at a task
+    /// boundary before claiming more queued work, converging toward the new
+    /// maximum even while the queue is non-empty. A worker that races past the
+    /// retirement check may claim one more task. This method does not wait for
+    /// worker exit, so its return is not an exit barrier. Worker exit hooks
+    /// continue to count toward termination. With `async-wait`, every
+    /// successful update also sends an advisory capacity notification;
+    /// increasing this
     /// limit can make a saturated submission admissible, but callers must
     /// retry and handle saturation because no slot is reserved.
     ///
