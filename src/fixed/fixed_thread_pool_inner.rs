@@ -1217,13 +1217,22 @@ mod tests {
         task_rx
             .recv_timeout(Duration::from_secs(5))
             .expect("broadcast should wake a worker to run the task");
+        let idle_snapshot = || {
+            inner.state.with_read(|state| {
+                (
+                    state.idle_workers,
+                    inner.idle_worker_count.load(Ordering::Acquire),
+                    inner.pending_worker_wakes.load(Ordering::Acquire),
+                )
+            })
+        };
         let spare_idle_deadline = Instant::now() + Duration::from_secs(2);
-        while inner.idle_worker_count.load(Ordering::Acquire) != 1 && Instant::now() < spare_idle_deadline {
+        let mut spare_idle = idle_snapshot();
+        while spare_idle != (1, 1, 0) && Instant::now() < spare_idle_deadline {
             thread::yield_now();
+            spare_idle = idle_snapshot();
         }
-        assert_eq!(inner.pending_worker_wakes.load(Ordering::Acquire), 0);
-        assert_eq!(inner.idle_worker_count.load(Ordering::Acquire), 1);
-        assert_eq!(inner.state.with_read(|state| state.idle_workers), 1);
+        assert_eq!(spare_idle, (1, 1, 0), "spare worker should be idle again");
         let (spare_reparked_tx, spare_reparked_rx) = mpsc::channel();
         let spare_reparked_inner = Arc::clone(&inner);
         cleanup.track(thread::spawn(move || {
@@ -1239,15 +1248,12 @@ mod tests {
             .send(())
             .expect("running task should be released after the spare worker reparks");
         let idle_deadline = Instant::now() + Duration::from_secs(2);
-        while (inner.idle_worker_count.load(Ordering::Acquire) != 2
-            || inner.pending_worker_wakes.load(Ordering::Acquire) != 0)
-            && Instant::now() < idle_deadline
-        {
+        let mut all_idle = idle_snapshot();
+        while all_idle != (2, 2, 0) && Instant::now() < idle_deadline {
             thread::yield_now();
+            all_idle = idle_snapshot();
         }
-        assert_eq!(inner.pending_worker_wakes.load(Ordering::Acquire), 0);
-        assert_eq!(inner.idle_worker_count.load(Ordering::Acquire), 2);
-        assert_eq!(inner.state.with_read(|state| state.idle_workers), 2);
+        assert_eq!(all_idle, (2, 2, 0), "both workers should be idle again");
         let (reparked_tx, reparked_rx) = mpsc::channel();
         let reparked_inner = Arc::clone(&inner);
         cleanup.track(thread::spawn(move || {

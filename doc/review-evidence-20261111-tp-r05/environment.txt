@@ -1,0 +1,18 @@
+2026-11-11 16:19:47 UTC
+c1a0780e8f01b92340b44ec40b216c6f866db526
+Linux mas-server 6.8.0-147-generic #147-Ubuntu SMP PREEMPT_DYNAMIC Thu Sep 24 11:33:16 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
+rustc 1.94.0 (4a4ef493e 2026-03-02)
+binary: rustc
+commit-hash: 4a4ef493e3a1488c6e321570238084b38948f6db
+commit-date: 2026-03-02
+host: x86_64-unknown-linux-gnu
+release: 1.94.0
+LLVM version: 21.1.8
+cargo 1.94.0 (85eff7c80 2026-01-15)
+56
+RUST_TEST_THREADS=unset
+command=cargo test --locked --all-features --lib test_fixed_worker_wake_with_older_termination_waiter -- --nocapture
+exit_status=0
+command=cargo test --locked --lib test_fixed_worker_wake_with_older_termination_waiter -- --nocapture
+exit_status=0
+discovered_tests=1

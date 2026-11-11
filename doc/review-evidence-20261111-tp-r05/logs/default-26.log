@@ -1,0 +1,7 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.16s
+     Running unittests src/lib.rs (target/debug/deps/qubit_thread_pool-220fe73286d00285)
+
+running 1 test
+test fixed::fixed_thread_pool_inner::tests::test_fixed_worker_wake_with_older_termination_waiter ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 45 filtered out; finished in 0.02s

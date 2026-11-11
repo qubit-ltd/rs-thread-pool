@@ -1,0 +1,91 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+   Compiling proc-macro2 v1.0.107
+   Compiling unicode-ident v1.0.27
+   Compiling quote v1.0.47
+   Compiling libc v0.2.191
+   Compiling cfg-if v1.0.5
+   Compiling crossbeam-utils v0.8.23
+   Compiling serde_core v1.0.229
+   Compiling crossbeam-epoch v0.9.21
+   Compiling thiserror v2.0.21
+   Compiling zerocopy v0.8.63
+   Compiling shlex v2.0.1
+   Compiling autocfg v1.5.1
+   Compiling rustversion v1.0.23
+   Compiling find-msvc-tools v0.1.15
+   Compiling crossbeam-deque v0.8.8
+   Compiling parking_lot_core v0.9.12
+   Compiling serde v1.0.229
+   Compiling zmij v1.0.23
+   Compiling scopeguard v1.2.0
+   Compiling portable-atomic v1.15.0
+   Compiling either v1.19.0
+   Compiling hashbrown v0.17.1
+   Compiling serde_json v1.0.154
+   Compiling smallvec v1.16.5
+   Compiling rayon-core v1.13.0
+   Compiling itoa v1.0.19
+   Compiling anstyle v1.0.14
+   Compiling ciborium-io v0.2.2
+   Compiling clap_lex v1.1.1
+   Compiling memchr v2.8.3
+   Compiling plotters-backend v0.3.7
+   Compiling regex-syntax v0.8.11
+   Compiling qubit-fast-cas v0.3.3
+   Compiling same-file v1.0.6
+   Compiling cast v0.3.0
+   Compiling oneshot v0.2.1
+   Compiling log v0.4.35
+   Compiling anes v0.1.6
+   Compiling qubit-function v0.18.4
+   Compiling pin-project-lite v0.2.17
+   Compiling oorandom v11.1.5
+   Compiling qubit-argument v0.4.10
+   Compiling lock_api v0.4.14
+   Compiling cc v1.11.1
+   Compiling walkdir v2.5.0
+   Compiling clap_builder v4.6.7
+   Compiling plotters-svg v0.3.7
+   Compiling itertools v0.13.0
+   Compiling num-traits v0.2.19
+   Compiling arc-swap v1.9.5
+   Compiling qubit-collections v0.2.4
+   Compiling qubit-atomic v0.17.7
+   Compiling syn v3.0.10
+   Compiling syn v2.0.119
+   Compiling plotters v0.3.7
+   Compiling regex-automata v0.4.18
+   Compiling rayon v1.12.0
+   Compiling num_cpus v1.17.0
+   Compiling page_size v0.6.0
+   Compiling alloca v0.4.0
+   Compiling parking_lot v0.12.5
+   Compiling threadpool v1.8.1
+   Compiling criterion-plot v0.8.2
+   Compiling clap v4.6.7
+   Compiling regex v1.13.1
+   Compiling zerocopy-derive v0.8.63
+   Compiling thiserror-impl v2.0.21
+   Compiling serde_derive v1.0.229
+   Compiling tokio-macros v2.7.2
+   Compiling tokio v1.54.1
+   Compiling qubit-clock v0.13.5
+   Compiling qubit-state-machine v0.11.3
+   Compiling qubit-lock v0.14.5
+   Compiling qubit-executor v0.9.2 (/data/working/qubit/rust-common/rs-thread-pool-worktrees/rs-executor)
+   Compiling tinytemplate v1.2.1
+   Compiling half v2.7.1
+   Compiling ciborium-ll v0.2.2
+   Compiling ciborium v0.2.2
+   Compiling criterion v0.8.2
+   Compiling qubit-thread-pool v0.12.1 (/data/working/qubit/rust-common/rs-thread-pool-worktrees/rs-thread-pool)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 16.94s
+     Running unittests src/lib.rs (target/debug/deps/qubit_thread_pool-220fe73286d00285)
+
+running 1 test
+test fixed::fixed_thread_pool_inner::tests::test_fixed_worker_wake_with_older_termination_waiter ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 45 filtered out; finished in 0.00s
