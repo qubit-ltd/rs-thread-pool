@@ -100,12 +100,17 @@ cargo test
 # 使用项目声明的全部 feature 运行测试
 cargo test --all-features
 
+# 显式运行 Loom 模型（仅 --all-features 不足以启用）
+RUSTFLAGS="--cfg loom" cargo test --features loom-model --lib loom_ --locked
+
 # 运行项目 CI 检查
 ./.infra/bin/ci-check.sh
 
 # 检查代码覆盖率
 ./.infra/bin/coverage.sh
 ```
+
+这些模型覆盖选定协议，不覆盖完整线程池生命周期。
 
 ## 许可证
 

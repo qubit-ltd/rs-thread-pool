@@ -143,12 +143,17 @@ cargo test
 # Run tests with all declared features
 cargo test --all-features
 
+# Run Loom models explicitly (--all-features alone is insufficient)
+RUSTFLAGS="--cfg loom" cargo test --features loom-model --lib loom_ --locked
+
 # Project CI checks
 ./.infra/bin/ci-check.sh
 
 # Check code coverage
 ./.infra/bin/coverage.sh
 ```
+
+These models cover selected protocols, not the full pool lifecycle.
 
 ## License
 
