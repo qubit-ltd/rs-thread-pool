@@ -28,6 +28,9 @@ qubit-thread-pool = { version = "0.12.1", features = ["async-wait"] }
 
 See the [async-wait guide](doc/user_guide.md#async-shutdown-and-capacity-retries)
 for complete shutdown and backpressure examples.
+For an end-to-end conversion service using Tokio and immediate overload
+rejection, see the [conversion service example](examples/conversion_service.rs)
+and [conversion service guide](doc/user_guide.md#conversion-service-example).
 
 Rust 1.94 or later is required. Declare `qubit-executor` directly when
 importing its `ExecutorService` trait; normal pool use requires neither

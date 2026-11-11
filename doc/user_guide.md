@@ -78,6 +78,45 @@ Ok(())
 }
 ```
 
+This arithmetic callable is an introductory exercise for learning
+`submit_callable` and `TaskHandle`; it is not the conversion service design.
+
+## Conversion Service Example
+
+Run the complete Tokio adapter from the repository root:
+
+```bash
+cargo run --example conversion_service --features async-wait
+```
+
+The [conversion service example](../examples/conversion_service.rs) owns one
+bounded `ThreadPool` for the lifetime of its application service. Each request
+transfers an owned `Vec<u8>` to a callable. The demonstration converter checks
+the bytes with `String::from_utf8`, uppercases the text, and returns the output
+as `Vec<u8>`; replace this small converter with the application's blocking
+conversion library. It is not a PDF engine.
+
+Submission happens synchronously at the service boundary. `Saturated`,
+`Shutdown`, and `WorkerSpawnFailed` are kept distinct so an HTTP adapter can
+map overload to a retryable response such as 503 (or 429 when the caller's
+rate is the limit), shutdown to a terminal unavailable response, and worker
+creation failure to an operational error. Do not automatically retry an
+already accepted task. This example uses immediate rejection.
+
+After acceptance, the request adapter moves `TaskHandle::get()` into
+`tokio::task::spawn_blocking`. The conversion itself runs on the Qubit pool;
+the Tokio blocking thread only waits for its result. The adapter separately
+reports a Tokio `JoinError`, a pool `TaskExecutionError`, and the converter's
+`io::Error`. The bridge consumes additional Tokio blocking capacity, so limit
+concurrent requests at the application entry point.
+
+The runnable demonstrates successful conversion, invalid UTF-8, deterministic
+saturation (a gated worker plus a full queue), queue drain, and rejection
+after shutdown. Production shutdown should first stop accepting requests,
+then call `shutdown()`, then await `await_termination()` outside work that
+depends on the pool. The example releases its gated task before draining and
+waiting.
+
 Use `submit` for fire-and-forget runnables. Use `submit_callable` when a value
 or task error must be observed. `join()` waits for accepted work to drain but
 does not request shutdown, so later submissions are still possible.

@@ -64,6 +64,38 @@ Ok(())
 }
 ```
 
+这个算术 callable 是学习 `submit_callable` 和 `TaskHandle` 的入门练习，
+不是转换服务的设计方案。
+
+## 转换服务示例
+
+在仓库根目录运行完整的 Tokio 适配示例：
+
+```bash
+cargo run --example conversion_service --features async-wait
+```
+
+[转换服务示例](../examples/conversion_service.rs)由应用服务持有一个有界
+`ThreadPool`，并在应用生命周期内复用。每个请求把自有的 `Vec<u8>` 交给
+callable。演示转换器通过 `String::from_utf8` 校验字节，将文本转为大写，再以
+`Vec<u8>` 返回；实际应用可替换为自己的阻塞转换库。这不是 PDF 引擎。
+
+服务边界同步提交，并保留 `Saturated`、`Shutdown` 和 `WorkerSpawnFailed` 的
+区别。HTTP 适配层可将过载映射为可重试响应，例如 503（若限制来自调用方速率，
+也可使用 429）；将关闭映射为终止性的不可用响应；将 worker 创建失败作为
+运维错误处理。不要自动重试已经接纳的任务。本例采用立即拒绝策略。
+
+接纳成功后，请求适配器把 `TaskHandle::get()` 放入
+`tokio::task::spawn_blocking`。转换本身由 Qubit 线程池执行；Tokio blocking
+线程只等待结果。适配器分别报告 Tokio `JoinError`、线程池
+`TaskExecutionError` 和转换器的 `io::Error`。该桥接会额外占用 Tokio blocking
+线程，因此应用应在请求入口限制并发。
+
+可运行示例覆盖成功转换、非法 UTF-8、确定性饱和（通道控制 worker 并填满队列）、
+队列排空和关闭后拒绝。生产关闭时应先停止接收请求，再调用 `shutdown()`，最后
+在不依赖该池工作的上下文中等待 `await_termination()`。示例会先释放受控任务，
+再排空并等待终止。
+
 不关心返回值的 runnable 使用 `submit`；需要观察返回值或任务错误时使用 `submit_callable`。`join()` 只等待已接纳任务处理完毕，不会发起关闭请求，因此之后仍可继续提交。`shutdown()` 关闭接纳入口、切换生命周期并唤醒 worker 后返回，不等待提交或已接纳任务；需要完成屏障时调用 `wait_termination()`。`stop()` 会等待正在接纳的提交，并取消尚未被 worker 领取的排队任务。已领取的任务不会被撤销，即使用户回调尚未开始。所有已接纳任务都通过全局队列发布，任务可能在 stop 等待期间完成接纳，随后被取消。`StopReport` 的数量是时间点快照，不是同步屏障。对 `submit_job` 来说，`Ok(())` 只表示接纳成功，不表示任务已开始或执行成功。
 接纳入口及必要的 worker 创建成功后，提交线程会在状态 monitor 外同步执行接纳回调，应保持短小。可以在回调中调用同一个线程池的
 `shutdown`，因为它只关闭接纳并立即返回，不等待当前提交。不能同步调用 `stop`、

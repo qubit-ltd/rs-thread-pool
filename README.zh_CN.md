@@ -26,6 +26,8 @@ qubit-thread-pool = { version = "0.12.1", features = ["async-wait"] }
 
 [异步等待指南](doc/user_guide.zh_CN.md#async-shutdown-and-capacity-retries)
 提供完整的关闭与背压示例。
+使用 Tokio 并立即拒绝过载的端到端转换服务见[转换服务示例](examples/conversion_service.rs)
+和[转换服务指南](doc/user_guide.zh_CN.md#转换服务示例)。
 
 需要 Rust 1.94 或更高版本。导入 `ExecutorService` trait 时，必须直接声明 `qubit-executor` 依赖；普通线程池用法不依赖 Tokio 或 Rayon。
 
