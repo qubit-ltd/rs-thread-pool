@@ -2,6 +2,8 @@
 //    Copyright (c) 2025 - 2026 Haixing Hu.
 //
 //    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
 #[cfg(not(feature = "async-wait"))]
@@ -16,8 +18,10 @@ mod enabled {
     use std::io;
     use std::sync::mpsc;
 
+    use qubit_executor::SubmissionError;
+    use qubit_executor::TaskExecutionError;
+    use qubit_executor::TaskHandle;
     use qubit_executor::service::ExecutorService;
-    use qubit_executor::{SubmissionError, TaskExecutionError, TaskHandle};
     use qubit_thread_pool::ThreadPool;
 
     type ConversionResult = Result<Vec<u8>, io::Error>;
@@ -71,9 +75,7 @@ mod enabled {
                 .map_err(|error| match error {
                     SubmissionError::Saturated => ServiceError::Saturated,
                     SubmissionError::Shutdown => ServiceError::Shutdown,
-                    SubmissionError::WorkerSpawnFailed { source } => {
-                        ServiceError::WorkerSpawnFailed(source)
-                    }
+                    SubmissionError::WorkerSpawnFailed { source } => ServiceError::WorkerSpawnFailed(source),
                     other => ServiceError::OtherSubmission(other),
                 })
         }
@@ -92,8 +94,7 @@ mod enabled {
     }
 
     fn convert(input: Vec<u8>) -> ConversionResult {
-        let text = String::from_utf8(input)
-            .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+        let text = String::from_utf8(input).map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
         Ok(text.to_uppercase().into_bytes())
     }
 
